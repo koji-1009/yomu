@@ -1,4 +1,5 @@
 import 'dart:js_interop';
+import 'dart:typed_data';
 
 import 'package:yomu/yomu.dart';
 
@@ -6,40 +7,34 @@ import 'package:yomu/yomu.dart';
 external set _decodeQR(JSFunction fn);
 
 void main() {
-  const yomu = Yomu.qrOnly;
+  const yomu = Yomu.all;
 
-  _decodeQR = ((JSUint8Array data, JSNumber width, JSNumber height) {
+  _decodeQR = ((JSObject data, JSNumber width, JSNumber height) {
     try {
       final w = width.toDartInt;
       final h = height.toDartInt;
-      // data is already RGBA bytes from canvas ImageData
-      final bytes = data.toDart;
-
+      // data is Uint8ClampedArray from canvas ImageData
+      // Cast to JSUint8ClampedArray to use toDart
+      final clamped = (data as JSUint8ClampedArray).toDart;
+      // Efficiently convert to Uint8List without copying
+      final bytes = Uint8List.view(clamped.buffer);
       final result = yomu.decode(bytes: bytes, width: w, height: h);
 
       return DecodeResultJS(
-        success: true.toJS,
-        text: result.text.toJS,
-        format: 'QR Code'.toJS,
+        success: true,
+        text: result.text,
+        format: (result.ecLevel != null ? 'QR Code' : 'Barcode'),
       );
     } catch (e) {
-      return DecodeResultJS(
-        success: false.toJS,
-        text: ''.toJS,
-        format: ''.toJS,
-      );
+      return DecodeResultJS(success: false, text: '', format: '');
     }
   }).toJS;
 }
 
 extension type DecodeResultJS._(JSObject _) implements JSObject {
-  external factory DecodeResultJS({
-    JSBoolean success,
-    JSString text,
-    JSString format,
-  });
+  external factory DecodeResultJS({bool success, String text, String format});
 
-  external JSBoolean get success;
-  external JSString get text;
-  external JSString get format;
+  external bool get success;
+  external String get text;
+  external String get format;
 }

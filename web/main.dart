@@ -20,19 +20,27 @@ void main() {
       final bytes = Uint8List.view(clamped.buffer);
       final result = yomu.decode(bytes: bytes, width: w, height: h);
 
-      return DecodeResultJS(
+      return JSDecodeResult(
         success: true,
         text: result.text,
-        format: (result.ecLevel != null ? 'QR Code' : 'Barcode'),
+        format: 'QR Code',
       );
-    } catch (e) {
-      return DecodeResultJS(success: false, text: '', format: '');
+    } catch (e, stack) {
+      console.error('Decode error: $e\n$stack'.toJS);
+      return JSDecodeResult(success: false, text: '', format: '');
     }
   }).toJS;
 }
 
-extension type DecodeResultJS._(JSObject _) implements JSObject {
-  external factory DecodeResultJS({bool success, String text, String format});
+@JS('console')
+external JSConsole get console;
+
+extension type JSConsole._(JSObject _) implements JSObject {
+  external void error(JSAny? arg);
+}
+
+extension type JSDecodeResult._(JSObject _) implements JSObject {
+  external factory JSDecodeResult({bool success, String text, String format});
 
   external bool get success;
   external String get text;

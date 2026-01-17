@@ -146,6 +146,8 @@
             fullCanvas.width = img.width;
             fullCanvas.height = img.height;
             const fullCtx = fullCanvas.getContext('2d');
+            fullCtx.fillStyle = 'white';
+            fullCtx.fillRect(0, 0, fullCanvas.width, fullCanvas.height);
             fullCtx.drawImage(img, 0, 0);
             const imageData = fullCtx.getImageData(0, 0, img.width, img.height);
 

@@ -1,0 +1,85 @@
+import 'generic_gf_poly.dart';
+
+/// Utility class to perform arithmetic in GF(256).
+class GenericGF {
+  GenericGF({
+    required int primitive,
+    required int size,
+    required int generatorBase,
+  }) : _primitive = primitive,
+       _size = size,
+       _generatorBase = generatorBase {
+    _expTable = List<int>.filled(_size, 0);
+    _logTable = List<int>.filled(_size, 0);
+    var x = 1;
+    for (var i = 0; i < _size; i++) {
+      _expTable[i] = x;
+      x *= 2;
+      if (x >= _size) {
+        x ^= _primitive;
+        x &= (_size - 1);
+      }
+    }
+    for (var i = 0; i < _size - 1; i++) {
+      _logTable[_expTable[i]] = i;
+    }
+    // zero/one initialization
+    zero = GenericGFPoly(this, [0]);
+    one = GenericGFPoly(this, [1]);
+  }
+
+  static final GenericGF qrCodeField256 = GenericGF(
+    primitive: 0x011D,
+    size: 256,
+    generatorBase: 0,
+  );
+
+  final int _primitive;
+  final int _size;
+  final int _generatorBase;
+  late final List<int> _expTable;
+  late final List<int> _logTable;
+  late final GenericGFPoly zero;
+  late final GenericGFPoly one;
+
+  /// 2^a
+  int exp(int a) {
+    return _expTable[a];
+  }
+
+  /// log(a)
+  int log(int a) {
+    if (a == 0) {
+      throw ArgumentError('Cannot take log(0)');
+    }
+    return _logTable[a];
+  }
+
+  /// Inverse of a
+  int inverse(int a) {
+    if (a == 0) {
+      throw ArgumentError('Cannot calculate inverse of 0');
+    }
+    return _expTable[_size - 1 - _logTable[a]];
+  }
+
+  /// a * b
+  int multiply(int a, int b) {
+    if (a == 0 || b == 0) {
+      return 0;
+    }
+    return _expTable[(_logTable[a] + _logTable[b]) % (_size - 1)];
+  }
+
+  int get size => _size;
+  int get generatorBase => _generatorBase;
+
+  /// Helper to build a monomial
+  GenericGFPoly buildMonomial(int degree, int coefficient) {
+    if (degree < 0) throw ArgumentError();
+    if (coefficient == 0) return zero;
+    final coeffs = List<int>.filled(degree + 1, 0);
+    coeffs[0] = coefficient;
+    return GenericGFPoly(this, coeffs);
+  }
+}

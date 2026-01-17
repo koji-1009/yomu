@@ -1,0 +1,19 @@
+# Test files
+test/
+fixtures/
+
+# Test coverage reports
+coverage/
+
+# AI agent design guidelines
+AGENTS.md
+
+# Benchmarks
+benchmark/
+
+# Scripts
+scripts/
+
+# Web demo
+docs/
+web/

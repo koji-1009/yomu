@@ -1,0 +1,140 @@
+[
+  {
+    "filename": "numeric_simple.png",
+    "content": "12345",
+    "version": 0,
+    "error_correction": "L"
+  },
+  {
+    "filename": "numeric_large.png",
+    "content": "0123456789012345678901234567890",
+    "version": 0,
+    "error_correction": "M"
+  },
+  {
+    "filename": "numeric_zeros.png",
+    "content": "000000",
+    "version": 0,
+    "error_correction": "L"
+  },
+  {
+    "filename": "alphanumeric_hello.png",
+    "content": "HELLO WORLD",
+    "version": 0,
+    "error_correction": "L"
+  },
+  {
+    "filename": "alphanumeric_special.png",
+    "content": "TEST123$%*+-./:",
+    "version": 0,
+    "error_correction": "M"
+  },
+  {
+    "filename": "alphanumeric_url.png",
+    "content": "HTTPS://EXAMPLE.COM/PATH",
+    "version": 0,
+    "error_correction": "Q"
+  },
+  {
+    "filename": "byte_lowercase.png",
+    "content": "Hello, World!",
+    "version": 0,
+    "error_correction": "L"
+  },
+  {
+    "filename": "byte_url.png",
+    "content": "https://example.com/path?query=1",
+    "version": 0,
+    "error_correction": "M"
+  },
+  {
+    "filename": "byte_japanese.png",
+    "content": "\u3053\u3093\u306b\u3061\u306f\u4e16\u754c",
+    "version": 0,
+    "error_correction": "H"
+  },
+  {
+    "filename": "byte_emoji.png",
+    "content": "Hello \ud83d\udc4b\ud83c\udf0d!",
+    "version": 0,
+    "error_correction": "H"
+  },
+  {
+    "filename": "byte_mixed.png",
+    "content": "Test 123 \u30c6\u30b9\u30c8 ABC",
+    "version": 0,
+    "error_correction": "Q"
+  },
+  {
+    "filename": "ec_level_l.png",
+    "content": "EC Level L Test",
+    "version": 0,
+    "error_correction": "L"
+  },
+  {
+    "filename": "ec_level_m.png",
+    "content": "EC Level M Test",
+    "version": 0,
+    "error_correction": "M"
+  },
+  {
+    "filename": "ec_level_q.png",
+    "content": "EC Level Q Test",
+    "version": 0,
+    "error_correction": "Q"
+  },
+  {
+    "filename": "ec_level_h.png",
+    "content": "EC Level H Test",
+    "version": 0,
+    "error_correction": "H"
+  },
+  {
+    "filename": "version_1.png",
+    "content": "Hi",
+    "version": 1,
+    "error_correction": "L"
+  },
+  {
+    "filename": "version_2.png",
+    "content": "Version 2 QR",
+    "version": 2,
+    "error_correction": "L"
+  },
+  {
+    "filename": "version_5.png",
+    "content": "This is Version 5 QR code with more content",
+    "version": 5,
+    "error_correction": "L"
+  },
+  {
+    "filename": "version_10.png",
+    "content": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "version": 10,
+    "error_correction": "L"
+  },
+  {
+    "filename": "edge_single_char.png",
+    "content": "A",
+    "version": 0,
+    "error_correction": "L"
+  },
+  {
+    "filename": "edge_single_digit.png",
+    "content": "0",
+    "version": 0,
+    "error_correction": "L"
+  },
+  {
+    "filename": "edge_special.png",
+    "content": "!@#$%^&*()[]{}",
+    "version": 0,
+    "error_correction": "M"
+  },
+  {
+    "filename": "edge_whitespace.png",
+    "content": "Line1\nLine2\tTabbed",
+    "version": 0,
+    "error_correction": "L"
+  }
+]

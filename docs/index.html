@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yomu - QR Code Decoder Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <h1>🔍 Yomu QR Decoder</h1>
+      <p class="subtitle">Pure Dart QR Code Reader - Web Demo</p>
+    </header>
+
+    <main>
+      <section class="upload-section">
+        <div id="dropZone" class="drop-zone">
+          <div class="drop-zone-content">
+            <span class="drop-icon">📷</span>
+            <p>Drop an image here or <label for="fileInput" class="file-label">browse</label></p>
+            <input type="file" id="fileInput" accept="image/*" hidden>
+          </div>
+        </div>
+      </section>
+
+      <section id="preview" class="preview-section" hidden>
+        <h2>Preview</h2>
+        <div class="preview-container">
+          <canvas id="canvas"></canvas>
+        </div>
+        <div class="image-info">
+          <span id="imageSize">-</span>
+          <span id="imageDimensions">-</span>
+        </div>
+      </section>
+
+      <section id="results" class="results-section" hidden>
+        <h2>Results</h2>
+        <div class="result-card">
+          <div class="result-row">
+            <span class="label">Status:</span>
+            <span id="resultStatus" class="value">-</span>
+          </div>
+          <div class="result-row">
+            <span class="label">Decode Time:</span>
+            <span id="resultTime" class="value time">-</span>
+          </div>
+          <div class="result-row">
+            <span class="label">Format:</span>
+            <span id="resultFormat" class="value">-</span>
+          </div>
+          <div class="result-row content-row">
+            <span class="label">Content:</span>
+            <pre id="resultContent" class="content">-</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="info-section">
+        <h2>About</h2>
+        <p>
+          Yomu is a pure Dart QR code decoder with zero external dependencies.
+          This demo runs entirely in your browser using Dart compiled to JavaScript.
+        </p>
+        <ul>
+          <li>✅ QR Code versions 1-40</li>
+          <li>✅ Multi-QR detection</li>
+          <li>✅ Error correction levels L/M/Q/H</li>
+          <li>✅ 7 barcode formats (EAN-13/8, UPC-A, Code128/39, ITF, Codabar)</li>
+        </ul>
+        <p class="github-link">
+          <a href="https://github.com/koji-1009/yomu" target="_blank">View on GitHub →</a>
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>Built with ❤️ using <a href="https://dart.dev" target="_blank">Dart</a></p>
+    </footer>
+  </div>
+
+  <script src="main.dart.js" defer></script>
+  <script>
+    // Initialize after Dart loads
+    document.addEventListener('DOMContentLoaded', function() {
+      const dropZone = document.getElementById('dropZone');
+      const fileInput = document.getElementById('fileInput');
+      const preview = document.getElementById('preview');
+      const results = document.getElementById('results');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Drag and drop handlers
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+          processImage(file);
+        }
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          processImage(file);
+        }
+      });
+
+      window.processImage = function(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            // Display preview
+            const maxWidth = 600;
+            const scale = Math.min(1, maxWidth / img.width);
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            // Update size info
+            document.getElementById('imageSize').textContent =
+              `${(file.size / 1024).toFixed(1)} KB`;
+            document.getElementById('imageDimensions').textContent =
+              `${img.width} × ${img.height}`;
+
+            preview.hidden = false;
+            results.hidden = false;
+
+            // Get pixel data for Dart
+            const fullCanvas = document.createElement('canvas');
+            fullCanvas.width = img.width;
+            fullCanvas.height = img.height;
+            const fullCtx = fullCanvas.getContext('2d');
+            fullCtx.drawImage(img, 0, 0);
+            const imageData = fullCtx.getImageData(0, 0, img.width, img.height);
+
+            // Call Dart decoder
+            if (window.decodeQR) {
+              const startTime = performance.now();
+              const result = window.decodeQR(imageData.data, img.width, img.height);
+              const endTime = performance.now();
+              const elapsed = endTime - startTime;
+
+              updateResults(result, elapsed);
+            } else {
+              document.getElementById('resultStatus').textContent = '❌ Decoder not loaded';
+              document.getElementById('resultStatus').className = 'value error';
+            }
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      };
+
+      window.updateResults = function(result, elapsed) {
+        const statusEl = document.getElementById('resultStatus');
+        const timeEl = document.getElementById('resultTime');
+        const formatEl = document.getElementById('resultFormat');
+        const contentEl = document.getElementById('resultContent');
+
+        timeEl.textContent = `${elapsed.toFixed(2)} ms`;
+
+        if (result && result.success) {
+          statusEl.textContent = '✅ Success';
+          statusEl.className = 'value success';
+          formatEl.textContent = result.format || 'QR Code';
+          contentEl.textContent = result.text || '-';
+        } else {
+          statusEl.textContent = '❌ No QR code found';
+          statusEl.className = 'value error';
+          formatEl.textContent = '-';
+          contentEl.textContent = '-';
+        }
+      };
+    });
+  </script>
+</body>
+
+</html>

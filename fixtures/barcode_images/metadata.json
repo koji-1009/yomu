@@ -1,0 +1,92 @@
+[
+  {
+    "filename": "ean13_product.png",
+    "content": "4901234567894",
+    "format": "ean13"
+  },
+  {
+    "filename": "ean13_isbn.png",
+    "content": "9784873115658",
+    "format": "ean13"
+  },
+  {
+    "filename": "ean13_upc.png",
+    "content": "0012345678905",
+    "format": "ean13"
+  },
+  {
+    "filename": "ean8_product.png",
+    "content": "12345670",
+    "format": "ean8"
+  },
+  {
+    "filename": "ean8_small.png",
+    "content": "55123457",
+    "format": "ean8"
+  },
+  {
+    "filename": "upca_product.png",
+    "content": "0012345678905",
+    "format": "upca"
+  },
+  {
+    "filename": "upca_food.png",
+    "content": "0725272730706",
+    "format": "upca"
+  },
+  {
+    "filename": "code128_hello.png",
+    "content": "Hello World",
+    "format": "code128"
+  },
+  {
+    "filename": "code128_mixed.png",
+    "content": "ABC-12345",
+    "format": "code128"
+  },
+  {
+    "filename": "code128_numeric.png",
+    "content": "1234567890",
+    "format": "code128"
+  },
+  {
+    "filename": "code39_hello.png",
+    "content": "HELLOB",
+    "format": "code39"
+  },
+  {
+    "filename": "code39_mixed.png",
+    "content": "ABC123$",
+    "format": "code39"
+  },
+  {
+    "filename": "code39_numeric.png",
+    "content": "12345F",
+    "format": "code39"
+  },
+  {
+    "filename": "itf_numeric.png",
+    "content": "1234567890",
+    "format": "itf"
+  },
+  {
+    "filename": "itf14_product.png",
+    "content": "00012345678905",
+    "format": "itf"
+  },
+  {
+    "filename": "codabar_numeric.png",
+    "content": "12345",
+    "format": "codabar"
+  },
+  {
+    "filename": "codabar_long.png",
+    "content": "9876543210",
+    "format": "codabar"
+  },
+  {
+    "filename": "codabar_dashes.png",
+    "content": "12-34-56",
+    "format": "codabar"
+  }
+]

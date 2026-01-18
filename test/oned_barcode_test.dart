@@ -44,6 +44,12 @@ import 'package:yomu/src/common/binarizer/luminance_source.dart';
 void main() {
   final fixtureDir = Directory('fixtures/barcode_images');
 
+  setUpAll(() {
+    if (!fixtureDir.existsSync()) {
+      fail('Fixtures directory not found: ${fixtureDir.path}');
+    }
+  });
+
   group('BarcodeScanner Integration', () {
     late BarcodeScanner scanner;
 
@@ -52,8 +58,6 @@ void main() {
     });
 
     test('scans EAN-13 barcode', () {
-      if (!fixtureDir.existsSync()) return;
-
       final (source, _, _) = _loadImageAsSource(
         'fixtures/barcode_images/ean13_product.png',
       );
@@ -65,8 +69,6 @@ void main() {
     });
 
     test('scans EAN-8 barcode', () {
-      if (!fixtureDir.existsSync()) return;
-
       final (source, _, _) = _loadImageAsSource(
         'fixtures/barcode_images/ean8_product.png',
       );
@@ -78,8 +80,6 @@ void main() {
     });
 
     test('scans Code 128 barcode', () {
-      if (!fixtureDir.existsSync()) return;
-
       final (source, _, _) = _loadImageAsSource(
         'fixtures/barcode_images/code128_hello.png',
       );
@@ -90,8 +90,6 @@ void main() {
     });
 
     test('scans Code 39 barcode', () {
-      if (!fixtureDir.existsSync()) return;
-
       final (source, _, _) = _loadImageAsSource(
         'fixtures/barcode_images/code39_hello.png',
       );
@@ -102,8 +100,6 @@ void main() {
     });
 
     test('scans UPC-A barcode', () {
-      if (!fixtureDir.existsSync()) return;
-
       final (source, _, _) = _loadImageAsSource(
         'fixtures/barcode_images/upca_product.png',
       );
@@ -116,8 +112,6 @@ void main() {
     });
 
     test('scans ITF barcode', () {
-      if (!fixtureDir.existsSync()) return;
-
       final (source, _, _) = _loadImageAsSource(
         'fixtures/barcode_images/itf_numeric.png',
       );
@@ -130,11 +124,6 @@ void main() {
     });
 
     test('scans Codabar barcode - numeric', () {
-      if (!fixtureDir.existsSync()) return;
-
-      final file = File('fixtures/barcode_images/codabar_numeric.png');
-      if (!file.existsSync()) return;
-
       final (source, _, _) = _loadImageAsSource(
         'fixtures/barcode_images/codabar_numeric.png',
       );
@@ -147,11 +136,6 @@ void main() {
     });
 
     test('scans Codabar barcode - long', () {
-      if (!fixtureDir.existsSync()) return;
-
-      final file = File('fixtures/barcode_images/codabar_long.png');
-      if (!file.existsSync()) return;
-
       final (source, _, _) = _loadImageAsSource(
         'fixtures/barcode_images/codabar_long.png',
       );
@@ -163,8 +147,6 @@ void main() {
     });
 
     test('scanAll finds multiple barcode formats', () {
-      if (!fixtureDir.existsSync()) return;
-
       final (source, _, _) = _loadImageAsSource(
         'fixtures/barcode_images/ean13_product.png',
       );
@@ -407,9 +389,6 @@ void main() {
     });
 
     test('Decodes UPC-A correctly when explicitly configured', () {
-      final file = File('fixtures/barcode_images/upca_product.png');
-      if (!file.existsSync()) return;
-
       final (source, _, _) = _loadImageAsSource(
         'fixtures/barcode_images/upca_product.png',
       );

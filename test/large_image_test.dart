@@ -1,6 +1,3 @@
-// Tests for large image processing (downsampling) and error handling paths
-// These tests increase coverage for defensive code that handles edge cases.
-
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -9,25 +6,27 @@ import 'package:test/test.dart';
 import 'package:yomu/yomu.dart';
 
 void main() {
+  final perfTestDir = Directory('fixtures/performance_test_images');
+  final qrDir = Directory('fixtures/qr_images');
+
+  setUpAll(() {
+    if (!perfTestDir.existsSync()) {
+      fail('Performance fixtures not found: ${perfTestDir.path}');
+    }
+    if (!qrDir.existsSync()) {
+      fail('QR fixtures not found: ${qrDir.path}');
+    }
+  });
+
   group('Large Image Downsampling', () {
-    late Yomu yomu;
-
-    setUp(() {
-      yomu = Yomu.qrOnly;
-    });
-
     test(
       'successfully decodes 2000x2000 image (4MP, triggers downsampling)',
       () {
         // Create a large image with an embedded QR code
         // This tests the _preparePixels and _downsamplePixels methods
         final file = File(
-          'fixtures/realworld_images/square_white_center_400px.png',
+          'fixtures/performance_test_images/square_white_center_400px.png',
         );
-        if (!file.existsSync()) {
-          // Skip if fixture doesn't exist
-          return;
-        }
 
         final decoded = img.decodePng(file.readAsBytesSync());
         if (decoded == null) return;
@@ -48,20 +47,19 @@ void main() {
         }
 
         // Should successfully decode despite downsampling
-        final result = yomu.decode(
+        final result = Yomu.qrOnly.decode(
           bytes: bytes,
           width: largeImage.width,
           height: largeImage.height,
         );
-        expect(result.text, contains('RealWorld'));
+        expect(result.text, contains('PerfTest'));
       },
     );
 
     test('successfully decodes 1500x1500 image (2.25MP)', () {
       final file = File(
-        'fixtures/realworld_images/square_white_center_250px.png',
+        'fixtures/performance_test_images/square_white_center_250px.png',
       );
-      if (!file.existsSync()) return;
 
       final decoded = img.decodePng(file.readAsBytesSync());
       if (decoded == null) return;
@@ -78,7 +76,7 @@ void main() {
         bytes[i * 4 + 3] = 0xFF;
       }
 
-      final result = yomu.decode(
+      final result = Yomu.qrOnly.decode(
         bytes: bytes,
         width: largeImage.width,
         height: largeImage.height,
@@ -88,7 +86,6 @@ void main() {
 
     test('decodeAll works with large images', () {
       final file = File('fixtures/qr_images/multi_qr_2_horizontal.png');
-      if (!file.existsSync()) return;
 
       final decoded = img.decodePng(file.readAsBytesSync());
       if (decoded == null) return;
@@ -107,7 +104,7 @@ void main() {
       }
 
       // decodeAll should still find QR codes after downsampling
-      final results = yomu.decodeAll(
+      final results = Yomu.qrOnly.decodeAll(
         bytes: bytes,
         width: largeImage.width,
         height: largeImage.height,
@@ -118,12 +115,6 @@ void main() {
   });
 
   group('Malformed Input Handling', () {
-    late Yomu yomu;
-
-    setUp(() {
-      yomu = Yomu.qrOnly;
-    });
-
     test('throws on corrupted QR code data', () {
       // Create an image that looks like a QR code but has corrupted data
       // This tests error handling in the decoder
@@ -141,7 +132,7 @@ void main() {
 
       // Should throw or return gracefully, not crash
       expect(
-        () => yomu.decode(bytes: bytes, width: 200, height: 200),
+        () => Yomu.qrOnly.decode(bytes: bytes, width: 200, height: 200),
         throwsA(anything),
       );
     });
@@ -161,14 +152,17 @@ void main() {
       }
 
       // Should return empty list, not crash
-      final results = yomu.decodeAll(bytes: bytes, width: 200, height: 200);
+      final results = Yomu.qrOnly.decodeAll(
+        bytes: bytes,
+        width: 200,
+        height: 200,
+      );
       expect(results, isEmpty);
     });
 
     test('handles image with partial QR code', () {
       // Load a valid QR code and crop it to make it incomplete
       final file = File('fixtures/qr_images/numeric_simple.png');
-      if (!file.existsSync()) return;
 
       final decoded = img.decodePng(file.readAsBytesSync());
       if (decoded == null) return;
@@ -195,7 +189,7 @@ void main() {
 
       // Should throw (incomplete QR code cannot be decoded)
       expect(
-        () => yomu.decode(
+        () => Yomu.qrOnly.decode(
           bytes: bytes,
           width: cropped.width,
           height: cropped.height,
@@ -212,7 +206,7 @@ void main() {
       }
 
       expect(
-        () => yomu.decode(bytes: bytes, width: 10, height: 10),
+        () => Yomu.qrOnly.decode(bytes: bytes, width: 10, height: 10),
         throwsA(anything),
       );
     });
@@ -227,7 +221,7 @@ void main() {
       }
 
       expect(
-        () => yomu.decode(bytes: bytes, width: 100, height: 100),
+        () => Yomu.qrOnly.decode(bytes: bytes, width: 100, height: 100),
         throwsA(anything),
       );
     });

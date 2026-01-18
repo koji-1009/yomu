@@ -24,7 +24,7 @@ SCRIPTS = [
     "scripts/generate_version_qr.py",  # Various QR versions
     "scripts/generate_multi_qr.py",  # Multiple QRs in one image
     "scripts/generate_uneven_lighting.py",  # Lighting/Shadow robustness
-    "scripts/generate_realworld_qr.py",  # "Real-world" simulated images
+    "scripts/generate_performance_test_images.py",  # Performance test images
 ]
 
 

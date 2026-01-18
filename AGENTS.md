@@ -24,7 +24,7 @@ These directives are **NON-NEGOTIABLE**.
   ```bash
   # Run tests and generate coverage data
   dart test --coverage=coverage
-              
+  
   # (Optional) Generate LCOV report
   # dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib
   ```

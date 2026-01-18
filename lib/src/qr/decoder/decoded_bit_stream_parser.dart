@@ -60,7 +60,7 @@ class DecodedBitStreamParser {
     required Uint8List bytes,
     required Version version,
   }) {
-    final source = BitSource(bytes.toList()); // BitSource expects List<int>
+    final source = BitSource(bytes); // BitSource expects Uint8List
     final sb = StringBuffer();
     // byteSegments would be accumulated
     final byteSegments = <Uint8List>[];

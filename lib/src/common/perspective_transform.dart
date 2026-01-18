@@ -254,6 +254,18 @@ class PerspectiveTransform {
 
   void transformPoints(List<double> points) {
     final max = points.length;
+    // Optimization: Check for Affine transform (a31=0, a32=0, a33=1)
+    // This avoids expensive division per point
+    if (a31 == 0.0 && a32 == 0.0 && a33 == 1.0) {
+      for (var i = 0; i < max; i += 2) {
+        final x = points[i];
+        final y = points[i + 1];
+        points[i] = a11 * x + a12 * y + a13;
+        points[i + 1] = a21 * x + a22 * y + a23;
+      }
+      return;
+    }
+
     for (var i = 0; i < max; i += 2) {
       final x = points[i];
       final y = points[i + 1];

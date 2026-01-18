@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'generic_gf.dart';
 
 /// Represents a polynomial whose coefficients are elements of a GF(256).
@@ -9,9 +11,9 @@ class GenericGFPoly {
     : coefficients = _normalizeCoefficients(field, coefficients);
 
   final GenericGF field;
-  final List<int> coefficients;
+  final Uint8List coefficients;
 
-  static List<int> _normalizeCoefficients(
+  static Uint8List _normalizeCoefficients(
     GenericGF field,
     List<int> coefficients,
   ) {
@@ -23,11 +25,14 @@ class GenericGFPoly {
         firstNonZero++;
       }
       if (firstNonZero == coefficients.length) {
-        return [0];
+        return Uint8List(1); // [0]
       }
-      return coefficients.sublist(firstNonZero);
+      return Uint8List.fromList(coefficients.sublist(firstNonZero));
     }
-    return coefficients;
+    // Check if it's already a Uint8List to avoid copy if possible,
+    // though we usually crave a copy for safety if input is mutable.
+    // Here we enforce copy to Uint8List.
+    return Uint8List.fromList(coefficients);
   }
 
   @pragma('dart2js:prefer-inline')
@@ -78,7 +83,7 @@ class GenericGFPoly {
       largerCoefficients = temp;
     }
 
-    final sumDiff = List<int>.filled(largerCoefficients.length, 0);
+    final sumDiff = Uint8List(largerCoefficients.length);
     final lengthDiff = largerCoefficients.length - smallerCoefficients.length;
 
     // Copy high-order terms only found in largerCoefficients
@@ -103,7 +108,7 @@ class GenericGFPoly {
     final aLength = aCoefficients.length;
     final bCoefficients = other.coefficients;
     final bLength = bCoefficients.length;
-    final product = List<int>.filled(aLength + bLength - 1, 0);
+    final product = Uint8List(aLength + bLength - 1);
 
     for (var i = 0; i < aLength; i++) {
       final aCoeff = aCoefficients[i];
@@ -119,7 +124,7 @@ class GenericGFPoly {
     if (scalar == 1) return this;
 
     final size = coefficients.length;
-    final product = List<int>.filled(size, 0);
+    final product = Uint8List(size);
     for (var i = 0; i < size; i++) {
       product[i] = field.multiply(coefficients[i], scalar);
     }
@@ -130,7 +135,7 @@ class GenericGFPoly {
     if (coefficient == 0) return field.zero;
 
     final size = coefficients.length;
-    final product = List<int>.filled(size + degree, 0);
+    final product = Uint8List(size + degree);
     for (var i = 0; i < size; i++) {
       product[i] = field.multiply(coefficients[i], coefficient);
     }

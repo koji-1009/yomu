@@ -67,5 +67,34 @@ void main() {
       expect(matrix.get(x: 0, y: 1), isFalse);
       expect(matrix.get(x: 1, y: 1), isFalse);
     });
+
+    test('handles larger images with rolling buffer', () {
+      // Create a 100x100 image (larger than min window size 40)
+      // Vertical gradient: Top is black, Bottom is white.
+      const width = 100;
+      const height = 100;
+      final ints = Int32List(width * height);
+
+      for (var y = 0; y < height; y++) {
+        final val = (y * 255 ~/ height); // 0..255
+        final pixel = (0xFF << 24) | (val << 16) | (val << 8) | val;
+        for (var x = 0; x < width; x++) {
+          ints[y * width + x] = pixel;
+        }
+      }
+
+      final source = RGBLuminanceSource(
+        width: width,
+        height: height,
+        pixels: ints,
+      );
+      final matrix = Binarizer(source).getBlackMatrix();
+
+      // Top rows should be black (low value)
+      expect(matrix.get(x: 50, y: 10), isTrue);
+
+      // Bottom rows should be white (high value)
+      expect(matrix.get(x: 50, y: 90), isFalse);
+    });
   });
 }

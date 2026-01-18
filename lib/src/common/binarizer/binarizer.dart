@@ -20,137 +20,205 @@ class Binarizer {
   BitMatrix getBlackMatrix() {
     final width = source.width;
     final height = source.height;
-    final luminances = source.matrix;
 
-    // 1. Calculate Integral Image
-    // S[y][x] = sum(p[i][j]) for 0<=i<=y, 0<=j<=x
-
-    final integral = Int32List(width * height);
-
-    // First row
-    var sum = 0;
-    for (var x = 0; x < width; x++) {
-      sum += luminances[x];
-      integral[x] = sum;
-    }
-
-    // Remaining rows
-    for (var y = 1; y < height; y++) {
-      sum = 0;
-      final rowOffset = y * width;
-      final prevRowOffset = (y - 1) * width;
-      for (var x = 0; x < width; x++) {
-        sum += luminances[rowOffset + x];
-        integral[rowOffset + x] = integral[prevRowOffset + x] + sum;
-      }
-    }
-
-    final matrix = BitMatrix(width: width, height: height);
-
-    // 2. Adaptive Thresholding
-    // Calculate local threshold based on S*S window average.
+    // 2. Adaptive Thresholding Setup
+    // Calculate window size based on image dimensions
     var windowSize = (width > height ? width : height) ~/ 32;
     if (windowSize < _minWindowSize) {
       windowSize = _minWindowSize;
     }
-    // Safety: Clamp window to image dimensions to prevent out-of-bounds access
-    // in boundary loops which depend on window size.
+    // Safety: Clamp window to image dimensions
     if (windowSize > width) windowSize = width;
     if (windowSize > height) windowSize = height;
 
     final halfWindow = windowSize >> 1;
 
-    // Precompute constant area for the core region
-    final coreArea = (2 * halfWindow + 1) * (2 * halfWindow + 1);
-    final coreAreaX8 = coreArea << 3; // area * 8
+    // We need a rolling buffer for integral lines.
+    // We need access to lines from (y - halfWindow - 1) up to (y + halfWindow).
+    // Total lines needed = windowSize + 2 roughly.
+    // Using a circular buffer (ring buffer).
+    final bufferHeight = windowSize + 2;
+    final integralBuffer = List<Int32List>.generate(
+      bufferHeight,
+      (_) => Int32List(width),
+      growable: false,
+    );
 
-    // Access bits directly to avoid method call overhead and hoist row offsets.
+    // Buffer for luminance rows corresponding to the integral buffer.
+    // This avoids re-fetching/re-calculating luminance for the target row.
+    final lumBuffer = List<Uint8List>.generate(
+      bufferHeight,
+      (_) => Uint8List(width),
+      growable: false,
+    );
+
+    final matrix = BitMatrix(width: width, height: height);
     final bits = matrix.bits;
     final rowStride = matrix.rowStride;
 
-    // Helper to process a single pixel (Slow/Boundary version)
-    void thresholdPixel(int x, int y) {
-      final x1 = (x - halfWindow).clamp(0, width - 1);
-      final x2 = (x + halfWindow).clamp(0, width - 1);
-      final y1 = (y - halfWindow).clamp(0, height - 1);
-      final y2 = (y + halfWindow).clamp(0, height - 1);
+    // Boundary helpers
+    final rightClamp = width - 1;
 
-      final br = integral[y2 * width + x2];
-      final bl = (x1 > 0) ? integral[y2 * width + (x1 - 1)] : 0;
-      final tr = (y1 > 0) ? integral[(y1 - 1) * width + x2] : 0;
-      final tl = (x1 > 0 && y1 > 0) ? integral[(y1 - 1) * width + (x1 - 1)] : 0;
+    // Loop controls
+    final processLimit = height + halfWindow;
 
-      final sumWindow = br - bl - tr + tl;
-      final area = (x2 - x1 + 1) * (y2 - y1 + 1);
+    for (var i = 0; i < processLimit; i++) {
+      // 1. Ingest new row (if within image bounds)
+      final writeIdx = i % bufferHeight; // Circular buffer index for row 'i'
 
-      if ((luminances[y * width + x] * area) << 3 <= sumWindow * 7) {
-        bits[y * rowStride + (x >> 5)] |= (1 << (x & 31));
-      }
-    }
+      if (i < height) {
+        // Calculate integral for row 'i'
+        final lumRow = source.getRow(i, lumBuffer[writeIdx]);
+        final integralRow = integralBuffer[writeIdx];
+        final prevIntegralRow = (i > 0)
+            ? integralBuffer[(i - 1) % bufferHeight]
+            : null;
 
-    // Top Boundary (Expand to cover halfWindow)
-    final coreYStart = halfWindow + 1;
-    for (var y = 0; y < coreYStart; y++) {
-      for (var x = 0; x < width; x++) {
-        thresholdPixel(x, y);
-      }
-    }
-
-    // Middle Rows
-    final maxY = height - halfWindow;
-    final maxX = width - halfWindow;
-
-    final coreXStart = halfWindow + 1;
-
-    // Pre-calculate offsets for the core loop
-    // Offsets for window relative to center (x, y)
-    // TL: (x-half-1, y-half-1), TR: (x+half, y-half-1)
-    // BL: (x-half-1, y+half),   BR: (x+half, y+half)
-    final offsetBR = halfWindow * width + halfWindow;
-    final offsetBL = halfWindow * width - halfWindow - 1;
-    final offsetTR = -(halfWindow + 1) * width + halfWindow;
-    final offsetTL = -(halfWindow + 1) * width - halfWindow - 1;
-
-    for (var y = coreYStart; y < maxY; y++) {
-      final rowOffset = y * width;
-      final bitsRowOffset = y * rowStride;
-
-      // Left Boundary
-      for (var x = 0; x < coreXStart; x++) {
-        thresholdPixel(x, y);
-      }
-
-      // Core Loop (No clamping, no conditionals)
-
-      for (var x = coreXStart; x < maxX; x++) {
-        final centerIdx = rowOffset + x;
-
-        final br = integral[centerIdx + offsetBR];
-        final bl = integral[centerIdx + offsetBL];
-        final tr = integral[centerIdx + offsetTR];
-        final tl = integral[centerIdx + offsetTL];
-
-        final sumWindow = br - bl - tr + tl;
-
-        // pixel * coreArea * 8 <= sum * 7
-        if ((luminances[centerIdx] * coreAreaX8) <= sumWindow * 7) {
-          bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
+        var sum = 0;
+        // 1. Horizontal Prefix Sum & Vertical Accumulation (Scalar is fastest for single pass)
+        // Combining them into one loop avoids iterating twice.
+        if (prevIntegralRow != null) {
+          for (var x = 0; x < width; x++) {
+            sum += lumRow[x];
+            integralRow[x] = prevIntegralRow[x] + sum;
+          }
+        } else {
+          for (var x = 0; x < width; x++) {
+            sum += lumRow[x];
+            integralRow[x] = sum;
+          }
         }
       }
 
-      // Right Boundary
-      for (var x = maxX; x < width; x++) {
-        thresholdPixel(x, y);
-      }
-    }
+      // 2. Threshold row 'targetY'
+      final targetY = i - halfWindow;
 
-    // Bottom Boundary
-    for (var y = maxY; y < height; y++) {
-      for (var x = 0; x < width; x++) {
-        thresholdPixel(x, y);
+      if (targetY >= 0 && targetY < height) {
+        // We have enough data now.
+        final y1 = (targetY - halfWindow); // can be < 0
+        final y2 = (targetY + halfWindow) >= height
+            ? height - 1
+            : (targetY + halfWindow);
+
+        // Get buffers
+        final rowY2 = integralBuffer[y2 % bufferHeight];
+        final rowY1 = (y1 - 1 >= 0)
+            ? integralBuffer[(y1 - 1) % bufferHeight]
+            : null;
+
+        final lumTarget = lumBuffer[targetY % bufferHeight];
+        final bitsRowOffset = targetY * rowStride;
+
+        // Optimization: Run SIMD in the safe core region where no x-clamping is needed.
+        // Safe region: [halfWindow + 1, width - halfWindow - 4]
+        // This avoids checking boundaries inside the loop.
+
+        // 1. Left Boundary (Scalar)
+        final safeStart = halfWindow + 1;
+        // Ensure we can read up to x+3+halfWindow without going OOB.
+        // max index accessed is x + 3 + halfWindow.
+        // x + 3 + halfWindow < width  =>  x < width - halfWindow - 3
+        final safeEnd = width - halfWindow - 4;
+
+        var x = 0;
+        // Only run scalar loop for left boundary
+        for (; x < safeStart && x < width; x++) {
+          _thresholdPixelScalar(
+            x,
+            width,
+            rightClamp,
+            halfWindow,
+            y1,
+            y2,
+            lumTarget,
+            rowY1,
+            rowY2,
+            bits,
+            bitsRowOffset,
+          );
+        }
+
+        // 2. Core Loop (Scalar Optimized)
+        // We hoist boundary checks.
+        if (x < safeEnd) {
+          final offBR = halfWindow;
+          final offBL = -halfWindow - 1;
+
+          for (; x < safeEnd; x++) {
+            final val = lumTarget[x];
+            final br = rowY2[x + offBR];
+            final bl = rowY2[x + offBL];
+
+            var sumWindow = br - bl;
+            if (rowY1 != null) {
+              final tr = rowY1[x + offBR];
+              final tl = rowY1[x + offBL];
+              sumWindow -= (tr - tl);
+            }
+
+            // Area is theoretically constant here if not strictly at top/bottom edge
+            // But calculating area is cheap: 2 muls.
+            final yStart = (y1 < 0) ? 0 : y1;
+            final h = (y2 - yStart + 1);
+            final area = (2 * halfWindow + 1) * h;
+
+            if ((val * area) << 3 <= sumWindow * 7) {
+              bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
+            }
+          }
+        }
+
+        // 3. Right Boundary (Scalar)
+        for (; x < width; x++) {
+          _thresholdPixelScalar(
+            x,
+            width,
+            rightClamp,
+            halfWindow,
+            y1,
+            y2,
+            lumTarget,
+            rowY1,
+            rowY2,
+            bits,
+            bitsRowOffset,
+          );
+        }
       }
     }
 
     return matrix;
+  }
+
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:prefer-inline')
+  void _thresholdPixelScalar(
+    int x,
+    int width,
+    int rightClamp,
+    int halfWindow,
+    int y1,
+    int y2,
+    Uint8List lumTarget,
+    Int32List? rowY1,
+    Int32List rowY2,
+    Uint32List bits,
+    int bitsRowOffset,
+  ) {
+    final x1 = (x - halfWindow < 0) ? 0 : x - halfWindow;
+    final x2 = (x + halfWindow > rightClamp) ? rightClamp : x + halfWindow;
+
+    final br = rowY2[x2];
+    final bl = (x1 > 0) ? rowY2[x1 - 1] : 0;
+
+    final tr = (rowY1 != null) ? rowY1[x2] : 0;
+    final tl = (rowY1 != null && x1 > 0) ? rowY1[x1 - 1] : 0;
+
+    final sumWindow = br - bl - tr + tl;
+    final area = (x2 - x1 + 1) * (y2 - ((y1 < 0) ? 0 : y1) + 1);
+
+    if ((lumTarget[x] * area) << 3 <= sumWindow * 7) {
+      bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
+    }
   }
 }

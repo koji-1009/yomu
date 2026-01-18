@@ -82,20 +82,23 @@ void _runComparison({
   }
 
   // Run A
-  final (avgA, detailsA) = _bench(configA.$2, images);
+  final (metricsA, detailsA) = _bench(configA.$2, images);
   // Run B
-  final (avgB, detailsB) = _bench(configB.$2, images);
+  final (metricsB, detailsB) = _bench(configB.$2, images);
+
+  _printCategoryReport(configA.$1, metricsA);
+  _printCategoryReport(configB.$1, metricsB);
 
   // Report Summary
   print(
-    '${configA.$1.padRight(20)} | Avg: ${avgA.toStringAsFixed(3)}ms | Total: ${(avgA * files.length).toStringAsFixed(1)}ms',
+    '${configA.$1.padRight(20)} | Avg: ${metricsA['All']!.avg.toStringAsFixed(3)}ms | p95: ${metricsA['All']!.p95.toStringAsFixed(3)}ms',
   );
   print(
-    '${configB.$1.padRight(20)} | Avg: ${avgB.toStringAsFixed(3)}ms | Total: ${(avgB * files.length).toStringAsFixed(1)}ms',
+    '${configB.$1.padRight(20)} | Avg: ${metricsB['All']!.avg.toStringAsFixed(3)}ms | p95: ${metricsB['All']!.p95.toStringAsFixed(3)}ms',
   );
 
-  final diff = avgB - avgA;
-  final pct = (diff / avgA) * 100;
+  final diff = metricsB['All']!.avg - metricsA['All']!.avg;
+  final pct = (diff / metricsA['All']!.avg) * 100;
   final sign = diff > 0 ? '+' : '';
   print(
     'Overhead: $sign${diff.toStringAsFixed(3)}ms ($sign${pct.toStringAsFixed(1)}%)',
@@ -120,12 +123,51 @@ void _runComparison({
   }
 }
 
-(double, Map<String, double>) _bench(
+class Metric {
+  Metric(this.avg, this.p95);
+  final double avg;
+  final double p95;
+}
+
+void _printCategoryReport(String name, Map<String, Metric> metrics) {
+  print('--- $name Metrics ---');
+  for (final category in ['Standard', 'Heavy', 'Edge']) {
+    if (metrics.containsKey(category)) {
+      final m = metrics[category]!;
+      print(
+        '  ${category.padRight(10)}: Avg ${m.avg.toStringAsFixed(3)}ms, p95 ${m.p95.toStringAsFixed(3)}ms',
+      );
+    }
+  }
+  print('');
+}
+
+String _categorize(String filename) {
+  if (filename.contains('distorted') ||
+      filename.contains('version_7') ||
+      filename.contains('version_10') ||
+      filename.contains('version_5') || // Assuming 5+ is heavy
+      filename.contains('qr_version_5') ||
+      filename.contains('qr_version_6')) {
+    return 'Heavy';
+  }
+  if (filename.contains('edge_') || filename.contains('ec_level_h')) {
+    return 'Edge';
+  }
+  return 'Standard';
+}
+
+(Map<String, Metric>, Map<String, double>) _bench(
   Yomu yomu,
   Map<String, (int, int, Uint8List)> images,
 ) {
-  var totalUs = 0;
   final details = <String, double>{};
+  final categoryTimes = <String, List<double>>{
+    'All': [],
+    'Standard': [],
+    'Heavy': [],
+    'Edge': [],
+  };
 
   for (final entry in images.entries) {
     final sw = Stopwatch()..start();
@@ -137,10 +179,25 @@ void _runComparison({
       );
     } catch (_) {}
     sw.stop();
-    totalUs += sw.elapsedMicroseconds;
-    details[entry.key] = sw.elapsedMicroseconds / 1000.0;
+    final ms = sw.elapsedMicroseconds / 1000.0;
+    details[entry.key] = ms;
+
+    final cat = _categorize(entry.key.split('/').last);
+    categoryTimes[cat]!.add(ms);
+    categoryTimes['All']!.add(ms);
   }
-  return ((totalUs / images.length) / 1000.0, details);
+
+  final metrics = <String, Metric>{};
+  for (final entry in categoryTimes.entries) {
+    if (entry.value.isEmpty) continue;
+    final times = entry.value..sort();
+    final avg = times.reduce((a, b) => a + b) / times.length;
+    final p95Index = (times.length * 0.95).floor();
+    final p95 = times[p95Index < times.length ? p95Index : times.length - 1];
+    metrics[entry.key] = Metric(avg, p95);
+  }
+
+  return (metrics, details);
 }
 
 Uint8List _imageToBytes(img.Image image) {

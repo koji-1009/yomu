@@ -313,10 +313,8 @@ class Yomu {
     // Pre-calculate stride for inner loop
     final pixelStride = scale * 4;
     for (var dstY = 0; dstY < dstHeight; dstY++) {
-      var srcY = dstY * scale + halfScale;
-      if (srcY >= height) {
-        srcY = height - 1;
-      }
+      final srcY = dstY * scale + halfScale;
+
       final rowOffset = srcY * width * 4;
       final dstRowOffset = dstY * dstWidth;
 

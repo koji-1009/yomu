@@ -61,7 +61,7 @@ The codebase is structured to allow future expansion (e.g., 1D barcodes).
 ### Directory Structure
 
 * **`lib/src/common/`**: Generic image processing & math.
-  * `binarizer/`: `LuminanceSource`, `GlobalHistogramBinarizer`.
+  * `binarizer/`: `Binarizer`, `LuminanceSource`.
   * `BitMatrix`, `BitSource`, `GridSampler`: Reusable data structures.
 * **`lib/src/qr/`**: QR Code specific logic.
   * `decoder/`: `QRCodeDecoder`, `ReedSolomonDecoder`, `Version`, `Mode`.

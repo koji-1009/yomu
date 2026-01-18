@@ -150,7 +150,7 @@ Map<String, int>? _profileDecode(File file) {
     height: processHeight,
     pixels: processPixels,
   );
-  final blackMatrix = GlobalHistogramBinarizer(source).getBlackMatrix();
+  final blackMatrix = Binarizer(source).getBlackMatrix();
   final binarizeTime = sw.elapsedMicroseconds;
 
   // Detect

@@ -19,18 +19,8 @@ import '../yomu_exception.dart';
 /// - X increases to the right
 /// - Y increases downward
 ///
-/// ## Example
-///
-/// ```dart
-/// final matrix = BitMatrix(21, 21); // Version 1 QR code size
-/// matrix.set(0, 0);                  // Set top-left to black
-/// print(matrix.get(0, 0));           // true
-/// matrix.flip(0, 0);                 // Toggle the bit
-/// print(matrix.get(0, 0));           // false
-/// ```
-///
 /// See also:
-/// - [GlobalHistogramBinarizer] which produces BitMatrix from images
+/// - [Binarizer] which produces BitMatrix from images
 /// - [Detector] which reads BitMatrix to find QR patterns
 class BitMatrix {
   /// Creates a [BitMatrix] directly from a luminance array (grayscale).

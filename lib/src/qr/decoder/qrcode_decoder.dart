@@ -289,13 +289,8 @@ class BitMatrixParser {
   }
 
   int _copyBit({required int x, required int y, required int versionBits}) {
-    final bit = _safeGet(x: x, y: y);
+    final bit = bits.get(x: x, y: y);
     return (versionBits << 1) | (bit ? 1 : 0);
-  }
-
-  bool _safeGet({required int x, required int y}) {
-    if (x < 0 || x >= dimension || y < 0 || y >= dimension) return false;
-    return bits.get(x: x, y: y);
   }
 
   bool _isFunctionPattern({

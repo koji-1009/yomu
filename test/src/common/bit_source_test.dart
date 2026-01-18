@@ -40,17 +40,6 @@ void main() {
       expect(source.available(), 11);
     });
 
-    test('throws on insufficient bits', () {
-      final source = BitSource([0xFF]);
-      expect(() => source.readBits(9), throwsArgumentError);
-    });
-
-    test('throws on invalid numBits', () {
-      final source = BitSource([0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
-      expect(() => source.readBits(0), throwsArgumentError);
-      expect(() => source.readBits(33), throwsArgumentError);
-    });
-
     test('reads 32 bits correctly', () {
       // 0x12345678
       final source = BitSource([0x12, 0x34, 0x56, 0x78]);

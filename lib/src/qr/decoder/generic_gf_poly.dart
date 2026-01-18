@@ -67,9 +67,6 @@ class GenericGFPoly {
   }
 
   GenericGFPoly addOrSubtract(GenericGFPoly other) {
-    if (field != other.field) {
-      throw ArgumentError('GenericGFPolys do not have same GenericGF field');
-    }
     if (isZero) return other;
     if (other.isZero) return this;
 
@@ -99,9 +96,6 @@ class GenericGFPoly {
   }
 
   GenericGFPoly multiply(GenericGFPoly other) {
-    if (field != other.field) {
-      throw ArgumentError('GenericGFPolys do not have same GenericGF field');
-    }
     if (isZero || other.isZero) {
       return field.zero;
     }
@@ -133,7 +127,6 @@ class GenericGFPoly {
   }
 
   GenericGFPoly multiplyByMonomial(int degree, int coefficient) {
-    if (degree < 0) throw ArgumentError();
     if (coefficient == 0) return field.zero;
 
     final size = coefficients.length;
@@ -145,13 +138,6 @@ class GenericGFPoly {
   }
 
   List<GenericGFPoly> divide(GenericGFPoly other) {
-    if (field != other.field) {
-      throw ArgumentError('GenericGFPolys do not have same GenericGF field');
-    }
-    if (other.isZero) {
-      throw ArgumentError('Divide by 0');
-    }
-
     var quotient = field.zero;
     var remainder = this;
 

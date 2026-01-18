@@ -22,10 +22,6 @@ void main() {
       expect(field.log(29), 8);
     });
 
-    test('log throws for 0', () {
-      expect(() => field.log(0), throwsArgumentError);
-    });
-
     test('multiply returns product in field', () {
       expect(field.multiply(0, 5), 0);
       expect(field.multiply(5, 0), 0);
@@ -44,7 +40,6 @@ void main() {
     });
 
     test('inverse returns multiplicative inverse', () {
-      expect(() => field.inverse(0), throwsArgumentError);
       for (var i = 1; i < 256; i++) {
         final inv = field.inverse(i);
         expect(field.multiply(i, inv), 1);

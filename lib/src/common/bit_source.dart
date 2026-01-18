@@ -19,12 +19,6 @@ class BitSource {
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
   int readBits(int numBits) {
-    if (numBits < 1 || numBits > 32 || numBits > available()) {
-      throw ArgumentError(
-        'Cannot read $numBits bits ($numBits requested, ${available()} available)',
-      );
-    }
-
     var result = 0;
     var bitsLeft = numBits;
 

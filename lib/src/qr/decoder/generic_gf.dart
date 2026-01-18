@@ -43,11 +43,15 @@ class GenericGF {
   late final GenericGFPoly one;
 
   /// 2^a
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   int exp(int a) {
     return _expTable[a];
   }
 
   /// log(a)
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   int log(int a) {
     if (a == 0) {
       throw ArgumentError('Cannot take log(0)');
@@ -56,6 +60,8 @@ class GenericGF {
   }
 
   /// Inverse of a
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   int inverse(int a) {
     if (a == 0) {
       throw ArgumentError('Cannot calculate inverse of 0');
@@ -64,6 +70,8 @@ class GenericGF {
   }
 
   /// a * b
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   int multiply(int a, int b) {
     if (a == 0 || b == 0) {
       return 0;

@@ -10,10 +10,14 @@ class BitSource {
   int get bitOffset => _bitOffset;
 
   // Available bits
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   int available() {
     return 8 * (_bytes.length - _byteOffset) - _bitOffset;
   }
 
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   int readBits(int numBits) {
     if (numBits < 1 || numBits > 32 || numBits > available()) {
       throw ArgumentError(

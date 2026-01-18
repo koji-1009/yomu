@@ -504,26 +504,17 @@ void main() {
       // Pattern: B B, W W, B B B B B B, W W, B B (Total 14)
       // Counts: 2, 2, 6, 2, 2. Ratio 1:1:3:1:1.
       const y = 2;
-      matrix.setRegion(
-        left: 0,
-        top: y,
-        width: 2,
-        height: 1,
-      ); // Set (0,2), (1,2)
+      for (var x = 0; x < 2; x++) {
+        matrix.set(x: x, y: y);
+      } // Set (0,2), (1,2)
       // 2,3 are W
-      matrix.setRegion(
-        left: 4,
-        top: y,
-        width: 6,
-        height: 1,
-      ); // Set (4,2) to (9,2)
+      for (var x = 4; x < 10; x++) {
+        matrix.set(x: x, y: y);
+      } // Set (4,2) to (9,2)
       // 10,11 are W
-      matrix.setRegion(
-        left: 12,
-        top: y,
-        width: 2,
-        height: 1,
-      ); // Set (12,2), (13,2)
+      for (var x = 12; x < 14; x++) {
+        matrix.set(x: x, y: y);
+      } // Set (12,2), (13,2)
 
       // Verify setup
       expect(matrix.get(x: 0, y: y), isTrue); // B

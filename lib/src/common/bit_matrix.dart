@@ -120,6 +120,8 @@ class BitMatrix {
   ///
   /// Throws [RangeError] if coordinates are out of bounds.
   /// For performance-critical code, use [getUnchecked] instead.
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   bool get({required int x, required int y}) {
     if (x < 0 || x >= width || y < 0 || y >= height) {
       throw RangeError('Coordinates ($x, $y) out of bounds ($width, $height)');
@@ -132,12 +134,16 @@ class BitMatrix {
   /// This is faster than [get] but will produce undefined behavior
   /// if coordinates are out of bounds. Use only in performance-critical
   /// inner loops where bounds have been pre-validated.
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   bool getUnchecked(int x, int y) {
     final offset = y * _rowStride + (x >> 5);
     return (_bits[offset] & (1 << (x & 0x1f))) != 0;
   }
 
   /// Sets the bit at [x], [y] to true.
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   void set({required int x, required int y}) {
     if (x < 0 || x >= width || y < 0 || y >= height) {
       throw RangeError('Coordinates ($x, $y) out of bounds ($width, $height)');
@@ -156,6 +162,8 @@ class BitMatrix {
   }
 
   /// Flips the bit at [x], [y].
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   void flip({required int x, required int y}) {
     if (x < 0 || x >= width || y < 0 || y >= height) {
       throw RangeError('Coordinates ($x, $y) out of bounds ($width, $height)');

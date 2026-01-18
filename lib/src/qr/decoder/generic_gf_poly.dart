@@ -30,11 +30,17 @@ class GenericGFPoly {
     return coefficients;
   }
 
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   int get degree => coefficients.length - 1;
 
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   bool get isZero => coefficients[0] == 0;
 
   /// Returns the coefficient of x^degree.
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   int getCoefficient(int degree) {
     return coefficients[coefficients.length - 1 - degree];
   }

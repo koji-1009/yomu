@@ -33,16 +33,6 @@ void main() {
       matrix.set(x: 1, y: 1);
       expect(matrix.get(x: 1, y: 1), isTrue);
       expect(matrix.get(x: 0, y: 0), isFalse);
-
-      matrix.unset(x: 1, y: 1);
-      expect(matrix.get(x: 1, y: 1), isFalse);
-    });
-
-    test('getUnchecked works correctly', () {
-      final matrix = BitMatrix(width: 10);
-      matrix.set(x: 5, y: 5);
-      expect(matrix.getUnchecked(5, 5), isTrue);
-      expect(matrix.getUnchecked(0, 0), isFalse);
     });
 
     test('flip toggles bit value', () {
@@ -51,84 +41,6 @@ void main() {
       expect(matrix.get(x: 0, y: 0), isTrue);
       matrix.flip(x: 0, y: 0);
       expect(matrix.get(x: 0, y: 0), isFalse);
-    });
-
-    test('clear resets all bits', () {
-      final matrix = BitMatrix(width: 3);
-      matrix.set(x: 0, y: 0);
-      matrix.set(x: 1, y: 1);
-      matrix.set(x: 2, y: 2);
-
-      matrix.clear();
-
-      expect(matrix.get(x: 0, y: 0), isFalse);
-      expect(matrix.get(x: 1, y: 1), isFalse);
-      expect(matrix.get(x: 2, y: 2), isFalse);
-    });
-
-    test('setRegion sets a block of bits', () {
-      final matrix = BitMatrix(width: 5);
-      matrix.setRegion(left: 1, top: 1, width: 2, height: 2);
-      // Should set (1,1), (2,1), (1,2), (2,2)
-
-      expect(matrix.get(x: 1, y: 1), isTrue);
-      expect(matrix.get(x: 2, y: 1), isTrue);
-      expect(matrix.get(x: 1, y: 2), isTrue);
-      expect(matrix.get(x: 2, y: 2), isTrue);
-      expect(matrix.get(x: 0, y: 0), isFalse);
-      expect(matrix.get(x: 3, y: 3), isFalse);
-    });
-
-    test('setRegion throws on invalid arguments', () {
-      final matrix = BitMatrix(width: 5);
-      expect(
-        () => matrix.setRegion(left: -1, top: 0, width: 2, height: 2),
-        throwsArgumentError,
-      );
-      expect(
-        () => matrix.setRegion(left: 0, top: -1, width: 2, height: 2),
-        throwsArgumentError,
-      );
-      expect(
-        () => matrix.setRegion(left: 0, top: 0, width: 0, height: 2),
-        throwsArgumentError,
-      );
-      expect(
-        () => matrix.setRegion(left: 0, top: 0, width: 2, height: 0),
-        throwsArgumentError,
-      );
-      expect(
-        () => matrix.setRegion(left: 4, top: 4, width: 2, height: 2),
-        throwsRangeError,
-      );
-    });
-
-    test('set throws on out of bounds', () {
-      final matrix = BitMatrix(width: 5);
-      expect(() => matrix.set(x: -1, y: 0), throwsRangeError);
-      expect(() => matrix.set(x: 0, y: -1), throwsRangeError);
-      expect(() => matrix.set(x: 5, y: 0), throwsRangeError);
-      expect(() => matrix.set(x: 0, y: 5), throwsRangeError);
-    });
-
-    test('unset throws on out of bounds', () {
-      final matrix = BitMatrix(width: 5);
-      expect(() => matrix.unset(x: -1, y: 0), throwsRangeError);
-      expect(() => matrix.unset(x: 5, y: 0), throwsRangeError);
-    });
-
-    test('flip throws on out of bounds', () {
-      final matrix = BitMatrix(width: 5);
-      expect(() => matrix.flip(x: -1, y: 0), throwsRangeError);
-      expect(() => matrix.flip(x: 5, y: 0), throwsRangeError);
-    });
-
-    test('invalid access throws or handles logic', () {
-      final matrix = BitMatrix(width: 5);
-      expect(() => matrix.get(x: -1, y: 0), throwsRangeError);
-      expect(() => matrix.get(x: 0, y: -1), throwsRangeError);
-      expect(() => matrix.get(x: 5, y: 0), throwsRangeError);
-      expect(() => matrix.get(x: 0, y: 5), throwsRangeError);
     });
 
     test('toString produces readable output', () {
@@ -147,7 +59,7 @@ void main() {
       expect(cloned.get(x: 2, y: 2), isTrue);
 
       // Modify original
-      matrix.unset(x: 2, y: 2);
+      matrix.flip(x: 2, y: 2);
       // Clone should be unchanged
       expect(cloned.get(x: 2, y: 2), isTrue);
     });

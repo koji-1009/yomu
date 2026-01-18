@@ -116,96 +116,42 @@ class BitMatrix {
   /// Use only for high-performance optimization.
   Uint32List get bits => _bits;
 
-  /// Gets the bit at [x], [y]. Returns true if set (black), false otherwise (white).
+  /// Gets the bit at [x], [y].
   ///
-  /// Throws [RangeError] if coordinates are out of bounds.
-  /// For performance-critical code, use [getUnchecked] instead.
+  /// Returns true if set (black), false otherwise (white).
+  ///
+  /// This method performs NO bounds checking for maximum performance.
+  /// Caller must ensure coordinates are within bounds [0, width) and [0, height).
+  /// Gets the bit at [x], [y].
+  ///
+  /// Returns true if set (black), false otherwise (white).
+  ///
+  /// This method performs NO bounds checking for maximum performance.
+  /// Caller must ensure coordinates are within bounds [0, width) and [0, height).
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
   bool get({required int x, required int y}) {
-    if (x < 0 || x >= width || y < 0 || y >= height) {
-      throw RangeError('Coordinates ($x, $y) out of bounds ($width, $height)');
-    }
-    return getUnchecked(x, y);
-  }
-
-  /// Gets the bit at [x], [y] without bounds checking.
-  ///
-  /// This is faster than [get] but will produce undefined behavior
-  /// if coordinates are out of bounds. Use only in performance-critical
-  /// inner loops where bounds have been pre-validated.
-  @pragma('dart2js:prefer-inline')
-  @pragma('vm:prefer-inline')
-  bool getUnchecked(int x, int y) {
     final offset = y * _rowStride + (x >> 5);
     return (_bits[offset] & (1 << (x & 0x1f))) != 0;
   }
 
   /// Sets the bit at [x], [y] to true.
+  ///
+  /// This method performs NO bounds checking for maximum performance.
+  /// Caller must ensure coordinates are within bounds [0, width) and [0, height).
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
   void set({required int x, required int y}) {
-    if (x < 0 || x >= width || y < 0 || y >= height) {
-      throw RangeError('Coordinates ($x, $y) out of bounds ($width, $height)');
-    }
     final offset = y * _rowStride + (x >> 5);
     _bits[offset] |= (1 << (x & 0x1f));
-  }
-
-  /// Unsets the bit at [x], [y] (sets to false).
-  void unset({required int x, required int y}) {
-    if (x < 0 || x >= width || y < 0 || y >= height) {
-      throw RangeError('Coordinates ($x, $y) out of bounds ($width, $height)');
-    }
-    final offset = y * _rowStride + (x >> 5);
-    _bits[offset] &= ~(1 << (x & 0x1f));
   }
 
   /// Flips the bit at [x], [y].
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
   void flip({required int x, required int y}) {
-    if (x < 0 || x >= width || y < 0 || y >= height) {
-      throw RangeError('Coordinates ($x, $y) out of bounds ($width, $height)');
-    }
     final offset = y * _rowStride + (x >> 5);
     _bits[offset] ^= (1 << (x & 0x1f));
-  }
-
-  /// Clears the entire matrix (sets all bits to false).
-  void clear() {
-    // fast clear
-    _bits.fillRange(0, _bits.length, 0);
-  }
-
-  /// Sets a rectangular region of bits to true.
-  ///
-  /// [left], [top] is the top-left corner.
-  /// [width], [height] are the dimensions of the region.
-  void setRegion({
-    required int left,
-    required int top,
-    required int width,
-    required int height,
-  }) {
-    if (top < 0 || left < 0) {
-      throw ArgumentError('Left and top must be non-negative');
-    }
-    if (height < 1 || width < 1) {
-      throw ArgumentError('Height and width must be at least 1');
-    }
-    final right = left + width;
-    final bottom = top + height;
-    if (bottom > this.height || right > this.width) {
-      throw RangeError('The region is out of the matrix bounds');
-    }
-    // Naive implementation loop.
-    // Optimization possible but likely not the bottleneck for small QR codes yet.
-    for (var y = top; y < bottom; y++) {
-      for (var x = left; x < right; x++) {
-        set(x: x, y: y);
-      }
-    }
   }
 
   @override

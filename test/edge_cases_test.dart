@@ -80,13 +80,6 @@ void main() {
         expect(matrix.get(x: 999, y: 999), isTrue);
         expect(matrix.get(x: 0, y: 0), isFalse);
       });
-
-      test('setRegion validates bounds', () {
-        final matrix = BitMatrix(width: 10, height: 10);
-        // Valid region
-        matrix.setRegion(left: 2, top: 2, width: 5, height: 5);
-        expect(matrix.get(x: 3, y: 3), isTrue);
-      });
     });
 
     group('LuminanceSource edge cases', () {

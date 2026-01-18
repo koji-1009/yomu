@@ -29,15 +29,15 @@ jobs:
 
       - name: Benchmark Main
         run: |
+          # Copy PR's benchmark harness to main_ref to enable comparative measurement
+          # This ensures we measure 'main' code with the 'new' benchmark logic (AOT mode, categories)
+          cp benchmark/decoding.dart main_ref/benchmark/decoding.dart
+          cp scripts/benchmark_runner.py main_ref/scripts/benchmark_runner.py
+          
           cd main_ref
           dart pub get
-          # Assuming test images need to be generated or are in repo. 
-          # If generated, we need to run generation script. 
-          # Assuming standard flows.
-          # We need uv setup here too or just use system python if simple
-          # Using uv from setup
           uv run scripts/benchmark_runner.py benchmark/decoding.dart --mode aot --save ../main_bench.json
-        continue-on-error: true # Don't fail if main is broken, just skip comparison
+        continue-on-error: true
 
       # 2. Benchmark Current PR (Root)
       - name: Benchmark PR

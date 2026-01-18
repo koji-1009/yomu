@@ -10,7 +10,8 @@ import 'finder_pattern.dart';
 import 'finder_pattern_finder.dart';
 
 class DetectorResult {
-  DetectorResult({required this.bits, required this.points});
+  const DetectorResult({required this.bits, required this.points});
+
   final BitMatrix bits;
   final List<FinderPattern> points;
 }
@@ -61,12 +62,18 @@ class Detector {
       // Version 2+ has alignment patterns, but only if centers.length > 2
       // (Version 2 has [6, 18] which is 2 items - creates 1 alignment pattern)
       if (alignmentCenters.length >= 2) {
-        final alignmentAreaAllowance = (15 * moduleSize).round();
+        // Reduce allowance now that we have better estimation
+        // 5 was too tight for some tilts. 10 is safe enough (~100px).
+        // Reduce allowance now that we have better estimation
+        // 5 is tight but necessary to avoid false positives in noisy images (e.g. uneven lighting).
+        const alignmentAreaAllowance = 5;
 
         // Estimate where the bottom-right alignment should be
-        // Calculate estimated position in image coordinates
-        final correctionToTopLeft =
-            1.0 - 3.0 / (alignmentCenters.length * 2 + 1);
+        // We know the AP is at (dim-7, dim-7) in module space.
+        // The vector (BL-TL + TR-TL) points to (dim-3.5, dim-3.5).
+        // Ratio t = (dim-7 - 3.5) / (dim-3.5 - 3.5) = (dim-10.5) / (dim-7).
+        final correctionToTopLeft = (dimension - 10.5) / (dimension - 7.0);
+
         final estAlignmentX =
             topLeft.x +
             correctionToTopLeft *
@@ -94,10 +101,15 @@ class Detector {
       }
     }
 
-    // Calculate bottom-right corner from the three finder patterns
-    // This works for all versions since we're using the parallelogram assumption
-    bottomRightX = topRight.x - topLeft.x + bottomLeft.x;
-    bottomRightY = topRight.y - topLeft.y + bottomLeft.y;
+    // Calculate bottom-right corner
+    if (alignmentPattern != null) {
+      bottomRightX = alignmentPattern.x;
+      bottomRightY = alignmentPattern.y;
+    } else {
+      // For Version 1 (or failed Alignment search), use parallelogram assumption
+      bottomRightX = topRight.x - topLeft.x + bottomLeft.x;
+      bottomRightY = topRight.y - topLeft.y + bottomLeft.y;
+    }
 
     final transform = _createTransform(
       topLeft,
@@ -207,10 +219,9 @@ class Detector {
     double sourceBottomRightY;
 
     if (alignmentPattern != null) {
-      // Position alignment pattern in module coordinates
-      // The alignment pattern is at specific positions based on version
-      sourceBottomRightX = dimMinus3;
-      sourceBottomRightY = dimMinus3;
+      // Alignment pattern is centered at (dim - 7) + 0.5 = dim - 6.5
+      sourceBottomRightX = dimension - 6.5;
+      sourceBottomRightY = dimension - 6.5;
     } else {
       sourceBottomRightX = dimMinus3;
       sourceBottomRightY = dimMinus3;

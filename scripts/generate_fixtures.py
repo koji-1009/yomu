@@ -25,6 +25,7 @@ SCRIPTS = [
     "scripts/generate_multi_qr.py",  # Multiple QRs in one image
     "scripts/generate_uneven_lighting.py",  # Lighting/Shadow robustness
     "scripts/generate_performance_test_images.py",  # Performance test images
+    "scripts/generate_distorted_qr.py",  # Distorted (rotated/tilted) images
 ]
 
 

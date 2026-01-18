@@ -116,7 +116,7 @@ void main() {
     });
 
     group('Binarizer edge cases', () {
-      test('GlobalHistogramBinarizer handles uniform image', () {
+      test('Binarizer handles uniform image', () {
         // All same color
         final pixels = Int32List(100);
         for (var i = 0; i < 100; i++) {
@@ -127,7 +127,7 @@ void main() {
           height: 10,
           pixels: pixels,
         );
-        final binarizer = GlobalHistogramBinarizer(source);
+        final binarizer = Binarizer(source);
 
         // Should not throw
         final matrix = binarizer.getBlackMatrix();

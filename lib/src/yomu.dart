@@ -234,7 +234,7 @@ class Yomu {
       height: height,
       pixels: pixels,
     );
-    final blackMatrix = GlobalHistogramBinarizer(source).getBlackMatrix();
+    final blackMatrix = Binarizer(source).getBlackMatrix();
     final detector = Detector(blackMatrix);
     final detectorResult = detector.detect();
 
@@ -266,7 +266,7 @@ class Yomu {
       height: height,
       pixels: pixels,
     );
-    final blackMatrix = GlobalHistogramBinarizer(source).getBlackMatrix();
+    final blackMatrix = Binarizer(source).getBlackMatrix();
     final detector = Detector(blackMatrix);
     final detectorResults = detector.detectMulti();
 

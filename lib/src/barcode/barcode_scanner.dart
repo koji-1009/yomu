@@ -76,7 +76,7 @@ class BarcodeScanner {
   BarcodeResult? scan(RGBLuminanceSource source) {
     if (decoders.isEmpty) return null;
 
-    final matrix = GlobalHistogramBinarizer(source).getBlackMatrix();
+    final matrix = Binarizer(source).getBlackMatrix();
     final height = matrix.height;
     final width = matrix.width;
 
@@ -114,7 +114,7 @@ class BarcodeScanner {
   List<BarcodeResult> scanAll(RGBLuminanceSource source) {
     if (decoders.isEmpty) return [];
 
-    final matrix = GlobalHistogramBinarizer(source).getBlackMatrix();
+    final matrix = Binarizer(source).getBlackMatrix();
     final height = matrix.height;
     final width = matrix.width;
     final results = <BarcodeResult>[];

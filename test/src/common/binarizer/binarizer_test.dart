@@ -43,7 +43,7 @@ void main() {
     });
   });
 
-  group('GlobalHistogramBinarizer', () {
+  group('Binarizer', () {
     test('binarizes based on histogram', () {
       // 50% dark gray, 50% light gray
       // Threshold should be middle.
@@ -56,7 +56,7 @@ void main() {
       ints[3] = 0xFFC0C0C0; // 2x2 image
 
       final source = RGBLuminanceSource(width: 2, height: 2, pixels: ints);
-      final binarizer = GlobalHistogramBinarizer(source);
+      final binarizer = Binarizer(source);
       final matrix = binarizer.getBlackMatrix();
 
       // Darker should be black (true)

@@ -32,8 +32,8 @@ class GridSampler {
         final py = points[x + 1].toInt();
 
         if (px >= 0 && px < image.width && py >= 0 && py < image.height) {
-          if (image.get(x: px, y: py)) {
-            bits.set(x: x >> 1, y: y);
+          if (image.get(px, py)) {
+            bits.set(x >> 1, y);
           }
         }
       }

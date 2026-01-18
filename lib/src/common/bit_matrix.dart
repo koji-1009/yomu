@@ -120,7 +120,7 @@ class BitMatrix {
   /// Caller must ensure coordinates are within bounds [0, width) and [0, height).
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
-  bool get({required int x, required int y}) {
+  bool get(int x, int y) {
     final offset = y * _rowStride + (x >> 5);
     return (_bits[offset] & (1 << (x & 0x1f))) != 0;
   }
@@ -131,7 +131,7 @@ class BitMatrix {
   /// Caller must ensure coordinates are within bounds [0, width) and [0, height).
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
-  void set({required int x, required int y}) {
+  void set(int x, int y) {
     final offset = y * _rowStride + (x >> 5);
     _bits[offset] |= (1 << (x & 0x1f));
   }
@@ -139,7 +139,7 @@ class BitMatrix {
   /// Flips the bit at [x], [y].
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
-  void flip({required int x, required int y}) {
+  void flip(int x, int y) {
     final offset = y * _rowStride + (x >> 5);
     _bits[offset] ^= (1 << (x & 0x1f));
   }
@@ -149,7 +149,7 @@ class BitMatrix {
     final buffer = StringBuffer();
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x++) {
-        buffer.write(get(x: x, y: y) ? 'X ' : '  ');
+        buffer.write(get(x, y) ? 'X ' : '  ');
       }
       buffer.writeln();
     }

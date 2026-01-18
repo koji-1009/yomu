@@ -96,31 +96,31 @@ void main() {
         // Set all bits
         for (var i = 0; i < 4; i++) {
           for (var j = 0; j < 4; j++) {
-            bits.set(x: j, y: i);
+            bits.set(j, i);
           }
         }
 
         DataMask.binary000.unmaskBitMatrix(bits, 4);
 
         // Checkerboard pattern: (i+j) even positions should be flipped (now false)
-        expect(bits.get(x: 0, y: 0), isFalse); // flipped
-        expect(bits.get(x: 1, y: 0), isTrue); // not flipped
-        expect(bits.get(x: 0, y: 1), isTrue); // not flipped
-        expect(bits.get(x: 1, y: 1), isFalse); // flipped
+        expect(bits.get(0, 0), isFalse); // flipped
+        expect(bits.get(1, 0), isTrue); // not flipped
+        expect(bits.get(0, 1), isTrue); // not flipped
+        expect(bits.get(1, 1), isFalse); // flipped
       });
 
       test('unmask is reversible', () {
         final bits = BitMatrix(width: 5, height: 5);
         // Set some bits
-        bits.set(x: 1, y: 2);
-        bits.set(x: 3, y: 4);
-        bits.set(x: 0, y: 0);
+        bits.set(1, 2);
+        bits.set(3, 4);
+        bits.set(0, 0);
 
         // Copy original state
         final originalState = <(int, int), bool>{};
         for (var i = 0; i < 5; i++) {
           for (var j = 0; j < 5; j++) {
-            originalState[(i, j)] = bits.get(x: j, y: i);
+            originalState[(i, j)] = bits.get(j, i);
           }
         }
 
@@ -130,7 +130,7 @@ void main() {
 
         for (var i = 0; i < 5; i++) {
           for (var j = 0; j < 5; j++) {
-            expect(bits.get(x: j, y: i), originalState[(i, j)]);
+            expect(bits.get(j, i), originalState[(i, j)]);
           }
         }
       });

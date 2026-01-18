@@ -36,12 +36,12 @@ void _drawFinderPattern(BitMatrix matrix, int xStart, int yStart) {
   for (var y = 0; y < 7; y++) {
     for (var x = 0; x < 7; x++) {
       if (y == 0 || y == 6 || x == 0 || x == 6) {
-        matrix.set(x: xStart + x, y: yStart + y);
+        matrix.set(xStart + x, yStart + y);
       } else if (y == 1 || y == 5 || x == 1 || x == 5) {
         // White
       } else {
         // Black 3x3
-        matrix.set(x: xStart + x, y: yStart + y);
+        matrix.set(xStart + x, yStart + y);
       }
     }
   }

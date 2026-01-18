@@ -67,18 +67,18 @@ void main() {
     group('BitMatrix edge cases', () {
       test('handles 1x1 matrix', () {
         final matrix = BitMatrix(width: 1, height: 1);
-        expect(matrix.get(x: 0, y: 0), isFalse);
-        matrix.set(x: 0, y: 0);
-        expect(matrix.get(x: 0, y: 0), isTrue);
-        matrix.flip(x: 0, y: 0);
-        expect(matrix.get(x: 0, y: 0), isFalse);
+        expect(matrix.get(0, 0), isFalse);
+        matrix.set(0, 0);
+        expect(matrix.get(0, 0), isTrue);
+        matrix.flip(0, 0);
+        expect(matrix.get(0, 0), isFalse);
       });
 
       test('handles large matrix', () {
         final matrix = BitMatrix(width: 1000, height: 1000);
-        matrix.set(x: 999, y: 999);
-        expect(matrix.get(x: 999, y: 999), isTrue);
-        expect(matrix.get(x: 0, y: 0), isFalse);
+        matrix.set(999, 999);
+        expect(matrix.get(999, 999), isTrue);
+        expect(matrix.get(0, 0), isFalse);
       });
     });
 

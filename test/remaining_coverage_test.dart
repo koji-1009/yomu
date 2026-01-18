@@ -4,8 +4,11 @@
 import 'dart:typed_data';
 
 import 'package:test/test.dart';
+import 'package:yomu/src/barcode/barcode_decoder.dart';
 import 'package:yomu/src/barcode/barcode_result.dart';
+import 'package:yomu/src/barcode/barcode_scanner.dart';
 import 'package:yomu/src/barcode/itf_decoder.dart';
+import 'package:yomu/src/common/binarizer/luminance_source.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
 import 'package:yomu/src/common/perspective_transform.dart';
 import 'package:yomu/src/qr/decoder/generic_gf.dart';
@@ -462,28 +465,28 @@ void main() {
       // Counts: 2, 2, 6, 2, 2. Ratio 1:1:3:1:1.
       const y = 2;
       for (var x = 0; x < 2; x++) {
-        matrix.set(x: x, y: y);
+        matrix.set(x, y);
       } // Set (0,2), (1,2)
       // 2,3 are W
       for (var x = 4; x < 10; x++) {
-        matrix.set(x: x, y: y);
+        matrix.set(x, y);
       } // Set (4,2) to (9,2)
       // 10,11 are W
       for (var x = 12; x < 14; x++) {
-        matrix.set(x: x, y: y);
+        matrix.set(x, y);
       } // Set (12,2), (13,2)
 
       // Verify setup
-      expect(matrix.get(x: 0, y: y), isTrue); // B
-      expect(matrix.get(x: 1, y: y), isTrue); // B
-      expect(matrix.get(x: 2, y: y), isFalse); // W
-      expect(matrix.get(x: 3, y: y), isFalse); // W
-      expect(matrix.get(x: 4, y: y), isTrue); // B
-      expect(matrix.get(x: 9, y: y), isTrue); // B
-      expect(matrix.get(x: 10, y: y), isFalse); // W
-      expect(matrix.get(x: 11, y: y), isFalse); // W
-      expect(matrix.get(x: 12, y: y), isTrue); // B
-      expect(matrix.get(x: 13, y: y), isTrue); // B
+      expect(matrix.get(0, y), isTrue); // B
+      expect(matrix.get(1, y), isTrue); // B
+      expect(matrix.get(2, y), isFalse); // W
+      expect(matrix.get(3, y), isFalse); // W
+      expect(matrix.get(4, y), isTrue); // B
+      expect(matrix.get(9, y), isTrue); // B
+      expect(matrix.get(10, y), isFalse); // W
+      expect(matrix.get(11, y), isFalse); // W
+      expect(matrix.get(12, y), isTrue); // B
+      expect(matrix.get(13, y), isTrue); // B
 
       final finder = FinderPatternFinder(matrix);
       // This will throw NotFoundException because only 1 pattern exists,
@@ -495,4 +498,105 @@ void main() {
       }
     });
   });
+
+  group('BarcodeScanner Coverage with Mocks', () {
+    test('scan iterates through rows and decoders', () {
+      final mockDecoder = MockBarcodeDecoder(
+        shouldReturn: true,
+        atRowIndex: 2, // 3rd row position (middle)
+        returnValue: const BarcodeResult(
+          text: 'MOCK',
+          format: 'MOCK',
+          startX: 0,
+          endX: 10,
+          rowY: 50,
+        ),
+      );
+
+      final scanner = BarcodeScanner(decoders: [mockDecoder]);
+
+      // Create a 100x100 white image
+      final pixels = Int32List(100 * 100);
+      final source = RGBLuminanceSource(
+        width: 100,
+        height: 100,
+        pixels: pixels,
+      );
+
+      final result = scanner.scan(source);
+
+      expect(result, isNotNull);
+      expect(result!.text, 'MOCK');
+      expect(mockDecoder.decodeRowCount, greaterThan(0));
+    });
+
+    test('scanAll collects all results', () {
+      final mockDecoder = MockBarcodeDecoder(
+        shouldReturn: true,
+        returnAlways: true, // Return result for every row
+        returnValue: const BarcodeResult(
+          text: 'MOCK',
+          format: 'MOCK',
+          startX: 0,
+          endX: 10,
+          rowY: 0, // Mock ignores this
+        ),
+      );
+
+      final scanner = BarcodeScanner(decoders: [mockDecoder]);
+      final pixels = Int32List(100 * 100);
+      final source = RGBLuminanceSource(
+        width: 100,
+        height: 100,
+        pixels: pixels,
+      );
+
+      final results = scanner.scanAll(source);
+
+      // 5 row positions checked -> 5 results
+      expect(results, hasLength(5));
+    });
+
+    test('isEmpty returns correct state', () {
+      expect(BarcodeScanner.none.isEmpty, isTrue);
+      expect(BarcodeScanner.retail.isEmpty, isFalse);
+    });
+  });
+}
+
+class MockBarcodeDecoder extends BarcodeDecoder {
+  MockBarcodeDecoder({
+    this.shouldReturn = false,
+    this.atRowIndex = -1,
+    this.returnAlways = false,
+    this.returnValue,
+  });
+
+  final bool shouldReturn;
+  final int atRowIndex;
+  final bool returnAlways;
+  final BarcodeResult? returnValue;
+
+  int decodeRowCount = 0;
+
+  @override
+  String get format => 'MOCK';
+
+  @override
+  BarcodeResult? decodeRow({
+    required List<bool> row,
+    required int rowNumber,
+    required int width,
+  }) {
+    final currentIndex = decodeRowCount++;
+
+    if (returnAlways) {
+      return returnValue;
+    }
+
+    if (shouldReturn && currentIndex == atRowIndex) {
+      return returnValue;
+    }
+    return null;
+  }
 }

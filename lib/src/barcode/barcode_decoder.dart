@@ -45,7 +45,7 @@ abstract class BarcodeDecoder {
     for (final y in rowPositions) {
       // Extract row data
       for (var x = 0; x < width; x++) {
-        row[x] = matrix.get(x: x, y: y);
+        row[x] = matrix.get(x, y);
       }
 
       final result = decodeRow(row: row, rowNumber: y, width: width);

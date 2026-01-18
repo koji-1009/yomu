@@ -45,7 +45,7 @@ void main() {
         for (var y = 0; y < 10; y++) {
           for (var x = 0; x < 10; x++) {
             if ((x + y) % 2 == 0) {
-              image.set(x: x, y: y);
+              image.set(x, y);
             }
           }
         }
@@ -73,7 +73,7 @@ void main() {
         final image = BitMatrix(width: 20, height: 20);
         for (var y = 0; y < 20; y++) {
           for (var x = 0; x < 20; x++) {
-            image.set(x: x, y: y);
+            image.set(x, y);
           }
         }
 
@@ -103,7 +103,7 @@ void main() {
         var setCount = 0;
         for (var y = 0; y < 10; y++) {
           for (var x = 0; x < 10; x++) {
-            if (result.get(x: x, y: y)) setCount++;
+            if (result.get(x, y)) setCount++;
           }
         }
         expect(setCount, greaterThan(80));
@@ -112,7 +112,7 @@ void main() {
       test('handles out-of-bounds sampling gracefully', () {
         // Small image
         final image = BitMatrix(width: 5, height: 5);
-        image.set(x: 2, y: 2);
+        image.set(2, 2);
 
         // Transform that maps beyond image bounds
         final transform = PerspectiveTransform.squareToQuadrilateral(
@@ -137,7 +137,7 @@ void main() {
         final image = BitMatrix(width: 20, height: 20);
         for (var y = 5; y < 10; y++) {
           for (var x = 5; x < 10; x++) {
-            image.set(x: x, y: y);
+            image.set(x, y);
           }
         }
 
@@ -167,7 +167,7 @@ void main() {
         var setCount = 0;
         for (var y = 0; y < 5; y++) {
           for (var x = 0; x < 5; x++) {
-            if (result.get(x: x, y: y)) setCount++;
+            if (result.get(x, y)) setCount++;
           }
         }
         expect(setCount, greaterThan(15)); // Most should be set

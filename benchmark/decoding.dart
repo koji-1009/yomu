@@ -157,6 +157,8 @@ String _categorize(String filename) {
   return 'Standard';
 }
 
+const int _iterations = 500;
+
 (Map<String, Metric>, Map<String, double>) _bench(
   Yomu yomu,
   Map<String, (int, int, Uint8List)> images,
@@ -170,21 +172,30 @@ String _categorize(String filename) {
   };
 
   for (final entry in images.entries) {
-    final sw = Stopwatch()..start();
-    try {
-      yomu.decode(
-        bytes: entry.value.$3,
-        width: entry.value.$1,
-        height: entry.value.$2,
-      );
-    } catch (_) {}
-    sw.stop();
-    final ms = sw.elapsedMicroseconds / 1000.0;
-    details[entry.key] = ms;
+    var imageTotalUs = 0;
 
-    final cat = _categorize(entry.key.split('/').last);
-    categoryTimes[cat]!.add(ms);
-    categoryTimes['All']!.add(ms);
+    // Run iterations
+    for (var i = 0; i < _iterations; i++) {
+      final sw = Stopwatch()..start();
+      try {
+        yomu.decode(
+          bytes: entry.value.$3,
+          width: entry.value.$1,
+          height: entry.value.$2,
+        );
+      } catch (_) {}
+      sw.stop();
+
+      final ms = sw.elapsedMicroseconds / 1000.0;
+      imageTotalUs += sw.elapsedMicroseconds;
+
+      final cat = _categorize(entry.key.split('/').last);
+      categoryTimes[cat]!.add(ms);
+      categoryTimes['All']!.add(ms);
+    }
+
+    // Calculate average for this specific image
+    details[entry.key] = (imageTotalUs / _iterations) / 1000.0;
   }
 
   final metrics = <String, Metric>{};

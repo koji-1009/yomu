@@ -563,6 +563,12 @@ def main():
         metavar=("BASE", "TARGET"),
         help="Compare two JSON result files",
     )
+    parser.add_argument(
+        "--mode",
+        choices=["jit", "aot", "all"],
+        default="all",
+        help="Benchmark mode (jit, aot, or all)",
+    )
 
     args = parser.parse_args()
 
@@ -606,22 +612,40 @@ def main():
 
     start_time = time.time()
 
-    # Run JIT benchmark
-    jit_result = run_jit_benchmark(target_script)
-    if not jit_result:
-        print("❌ JIT benchmark failed")
-        sys.exit(1)
+    jit_result = None
+    aot_result = None
 
-    print()
+    # Run JIT benchmark
+    if args.mode in ["jit", "all"]:
+        jit_result = run_jit_benchmark(target_script)
+        if not jit_result:
+            print("❌ JIT benchmark failed")
+            if args.mode == "jit":
+                sys.exit(1)
+        print()
 
     # Run AOT benchmark
-    aot_result = run_aot_benchmark(target_script)
-    if not aot_result:
-        print("❌ AOT benchmark failed")
-        sys.exit(1)
+    if args.mode in ["aot", "all"]:
+        aot_result = run_aot_benchmark(target_script)
+        if not aot_result:
+            print("❌ AOT benchmark failed")
+            if args.mode == "aot":
+                sys.exit(1)
 
-    # Print comparison
-    print_comparison(jit_result, aot_result)
+    # Print comparison if both available, otherwise just print what we have
+    if jit_result and aot_result:
+        print_comparison(jit_result, aot_result)
+    elif jit_result:
+        print(f"JIT Result: Avg {jit_result.avg_time_ms:.3f}ms")
+    elif aot_result:
+        if isinstance(aot_result, ComparativeBenchmarkResult):
+            print(f"AOT Result (QR): Avg {aot_result.qr_all_ms:.3f}ms")
+            if aot_result.qr_categories:
+                print("\n📈 QR Performance (AOT):")
+                for cat, val in aot_result.qr_categories.items():
+                    print(f"  {cat:<10}: Avg {val[2]:.3f}ms | p95 {val[3]:.3f}ms")
+        else:
+            print(f"AOT Result: Avg {aot_result.avg_time_ms:.3f}ms")
 
     # Save Results if requested
     if args.save:
@@ -630,13 +654,18 @@ def main():
     elapsed = time.time() - start_time
     print(f"\n⏱️ Total benchmark time: {elapsed:.1f}s")
 
+    success = True
+    if args.mode in ["jit", "all"] and (not jit_result or not jit_result.passed):
+        success = False
+    if args.mode in ["aot", "all"] and (not aot_result or not aot_result.passed):
+        success = False
+
     # Final status
-    if aot_result.passed and jit_result.passed:
-        print("\n✅ ALL BENCHMARKS PASSED")
+    if success:
+        print("\n✅ BENCHMARKS PASSED")
         sys.exit(0)
     else:
-        print("\n⚠️ SOME BENCHMARKS NEED ATTENTION")
-        # Don't fail the script, just warn
+        print("\n⚠️ BENCHMARKS FAILED OR WARNED")
         sys.exit(0)
 
 

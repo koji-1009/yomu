@@ -57,10 +57,10 @@ class BitMatrix {
     final rowStride = (width + 31) ~/ 32;
     final bits = Uint32List(rowStride * height);
 
-    for (var y = 0; y < height; y++) {
-      final yOffset = y * width;
-      final rowOffset = y * rowStride;
+    var yOffset = 0;
+    var rowOffset = 0;
 
+    for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x += 32) {
         final end = (x + 32 > width) ? width : x + 32;
         var word = 0;
@@ -72,6 +72,8 @@ class BitMatrix {
         }
         bits[rowOffset + (x >> 5)] = word;
       }
+      yOffset += width;
+      rowOffset += rowStride;
     }
 
     return BitMatrix.fromBits(

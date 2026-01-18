@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'generic_gf_poly.dart';
 
 /// Utility class to perform arithmetic in GF(256).
@@ -9,8 +11,8 @@ class GenericGF {
   }) : _primitive = primitive,
        _size = size,
        _generatorBase = generatorBase {
-    _expTable = List<int>.filled(_size, 0);
-    _logTable = List<int>.filled(_size, 0);
+    _expTable = Int16List(_size);
+    _logTable = Int16List(_size);
     var x = 1;
     for (var i = 0; i < _size; i++) {
       _expTable[i] = x;
@@ -24,8 +26,8 @@ class GenericGF {
       _logTable[_expTable[i]] = i;
     }
     // zero/one initialization
-    zero = GenericGFPoly(this, [0]);
-    one = GenericGFPoly(this, [1]);
+    zero = GenericGFPoly(this, Uint8List.fromList([0]));
+    one = GenericGFPoly(this, Uint8List.fromList([1]));
   }
 
   static final GenericGF qrCodeField256 = GenericGF(
@@ -37,8 +39,8 @@ class GenericGF {
   final int _primitive;
   final int _size;
   final int _generatorBase;
-  late final List<int> _expTable;
-  late final List<int> _logTable;
+  late final Int16List _expTable;
+  late final Int16List _logTable;
   late final GenericGFPoly zero;
   late final GenericGFPoly one;
 

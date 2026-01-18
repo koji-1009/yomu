@@ -137,9 +137,12 @@ class Yomu {
           width: processWidth,
           height: processHeight,
         );
-      } catch (_) {
-        // Fall through to barcode scanning
+      } on DetectionException {
+        // Fall through to barcode scanning (e.g. maybe it wasn't a QR code)
       }
+      // Note: Other exceptions (like DecodeException/ReedSolomonException) will propagate.
+      // This is an optimization: if we found a QR code pattern but failed to decode it,
+      // we assume it is NOT a barcode and abort to save time.
     }
 
     // Try 1D barcodes
@@ -208,12 +211,14 @@ class Yomu {
     required int height,
   }) {
     final pixels = Int32List(width * height);
-    for (var i = 0; i < width * height; i++) {
-      final offset = i * 4;
+    var offset = 0;
+    final total = width * height;
+    for (var i = 0; i < total; i++) {
       final r = bytes[offset];
       final g = bytes[offset + 1];
       final b = bytes[offset + 2];
       pixels[i] = (0xFF << 24) | (r << 16) | (g << 8) | b;
+      offset += 4;
     }
     return pixels;
   }
@@ -305,27 +310,26 @@ class Yomu {
     final result = Int32List(dstWidth * dstHeight);
     final halfScale = scale ~/ 2;
 
+    // Pre-calculate stride for inner loop
+    final pixelStride = scale * 4;
     for (var dstY = 0; dstY < dstHeight; dstY++) {
       final srcY = dstY * scale + halfScale;
-      // Clamp Y to valid range
-      final clampedSrcY = srcY >= height ? height - 1 : srcY;
-      final rowOffset = clampedSrcY * width * 4;
+
+      final rowOffset = srcY * width * 4;
       final dstRowOffset = dstY * dstWidth;
 
+      // Start srcX at halfScale
+      var currentByteOffset = rowOffset + (halfScale * 4);
+
       for (var dstX = 0; dstX < dstWidth; dstX++) {
-        final srcX = dstX * scale + halfScale;
-        // Clamp X to valid range
-        final clampedSrcX = srcX >= width ? width - 1 : srcX;
+        final r = bytes[currentByteOffset];
+        final g = bytes[currentByteOffset + 1];
+        final b = bytes[currentByteOffset + 2];
 
-        // Calculate byte offset: (y * width + x) * 4
-        final byteOffset = rowOffset + (clampedSrcX * 4);
-
-        final r = bytes[byteOffset];
-        final g = bytes[byteOffset + 1];
-        final b = bytes[byteOffset + 2];
-
-        // 0xFF << 24 | R << 16 | G << 8 | B
         result[dstRowOffset + dstX] = (0xFF << 24) | (r << 16) | (g << 8) | b;
+
+        // Advance to next sample pixel
+        currentByteOffset += pixelStride;
       }
     }
 

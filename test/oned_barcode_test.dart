@@ -405,5 +405,22 @@ void main() {
 
       expect(result, isNull);
     });
+
+    test('Decodes UPC-A correctly when explicitly configured', () {
+      final file = File('fixtures/barcode_images/upca_product.png');
+      if (!file.existsSync()) return;
+
+      final (source, _, _) = _loadImageAsSource(
+        'fixtures/barcode_images/upca_product.png',
+      );
+
+      // Use scanner with ONLY UPCADecoder to force it to run
+      const scanner = BarcodeScanner(decoders: [UPCADecoder()]);
+      final result = scanner.scan(source);
+
+      expect(result, isNotNull);
+      expect(result!.format, 'UPC_A');
+      expect(result.text, hasLength(12));
+    });
   });
 }

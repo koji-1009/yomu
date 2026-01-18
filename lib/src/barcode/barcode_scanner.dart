@@ -74,12 +74,34 @@ class BarcodeScanner {
   ///
   /// Returns the first barcode found, or null if none found.
   BarcodeResult? scan(RGBLuminanceSource source) {
-    final matrix = GlobalHistogramBinarizer(source).getBlackMatrix();
+    if (decoders.isEmpty) return null;
 
-    for (final decoder in decoders) {
-      final result = decoder.decode(matrix);
-      if (result != null) {
-        return result;
+    final matrix = GlobalHistogramBinarizer(source).getBlackMatrix();
+    final height = matrix.height;
+    final width = matrix.width;
+
+    // Try rows at 10%, 30%, 50%, 70%, 90% of height
+    final rowPositions = [
+      height ~/ 10,
+      height * 3 ~/ 10,
+      height ~/ 2,
+      height * 7 ~/ 10,
+      height * 9 ~/ 10,
+    ];
+
+    final row = List<bool>.filled(width, false);
+
+    for (final y in rowPositions) {
+      // Extract row data ONCE for all decoders
+      for (var x = 0; x < width; x++) {
+        row[x] = matrix.get(x: x, y: y);
+      }
+
+      for (final decoder in decoders) {
+        final result = decoder.decodeRow(row: row, rowNumber: y, width: width);
+        if (result != null) {
+          return result;
+        }
       }
     }
 
@@ -90,13 +112,35 @@ class BarcodeScanner {
   ///
   /// Returns a list of all barcodes found.
   List<BarcodeResult> scanAll(RGBLuminanceSource source) {
+    if (decoders.isEmpty) return [];
+
     final matrix = GlobalHistogramBinarizer(source).getBlackMatrix();
+    final height = matrix.height;
+    final width = matrix.width;
     final results = <BarcodeResult>[];
 
-    for (final decoder in decoders) {
-      final result = decoder.decode(matrix);
-      if (result != null) {
-        results.add(result);
+    // Try rows at 10%, 30%, 50%, 70%, 90% of height
+    final rowPositions = [
+      height ~/ 10,
+      height * 3 ~/ 10,
+      height ~/ 2,
+      height * 7 ~/ 10,
+      height * 9 ~/ 10,
+    ];
+
+    final row = List<bool>.filled(width, false);
+
+    for (final y in rowPositions) {
+      // Extract row data ONCE for all decoders
+      for (var x = 0; x < width; x++) {
+        row[x] = matrix.get(x: x, y: y);
+      }
+
+      for (final decoder in decoders) {
+        final result = decoder.decodeRow(row: row, rowNumber: y, width: width);
+        if (result != null) {
+          results.add(result);
+        }
       }
     }
 

@@ -137,9 +137,12 @@ class Yomu {
           width: processWidth,
           height: processHeight,
         );
-      } catch (_) {
-        // Fall through to barcode scanning
+      } on DetectionException {
+        // Fall through to barcode scanning (e.g. maybe it wasn't a QR code)
       }
+      // Note: Other exceptions (like DecodeException/ReedSolomonException) will propagate.
+      // This is an optimization: if we found a QR code pattern but failed to decode it,
+      // we assume it is NOT a barcode and abort to save time.
     }
 
     // Try 1D barcodes

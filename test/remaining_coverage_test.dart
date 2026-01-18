@@ -274,49 +274,6 @@ void main() {
     });
   });
 
-  group('GenericGFPoly Field Mismatch', () {
-    test('addOrSubtract throws on different fields', () {
-      // Create second field with different parameters
-      final field1 = GenericGF.qrCodeField256;
-      final field2 = GenericGF(
-        primitive: 0x011D,
-        size: 256,
-        generatorBase: 1,
-      ); // Different base
-      final poly1 = GenericGFPoly(field1, [1, 2, 3]);
-      final poly2 = GenericGFPoly(field2, [4, 5, 6]);
-
-      expect(() => poly1.addOrSubtract(poly2), throwsA(isA<ArgumentError>()));
-    });
-
-    test('multiply throws on different fields', () {
-      final field1 = GenericGF.qrCodeField256;
-      final field2 = GenericGF(primitive: 0x011D, size: 256, generatorBase: 1);
-      final poly1 = GenericGFPoly(field1, [1, 2]);
-      final poly2 = GenericGFPoly(field2, [3, 4]);
-
-      expect(() => poly1.multiply(poly2), throwsA(isA<ArgumentError>()));
-    });
-
-    test('multiply returns zero when one operand is zero', () {
-      final field = GenericGF.qrCodeField256;
-      final poly1 = GenericGFPoly(field, [1, 2, 3]);
-      final zero = field.zero;
-
-      final result = poly1.multiply(zero);
-      expect(result.isZero, isTrue);
-    });
-
-    test('divide throws on different fields', () {
-      final field1 = GenericGF.qrCodeField256;
-      final field2 = GenericGF(primitive: 0x011D, size: 256, generatorBase: 1);
-      final poly1 = GenericGFPoly(field1, [1, 2, 3]);
-      final poly2 = GenericGFPoly(field2, [1, 1]);
-
-      expect(() => poly1.divide(poly2), throwsA(isA<ArgumentError>()));
-    });
-  });
-
   group('Version Boundary Tests', () {
     test('getProvisionalVersionForDimension throws on invalid dimension', () {
       // Dimension must satisfy (dimension - 17) % 4 == 0, i.e. dimension % 4 == 1

@@ -138,6 +138,9 @@ class GenericGFPoly {
   }
 
   List<GenericGFPoly> divide(GenericGFPoly other) {
+    if (other.isZero) {
+      throw ArgumentError('Divide by 0');
+    }
     var quotient = field.zero;
     var remainder = this;
 

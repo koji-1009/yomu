@@ -6,21 +6,17 @@ import 'package:test/test.dart';
 import 'package:yomu/yomu.dart';
 
 void main() {
+  final fixtureDir = Directory('fixtures/uneven_lighting');
+
+  setUpAll(() {
+    if (!fixtureDir.existsSync()) {
+      fail('Fixtures directory not found: ${fixtureDir.path}');
+    }
+  });
+
   group('Uneven Lighting QR Codes', () {
-    late Yomu yomu;
-
-    setUp(() {
-      yomu = Yomu.qrOnly;
-    });
-
     test('decodes QR codes with uneven lighting conditions', () {
-      final dir = Directory('fixtures/uneven_lighting');
-      if (!dir.existsSync()) {
-        // Skip if fixtures don't exist
-        return;
-      }
-
-      final files = dir
+      final files = fixtureDir
           .listSync()
           .whereType<File>()
           .where((f) => f.path.endsWith('.png'))
@@ -44,7 +40,7 @@ void main() {
         }
 
         try {
-          final result = yomu.decode(
+          final result = Yomu.qrOnly.decode(
             bytes: bytes,
             width: image.width,
             height: image.height,

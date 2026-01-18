@@ -6,6 +6,14 @@ import 'package:test/test.dart';
 import 'package:yomu/yomu.dart';
 
 void main() {
+  final fixturesDir = Directory('fixtures/qr_images');
+
+  setUpAll(() {
+    if (!fixturesDir.existsSync()) {
+      fail('Fixtures directory not found: ${fixturesDir.path}');
+    }
+  });
+
   group('Multi QR Code Detection', () {
     test('decodes 2 QR codes in horizontal layout', () {
       final file = File('fixtures/qr_images/multi_qr_2_horizontal.png');

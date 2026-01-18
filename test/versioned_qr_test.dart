@@ -14,13 +14,15 @@ import 'package:yomu/yomu.dart';
 void main() {
   final fixturesDir = Directory('fixtures/qr_images');
 
+  setUpAll(() {
+    if (!fixturesDir.existsSync()) {
+      fail('Fixtures directory not found: ${fixturesDir.path}');
+    }
+  });
+
   group('Versioned QR Code Detection', () {
     test('detects version 1 QR code', () {
       final file = File('${fixturesDir.path}/qr_version_1.png');
-      if (!file.existsSync()) {
-        markTestSkipped('Fixture qr_version_1.png not found');
-        return;
-      }
 
       final bytes = file.readAsBytesSync();
       final image = img.decodeImage(bytes);
@@ -39,10 +41,6 @@ void main() {
 
     test('detects version 2 QR code', () {
       final file = File('${fixturesDir.path}/qr_version_2.png');
-      if (!file.existsSync()) {
-        markTestSkipped('Fixture qr_version_2.png not found');
-        return;
-      }
 
       final bytes = file.readAsBytesSync();
       final image = img.decodeImage(bytes);
@@ -61,10 +59,6 @@ void main() {
 
     test('detects version 3 QR code', () {
       final file = File('${fixturesDir.path}/qr_version_3.png');
-      if (!file.existsSync()) {
-        markTestSkipped('Fixture qr_version_3.png not found');
-        return;
-      }
 
       final bytes = file.readAsBytesSync();
       final image = img.decodeImage(bytes);
@@ -83,10 +77,6 @@ void main() {
 
     test('detects version 4 QR code', () {
       final file = File('${fixturesDir.path}/qr_version_4.png');
-      if (!file.existsSync()) {
-        markTestSkipped('Fixture qr_version_4.png not found');
-        return;
-      }
 
       final bytes = file.readAsBytesSync();
       final image = img.decodeImage(bytes);
@@ -105,10 +95,6 @@ void main() {
 
     test('detects version 5 QR code', () {
       final file = File('${fixturesDir.path}/qr_version_5.png');
-      if (!file.existsSync()) {
-        markTestSkipped('Fixture qr_version_5.png not found');
-        return;
-      }
 
       final bytes = file.readAsBytesSync();
       final image = img.decodeImage(bytes);
@@ -127,10 +113,6 @@ void main() {
 
     test('detects version 6 QR code', () {
       final file = File('${fixturesDir.path}/qr_version_6.png');
-      if (!file.existsSync()) {
-        markTestSkipped('Fixture qr_version_6.png not found');
-        return;
-      }
 
       final bytes = file.readAsBytesSync();
       final image = img.decodeImage(bytes);
@@ -149,10 +131,6 @@ void main() {
 
     test('detects version 7 QR code (has version info)', () {
       final file = File('${fixturesDir.path}/qr_version_7.png');
-      if (!file.existsSync()) {
-        markTestSkipped('Fixture qr_version_7.png not found');
-        return;
-      }
 
       final bytes = file.readAsBytesSync();
       final image = img.decodeImage(bytes);
@@ -171,10 +149,6 @@ void main() {
 
     test('detects distorted version 4 QR code (rotation + noise)', () {
       final file = File('${fixturesDir.path}/qr_distorted_v4.png');
-      if (!file.existsSync()) {
-        markTestSkipped('Fixture qr_distorted_v4.png not found');
-        return;
-      }
 
       final bytes = file.readAsBytesSync();
       final image = img.decodeImage(bytes);

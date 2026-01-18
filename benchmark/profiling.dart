@@ -15,13 +15,13 @@ import 'package:yomu/src/qr/detector/detector.dart';
 /// to identify bottlenecks.
 ///
 /// **Usage**:
-/// Run manually when `realworld.dart` or `decoding_benchmark.dart` shows regression.
+/// Run manually when `performance.dart` or `decoding_benchmark.dart` shows regression.
 /// `dart run benchmark/profiling.dart`
 void main() {
-  final dir = Directory('fixtures/realworld_images');
+  final dir = Directory('fixtures/performance_test_images');
   if (!dir.existsSync()) {
-    print('ERROR: fixtures/realworld_images not found');
-    print('Run: uv run scripts/generate_realworld_qr.py');
+    print('ERROR: fixtures/performance_test_images not found');
+    print('Run: uv run scripts/generate_performance_test_images.py');
     exit(1);
   }
 

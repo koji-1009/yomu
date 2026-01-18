@@ -89,6 +89,10 @@ The codebase is structured to allow future expansion (e.g., 1D barcodes).
 2. **Test**: Create a test case in `test/src/...` reproducing the need.
 3. **Implement**: Write minimal clean code.
 4. **Verify**: Run `dart test`. Check `dart analyze --fatal-infos`.
+   * **Python Scripts**: If editing `scripts/*.py`, run:
+     ```bash
+     uvx ruff format scripts/
+     ```
 5. **Coverage**: Run `dart test --coverage=coverage` and verify 100%.
 6. **Benchmark**:
    * **Primary**: `python3 scripts/benchmark_runner.py` (Regression check).

@@ -25,7 +25,7 @@ enum DataMask {
     for (var i = 0; i < dimension; i++) {
       for (var j = 0; j < dimension; j++) {
         if (isMasked(i, j)) {
-          bits.flip(x: j, y: i);
+          bits.flip(j, i);
         }
       }
     }

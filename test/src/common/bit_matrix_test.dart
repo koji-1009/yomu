@@ -11,7 +11,7 @@ void main() {
       expect(matrix.height, 10);
       for (var y = 0; y < 10; y++) {
         for (var x = 0; x < 10; x++) {
-          expect(matrix.get(x: x, y: y), isFalse);
+          expect(matrix.get(x, y), isFalse);
         }
       }
     });
@@ -30,22 +30,22 @@ void main() {
 
     test('get and set bits', () {
       final matrix = BitMatrix(width: 3);
-      matrix.set(x: 1, y: 1);
-      expect(matrix.get(x: 1, y: 1), isTrue);
-      expect(matrix.get(x: 0, y: 0), isFalse);
+      matrix.set(1, 1);
+      expect(matrix.get(1, 1), isTrue);
+      expect(matrix.get(0, 0), isFalse);
     });
 
     test('flip toggles bit value', () {
       final matrix = BitMatrix(width: 3);
-      matrix.flip(x: 0, y: 0);
-      expect(matrix.get(x: 0, y: 0), isTrue);
-      matrix.flip(x: 0, y: 0);
-      expect(matrix.get(x: 0, y: 0), isFalse);
+      matrix.flip(0, 0);
+      expect(matrix.get(0, 0), isTrue);
+      matrix.flip(0, 0);
+      expect(matrix.get(0, 0), isFalse);
     });
 
     test('toString produces readable output', () {
       final matrix = BitMatrix(width: 3);
-      matrix.set(x: 1, y: 1);
+      matrix.set(1, 1);
       final str = matrix.toString();
       expect(str, contains('X'));
       expect(str.split('\n').length, greaterThanOrEqualTo(3));
@@ -53,15 +53,15 @@ void main() {
 
     test('clone creates independent copy', () {
       final matrix = BitMatrix(width: 5);
-      matrix.set(x: 2, y: 2);
+      matrix.set(2, 2);
 
       final cloned = matrix.clone();
-      expect(cloned.get(x: 2, y: 2), isTrue);
+      expect(cloned.get(2, 2), isTrue);
 
       // Modify original
-      matrix.flip(x: 2, y: 2);
+      matrix.flip(2, 2);
       // Clone should be unchanged
-      expect(cloned.get(x: 2, y: 2), isTrue);
+      expect(cloned.get(2, 2), isTrue);
     });
 
     test('fromBits constructor works correctly', () {
@@ -74,16 +74,16 @@ void main() {
       // First 16 bits should be set
       for (var y = 0; y < 4; y++) {
         for (var x = 0; x < 4; x++) {
-          expect(matrix.get(x: x, y: y), isTrue);
+          expect(matrix.get(x, y), isTrue);
         }
       }
     });
 
     test('handles large matrices', () {
       final matrix = BitMatrix(width: 100, height: 100);
-      matrix.set(x: 99, y: 99);
-      expect(matrix.get(x: 99, y: 99), isTrue);
-      expect(matrix.get(x: 0, y: 0), isFalse);
+      matrix.set(99, 99);
+      expect(matrix.get(99, 99), isTrue);
+      expect(matrix.get(0, 0), isFalse);
     });
   });
 }

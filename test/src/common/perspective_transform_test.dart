@@ -10,9 +10,9 @@ void main() {
     test('samples identity transform correctly', () {
       const sampler = GridSampler();
       final source = BitMatrix(width: 10);
-      source.set(x: 0, y: 0);
-      source.set(x: 5, y: 5);
-      source.set(x: 9, y: 9);
+      source.set(0, 0);
+      source.set(5, 5);
+      source.set(9, 9);
 
       // Identity transform
       final transform = PerspectiveTransform.quadrilateralToQuadrilateral(
@@ -36,10 +36,10 @@ void main() {
 
       final result = sampler.sampleGrid(source, 10, 10, transform);
 
-      expect(result.get(x: 0, y: 0), isTrue);
-      expect(result.get(x: 5, y: 5), isTrue);
-      expect(result.get(x: 9, y: 9), isTrue);
-      expect(result.get(x: 1, y: 1), isFalse);
+      expect(result.get(0, 0), isTrue);
+      expect(result.get(5, 5), isTrue);
+      expect(result.get(9, 9), isTrue);
+      expect(result.get(1, 1), isFalse);
     });
   });
 

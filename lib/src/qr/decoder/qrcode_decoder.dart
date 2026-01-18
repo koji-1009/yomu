@@ -162,44 +162,40 @@ class BitMatrixParser {
 
   FormatInformation? readFormatInformation() {
     var formatInfo1 = 0;
-    formatInfo1 = _copyBit(x: 0, y: 8, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 1, y: 8, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 2, y: 8, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 3, y: 8, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 4, y: 8, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 5, y: 8, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 7, y: 8, versionBits: formatInfo1); // Skip 6
-    formatInfo1 = _copyBit(x: 8, y: 8, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 8, y: 7, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(
-      x: 8,
-      y: 5,
-      versionBits: formatInfo1,
-    ); // Skip 6 (8,6)
-    formatInfo1 = _copyBit(x: 8, y: 4, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 8, y: 3, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 8, y: 2, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 8, y: 1, versionBits: formatInfo1);
-    formatInfo1 = _copyBit(x: 8, y: 0, versionBits: formatInfo1);
+    formatInfo1 = _copyBit(0, 8, formatInfo1);
+    formatInfo1 = _copyBit(1, 8, formatInfo1);
+    formatInfo1 = _copyBit(2, 8, formatInfo1);
+    formatInfo1 = _copyBit(3, 8, formatInfo1);
+    formatInfo1 = _copyBit(4, 8, formatInfo1);
+    formatInfo1 = _copyBit(5, 8, formatInfo1);
+    formatInfo1 = _copyBit(7, 8, formatInfo1); // Skip 6
+    formatInfo1 = _copyBit(8, 8, formatInfo1);
+    formatInfo1 = _copyBit(8, 7, formatInfo1);
+    formatInfo1 = _copyBit(8, 5, formatInfo1); // Skip 6 (8,6)
+    formatInfo1 = _copyBit(8, 4, formatInfo1);
+    formatInfo1 = _copyBit(8, 3, formatInfo1);
+    formatInfo1 = _copyBit(8, 2, formatInfo1);
+    formatInfo1 = _copyBit(8, 1, formatInfo1);
+    formatInfo1 = _copyBit(8, 0, formatInfo1);
 
     var formatInfo2 = 0;
     final dim = dimension;
-    formatInfo2 = _copyBit(x: 8, y: dim - 1, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: 8, y: dim - 2, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: 8, y: dim - 3, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: 8, y: dim - 4, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: 8, y: dim - 5, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: 8, y: dim - 6, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: 8, y: dim - 7, versionBits: formatInfo2);
+    formatInfo2 = _copyBit(8, dim - 1, formatInfo2);
+    formatInfo2 = _copyBit(8, dim - 2, formatInfo2);
+    formatInfo2 = _copyBit(8, dim - 3, formatInfo2);
+    formatInfo2 = _copyBit(8, dim - 4, formatInfo2);
+    formatInfo2 = _copyBit(8, dim - 5, formatInfo2);
+    formatInfo2 = _copyBit(8, dim - 6, formatInfo2);
+    formatInfo2 = _copyBit(8, dim - 7, formatInfo2);
 
-    formatInfo2 = _copyBit(x: dim - 8, y: 8, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: dim - 7, y: 8, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: dim - 6, y: 8, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: dim - 5, y: 8, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: dim - 4, y: 8, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: dim - 3, y: 8, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: dim - 2, y: 8, versionBits: formatInfo2);
-    formatInfo2 = _copyBit(x: dim - 1, y: 8, versionBits: formatInfo2);
+    formatInfo2 = _copyBit(dim - 8, 8, formatInfo2);
+    formatInfo2 = _copyBit(dim - 7, 8, formatInfo2);
+    formatInfo2 = _copyBit(dim - 6, 8, formatInfo2);
+    formatInfo2 = _copyBit(dim - 5, 8, formatInfo2);
+    formatInfo2 = _copyBit(dim - 4, 8, formatInfo2);
+    formatInfo2 = _copyBit(dim - 3, 8, formatInfo2);
+    formatInfo2 = _copyBit(dim - 2, 8, formatInfo2);
+    formatInfo2 = _copyBit(dim - 1, 8, formatInfo2);
 
     return FormatInformation.decodeFormatInformation(formatInfo1, formatInfo2);
   }
@@ -222,7 +218,7 @@ class BitMatrixParser {
     var versionBits1 = 0;
     for (var y = 5; y >= 0; y--) {
       for (var x = dimension - 9; x >= dimension - 11; x--) {
-        versionBits1 = _copyBit(x: x, y: y, versionBits: versionBits1);
+        versionBits1 = _copyBit(x, y, versionBits1);
       }
     }
 
@@ -230,7 +226,7 @@ class BitMatrixParser {
     var versionBits2 = 0;
     for (var x = 5; x >= 0; x--) {
       for (var y = dimension - 9; y >= dimension - 11; y--) {
-        versionBits2 = _copyBit(x: x, y: y, versionBits: versionBits2);
+        versionBits2 = _copyBit(x, y, versionBits2);
       }
     }
 
@@ -270,10 +266,9 @@ class BitMatrixParser {
 
         for (var c = 0; c < 2; c++) {
           final xx = col - c;
-          if (!_isFunctionPattern(x: xx, y: r, version: version)) {
+          if (!_isFunctionPattern(xx, r, version)) {
             bitsRead++;
-            currentByte =
-                (currentByte << 1) | (source.get(x: xx, y: r) ? 1 : 0);
+            currentByte = (currentByte << 1) | (source.get(xx, r) ? 1 : 0);
             if (bitsRead == 8) {
               result.add(currentByte);
               currentByte = 0;
@@ -288,16 +283,12 @@ class BitMatrixParser {
     return Uint8List.fromList(result);
   }
 
-  int _copyBit({required int x, required int y, required int versionBits}) {
-    final bit = bits.get(x: x, y: y);
+  int _copyBit(int x, int y, int versionBits) {
+    final bit = bits.get(x, y);
     return (versionBits << 1) | (bit ? 1 : 0);
   }
 
-  bool _isFunctionPattern({
-    required int x,
-    required int y,
-    required Version version,
-  }) {
+  bool _isFunctionPattern(int x, int y, Version version) {
     // Top-left finder pattern + format info (9x9 area)
     if (x < 9 && y < 9) return true;
     // Top-right finder pattern + format info (9x9 area)

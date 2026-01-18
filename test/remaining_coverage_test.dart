@@ -462,28 +462,28 @@ void main() {
       // Counts: 2, 2, 6, 2, 2. Ratio 1:1:3:1:1.
       const y = 2;
       for (var x = 0; x < 2; x++) {
-        matrix.set(x: x, y: y);
+        matrix.set(x, y);
       } // Set (0,2), (1,2)
       // 2,3 are W
       for (var x = 4; x < 10; x++) {
-        matrix.set(x: x, y: y);
+        matrix.set(x, y);
       } // Set (4,2) to (9,2)
       // 10,11 are W
       for (var x = 12; x < 14; x++) {
-        matrix.set(x: x, y: y);
+        matrix.set(x, y);
       } // Set (12,2), (13,2)
 
       // Verify setup
-      expect(matrix.get(x: 0, y: y), isTrue); // B
-      expect(matrix.get(x: 1, y: y), isTrue); // B
-      expect(matrix.get(x: 2, y: y), isFalse); // W
-      expect(matrix.get(x: 3, y: y), isFalse); // W
-      expect(matrix.get(x: 4, y: y), isTrue); // B
-      expect(matrix.get(x: 9, y: y), isTrue); // B
-      expect(matrix.get(x: 10, y: y), isFalse); // W
-      expect(matrix.get(x: 11, y: y), isFalse); // W
-      expect(matrix.get(x: 12, y: y), isTrue); // B
-      expect(matrix.get(x: 13, y: y), isTrue); // B
+      expect(matrix.get(0, y), isTrue); // B
+      expect(matrix.get(1, y), isTrue); // B
+      expect(matrix.get(2, y), isFalse); // W
+      expect(matrix.get(3, y), isFalse); // W
+      expect(matrix.get(4, y), isTrue); // B
+      expect(matrix.get(9, y), isTrue); // B
+      expect(matrix.get(10, y), isFalse); // W
+      expect(matrix.get(11, y), isFalse); // W
+      expect(matrix.get(12, y), isTrue); // B
+      expect(matrix.get(13, y), isTrue); // B
 
       final finder = FinderPatternFinder(matrix);
       // This will throw NotFoundException because only 1 pattern exists,

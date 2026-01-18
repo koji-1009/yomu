@@ -17,8 +17,8 @@ void main() {
       // Horizontal (6, 8) to (14, 8) ? No, row 6 (0-indexed).
       // Alternating B W.
       for (var i = 8; i < 13; i++) {
-        matrix.set(x: i, y: 6);
-        matrix.set(x: 6, y: i);
+        matrix.set(i, 6);
+        matrix.set(6, i);
       }
 
       final detector = Detector(matrix);
@@ -37,11 +37,8 @@ void main() {
       // So (0,0) grid -> (0,0) image roughly.
       // So result.bits.get(0,0) should check image(0,0).
 
-      expect(
-        result.bits.get(x: 0, y: 0),
-        isTrue,
-      ); // Top left of Finder is Black
-      expect(result.bits.get(x: 3, y: 3), isTrue); // Center of Finder is Black
+      expect(result.bits.get(0, 0), isTrue); // Top left of Finder is Black
+      expect(result.bits.get(3, 3), isTrue); // Center of Finder is Black
     });
   });
 }
@@ -50,12 +47,12 @@ void _drawFinderPattern(BitMatrix matrix, int xStart, int yStart) {
   for (var y = 0; y < 7; y++) {
     for (var x = 0; x < 7; x++) {
       if (y == 0 || y == 6 || x == 0 || x == 6) {
-        matrix.set(x: xStart + x, y: yStart + y);
+        matrix.set(xStart + x, yStart + y);
       } else if (y == 1 || y == 5 || x == 1 || x == 5) {
         // White
       } else {
         // Black 3x3
-        matrix.set(x: xStart + x, y: yStart + y);
+        matrix.set(xStart + x, yStart + y);
       }
     }
   }

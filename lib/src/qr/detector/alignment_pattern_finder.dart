@@ -87,13 +87,13 @@ class AlignmentPatternFinder {
       var j = startX;
 
       // Skip leading white modules
-      while (j < maxJ && !_image.get(x: j, y: i)) {
+      while (j < maxJ && !_image.get(j, i)) {
         j++;
       }
 
       var currentState = 0;
       while (j < maxJ) {
-        if (_image.get(x: j, y: i)) {
+        if (_image.get(j, i)) {
           // Black pixel
           if (currentState == 1) {
             stateCount[1]++;
@@ -208,18 +208,14 @@ class AlignmentPatternFinder {
 
     // Check upward from center
     var i = startI;
-    while (i >= 0 &&
-        _image.get(x: centerJ, y: i) &&
-        stateCount[1] <= maxCount) {
+    while (i >= 0 && _image.get(centerJ, i) && stateCount[1] <= maxCount) {
       stateCount[1]++;
       i--;
     }
     if (i < 0 || stateCount[1] > maxCount) {
       return null;
     }
-    while (i >= 0 &&
-        !_image.get(x: centerJ, y: i) &&
-        stateCount[0] <= maxCount) {
+    while (i >= 0 && !_image.get(centerJ, i) && stateCount[0] <= maxCount) {
       stateCount[0]++;
       i--;
     }
@@ -229,18 +225,14 @@ class AlignmentPatternFinder {
 
     // Check downward from center
     i = startI + 1;
-    while (i < maxI &&
-        _image.get(x: centerJ, y: i) &&
-        stateCount[1] <= maxCount) {
+    while (i < maxI && _image.get(centerJ, i) && stateCount[1] <= maxCount) {
       stateCount[1]++;
       i++;
     }
     if (i == maxI || stateCount[1] > maxCount) {
       return null;
     }
-    while (i < maxI &&
-        !_image.get(x: centerJ, y: i) &&
-        stateCount[2] <= maxCount) {
+    while (i < maxI && !_image.get(centerJ, i) && stateCount[2] <= maxCount) {
       stateCount[2]++;
       i++;
     }

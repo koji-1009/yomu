@@ -210,25 +210,21 @@ class FinderPatternFinder {
     // We are "in" the center black module (state 2).
     // Up
     // 1. Scan up (decrease i) inside Black (state 2)
-    while (i >= 0 && matrix.get(x: centerJ, y: i)) {
+    while (i >= 0 && matrix.get(centerJ, i)) {
       stateCount[2]++;
       i--;
     }
     if (i < 0) return null;
 
     // 2. Scan up White (state 1)
-    while (i >= 0 &&
-        !matrix.get(x: centerJ, y: i) &&
-        stateCount[1] <= maxCount) {
+    while (i >= 0 && !matrix.get(centerJ, i) && stateCount[1] <= maxCount) {
       stateCount[1]++;
       i--;
     }
     if (i < 0 || stateCount[1] > maxCount) return null;
 
     // 3. Scan up Black (state 0)
-    while (i >= 0 &&
-        matrix.get(x: centerJ, y: i) &&
-        stateCount[0] <= maxCount) {
+    while (i >= 0 && matrix.get(centerJ, i) && stateCount[0] <= maxCount) {
       stateCount[0]++;
       i--;
     }
@@ -238,25 +234,21 @@ class FinderPatternFinder {
     i = startI + 1;
 
     // 4. Scan down Black (state 2 residue)
-    while (i < maxI && matrix.get(x: centerJ, y: i)) {
+    while (i < maxI && matrix.get(centerJ, i)) {
       stateCount[2]++;
       i++;
     }
     if (i == maxI) return null;
 
     // 5. Scan down White (state 3)
-    while (i < maxI &&
-        !matrix.get(x: centerJ, y: i) &&
-        stateCount[3] <= maxCount) {
+    while (i < maxI && !matrix.get(centerJ, i) && stateCount[3] <= maxCount) {
       stateCount[3]++;
       i++;
     }
     if (i == maxI || stateCount[3] > maxCount) return null;
 
     // 6. Scan down Black (state 4)
-    while (i < maxI &&
-        matrix.get(x: centerJ, y: i) &&
-        stateCount[4] <= maxCount) {
+    while (i < maxI && matrix.get(centerJ, i) && stateCount[4] <= maxCount) {
       stateCount[4]++;
       i++;
     }
@@ -372,7 +364,7 @@ class FinderPatternFinder {
       var currentState = 0;
 
       for (var j = 0; j < maxJ; j++) {
-        if (image.get(x: j, y: i)) {
+        if (image.get(j, i)) {
           if ((currentState & 1) == 1) {
             currentState++;
           }

@@ -60,12 +60,12 @@ void main() {
       final matrix = binarizer.getBlackMatrix();
 
       // Darker should be black (true)
-      expect(matrix.get(x: 0, y: 0), isTrue);
-      expect(matrix.get(x: 1, y: 0), isTrue);
+      expect(matrix.get(0, 0), isTrue);
+      expect(matrix.get(1, 0), isTrue);
 
       // Lighter should be white (false)
-      expect(matrix.get(x: 0, y: 1), isFalse);
-      expect(matrix.get(x: 1, y: 1), isFalse);
+      expect(matrix.get(0, 1), isFalse);
+      expect(matrix.get(1, 1), isFalse);
     });
 
     test('handles larger images with rolling buffer', () {
@@ -91,10 +91,10 @@ void main() {
       final matrix = Binarizer(source).getBlackMatrix();
 
       // Top rows should be black (low value)
-      expect(matrix.get(x: 50, y: 10), isTrue);
+      expect(matrix.get(50, 10), isTrue);
 
       // Bottom rows should be white (high value)
-      expect(matrix.get(x: 50, y: 90), isFalse);
+      expect(matrix.get(50, 90), isFalse);
     });
   });
 }

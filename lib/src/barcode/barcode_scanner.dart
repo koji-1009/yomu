@@ -94,7 +94,7 @@ class BarcodeScanner {
     for (final y in rowPositions) {
       // Extract row data ONCE for all decoders
       for (var x = 0; x < width; x++) {
-        row[x] = matrix.get(x: x, y: y);
+        row[x] = matrix.get(x, y);
       }
 
       for (final decoder in decoders) {
@@ -133,7 +133,7 @@ class BarcodeScanner {
     for (final y in rowPositions) {
       // Extract row data ONCE for all decoders
       for (var x = 0; x < width; x++) {
-        row[x] = matrix.get(x: x, y: y);
+        row[x] = matrix.get(x, y);
       }
 
       for (final decoder in decoders) {

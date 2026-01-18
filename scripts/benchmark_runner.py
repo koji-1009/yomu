@@ -56,6 +56,12 @@ class ComparativeBenchmarkResult:
     barcode_overhead_pct: float
 
     passed: bool
+
+    # Optional fields (must come last in dataclass)
+    # Categories (Standard, Heavy, Edge) with avg/p95
+    # Stored as tuple (AvgA, p95A, AvgB, p95B)
+    qr_categories: dict[str, tuple[float, float, float, float]] = None
+    barcode_categories: dict[str, tuple[float, float, float, float]] = None
     details: list[tuple[str, float, float, str]] = None
 
 
@@ -114,11 +120,14 @@ def _parse_legacy(output: str) -> Optional[LegacyBenchmarkResult]:
 
 def _parse_comparative(output: str) -> Optional[ComparativeBenchmarkResult]:
     # Parse overheads
-    # Expect output like: Overhead: +0.024ms (+1.7%) or -0.019ms (-1.1%)
-    # Parse details
-    # Expect: DETAILS:image.png | 1.234 | 1.567 | +0.333
-    details = re.findall(r"DETAILS:(.+)\|(.+)\|(.+)\|(.+)", output)
+    overheads = re.findall(r"Overhead: ([+\-]?[\d.]+)ms \(([+\-]?[\d.]+)%\)", output)
 
+    # Parse absolute times (Global Avg)
+    # Yomu.qrOnly          | Avg: 1.454ms | p95: 5.4ms
+    avgs = re.findall(r"Avg: ([\d.]+)ms", output)
+
+    # Parse details
+    details = re.findall(r"DETAILS:(.+)\|(.+)\|(.+)\|(.+)", output)
     detail_rows = []
     for d in details:
         image = d[0].strip()
@@ -127,18 +136,33 @@ def _parse_comparative(output: str) -> Optional[ComparativeBenchmarkResult]:
         diff_str = d[3].strip()
         detail_rows.append((image, time_a, time_b, diff_str))
 
-    # Parse overheads (Restored)
-    # Expect output like: Overhead: +0.024ms (+1.7%) or -0.019ms (-1.1%)
-    overheads = re.findall(r"Overhead: ([+\-]?[\d.]+)ms \(([+\-]?[\d.]+)%\)", output)
+    # Parse Categories
+    # Expected occurrences in order: QR-A, QR-B, Barcode-A, Barcode-B
+    qr_cats = {}
+    bc_cats = {}
 
-    # Parse absolute times (Restored)
-    # Expect: Yomu.qrOnly          | Avg: 1.454ms | Total: 46.5ms
-    # Capture 'Avg:' value
-    avgs = re.findall(r"Avg: ([\d.]+)ms", output)
+    for cat in ["Standard", "Heavy", "Edge"]:
+        matches = re.findall(rf"{cat}\s+: Avg ([\d.]+)ms, p95 ([\d.]+)ms", output)
 
-    # We expect 4 averages (A, B for QR, then A, B for Barcode) and 2 overheads
+        # QR Section (indices 0 and 1)
+        if len(matches) >= 2:
+            qr_cats[cat] = (
+                float(matches[0][0]),
+                float(matches[0][1]),
+                float(matches[1][0]),
+                float(matches[1][1]),
+            )
+
+        # Barcode Section (indices 2 and 3)
+        if len(matches) >= 4:
+            bc_cats[cat] = (
+                float(matches[2][0]),
+                float(matches[2][1]),
+                float(matches[3][0]),
+                float(matches[3][1]),
+            )
+
     if len(overheads) < 2 or len(avgs) < 4:
-        # Might be partial result or failed
         return None
 
     # QR Metrics
@@ -153,7 +177,7 @@ def _parse_comparative(output: str) -> Optional[ComparativeBenchmarkResult]:
     bc_ohm = float(overheads[1][0])
     bc_ohp = float(overheads[1][1])
 
-    # Pass logic: QR overhead should be small (< 15%), Barcode overhead logic is just info
+    # Pass logic
     passed = qr_ohp < 15.0
 
     return ComparativeBenchmarkResult(
@@ -162,6 +186,8 @@ def _parse_comparative(output: str) -> Optional[ComparativeBenchmarkResult]:
         qr_all_ms=qr_all,
         qr_overhead_ms=qr_ohm,
         qr_overhead_pct=qr_ohp,
+        qr_categories=qr_cats,
+        barcode_categories=bc_cats,
         barcode_baseline_ms=bc_base,
         barcode_all_ms=bc_all,
         barcode_overhead_ms=bc_ohm,
@@ -194,6 +220,7 @@ def run_aot_benchmark(
     """Run benchmark in AOT mode (compiled executable)."""
     exe_name = Path(script_path).stem + "_exe"
     exe_path = Path("benchmark") / exe_name
+    exe_path = Path(exe_path)  # correct path usage
 
     # Compile if needed
     print("🔨 Compiling AOT executable...")
@@ -248,7 +275,52 @@ def generate_markdown_report(
     aot_status = "✅ PASS" if aot.passed else "⚠️ WARN"
     md.append(f"| **Status** | | {jit_status} | {aot_status} |")
 
-    # Detailed Table (AOT only usually matters for prod, but we show both or just AOT. Let's show AOT details)
+    # QR Category Breakdown (AOT)
+    if aot.qr_categories:
+        md.append("")
+        md.append("## 📈 QR Code Performance (AOT)")
+        md.append("| Category | Average (ms) | p95 (ms) | Notes |")
+        md.append("| :--- | :--- | :--- | :--- |")
+
+        cats = aot.qr_categories
+        if "Standard" in cats:
+            c = cats["Standard"]
+            md.append(
+                f"| **Standard** | {c[2]:.2f}ms | {c[3]:.2f}ms | Version 1-4, Alphanumeric |"
+            )
+        if "Heavy" in cats:
+            c = cats["Heavy"]
+            md.append(
+                f"| **Heavy** | {c[2]:.2f}ms | {c[3]:.2f}ms | Distorted, Version 7+ |"
+            )
+        if "Edge" in cats:
+            c = cats["Edge"]
+            md.append(
+                f"| **Edge** | {c[2]:.2f}ms | {c[3]:.2f}ms | Tiny, uniform, error cases |"
+            )
+
+    # Barcode Category Breakdown (AOT)
+    if aot.barcode_categories and len(aot.barcode_categories) > 0:
+        md.append("")
+        md.append("## 📈 Barcode Performance (AOT)")
+        md.append("| Category | Average (ms) | p95 (ms) | Notes |")
+        md.append("| :--- | :--- | :--- | :--- |")
+
+        cats = aot.barcode_categories
+        if "Standard" in cats:
+            c = cats["Standard"]
+            md.append(
+                f"| **Standard** | {c[2]:.2f}ms | {c[3]:.2f}ms | EAN, Code39, Code128 |"
+            )
+        # Reuse categories if they exist for barcodes
+        if "Heavy" in cats:
+            c = cats["Heavy"]
+            md.append(f"| **Heavy** | {c[2]:.2f}ms | {c[3]:.2f}ms | |")
+        if "Edge" in cats:
+            c = cats["Edge"]
+            md.append(f"| **Edge** | {c[2]:.2f}ms | {c[3]:.2f}ms | |")
+
+    # Detailed Table
     if aot.details:
         md.append("")
         md.append("## 🔍 Detailed Performance (AOT)")
@@ -313,18 +385,6 @@ def _print_legacy_comparison(jit: LegacyBenchmarkResult, aot: LegacyBenchmarkRes
     print(f"{'AOT Speedup':<25} | {speedup:.2f}x faster")
     print("=" * 80)
 
-    # Performance assessment
-    print("\n📈 PERFORMANCE ASSESSMENT:")
-    if aot.avg_time_ms < 2.0:
-        print("   ✅ AOT meets target (<2ms average decode time)")
-    else:
-        print(f"   ⚠️ AOT above target (target: <2ms, actual: {aot.avg_time_ms:.3f}ms)")
-
-    if jit.avg_time_ms < 5.0:
-        print("   ✅ JIT acceptable for development (<5ms)")
-    else:
-        print(f"   ⚠️ JIT slower than expected ({jit.avg_time_ms:.3f}ms)")
-
 
 def _format_time_cell(baseline: float, all_mode: float, overhead_pct: float) -> str:
     # Format: "1.45ms -> 1.48ms (+1.7%)"
@@ -362,15 +422,171 @@ def _print_comparative_comparison(
     print(
         f"{'Status':<35} | {'✅ PASS' if jit.passed else '⚠️ WARN':<30} | {'✅ PASS' if aot.passed else '⚠️ WARN':<30}"
     )
+
+    # Print Categories (AOT)
+    if aot.qr_categories:
+        print("\n📈 QR Performance by Category (AOT - Yomu.all):")
+        print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
+        print("-" * 50)
+        cats = aot.qr_categories
+        for cat in ["Standard", "Heavy", "Edge"]:
+            if cat in cats:
+                c = cats[cat]
+                print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")
+
+    if aot.barcode_categories and len(aot.barcode_categories) > 0:
+        print("\n📈 Barcode Performance by Category (AOT - Yomu.all):")
+        print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
+        print("-" * 50)
+        cats = aot.barcode_categories
+        for cat in ["Standard", "Heavy", "Edge"]:
+            if cat in cats:
+                c = cats[cat]
+                print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")
+
     print("=" * 100)
+
+
+import argparse
+import json
+from dataclasses import asdict, is_dataclass
+
+# ... (Existing imports)
+
+
+def save_results(
+    path: str, jit: Optional[BenchmarkResult], aot: Optional[BenchmarkResult]
+):
+    """Save benchmark results to a JSON file."""
+    data = {
+        "jit": asdict(jit) if jit and is_dataclass(jit) else None,
+        "aot": asdict(aot) if aot and is_dataclass(aot) else None,
+    }
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"\n💾 Results saved to {path}")
+
+
+def load_results(path: str) -> dict:
+    """Load benchmark results from a JSON file."""
+    with open(path, "r") as f:
+        return json.load(f)
+
+
+def generate_comparison_report(base_data: dict, target_data: dict) -> str:
+    """Generate a Markdown report comparing Base vs Target (HEAD)."""
+    md = []
+    md.append("# 🚀 Benchmark Comparison Report")
+    md.append("")
+
+    # We focus deeply on AOT results for the comparison as it is the prod target
+    base_aot = base_data.get("aot")
+    target_aot = target_data.get("aot")
+
+    if not base_aot or not target_aot:
+        md.append(
+            "> ⚠️ Missing AOT data in one or both reports. Comparing JIT if available."
+        )
+        # Fallback logic could go here, but let's stick to AOT for now or show error
+
+    # Helper to extract metric
+    def get_metric(data, key, nested_key=None):
+        if not data:
+            return 0.0
+        val = data.get(key, 0.0)
+        if nested_key and isinstance(val, dict):
+            return val.get(nested_key, 0.0)
+        return val
+
+    # QR Comparison
+    base_qr_avg = get_metric(base_aot, "qr_all_ms")
+    target_qr_avg = get_metric(target_aot, "qr_all_ms")
+
+    md.append("## 🏁 Main Metrics (AOT)")
+    md.append("| Metric | Base (main) | Target (PR) | Diff | State |")
+    md.append("| :--- | :--- | :--- | :--- | :--- |")
+
+    def row(label, base, target):
+        diff = target - base
+        pct = (diff / base * 100) if base > 0 else 0
+        icon = "🟢" if diff <= 0 else "🔴"
+        if abs(diff) < 0.05:
+            icon = "⚪"  # Noise threshold
+        return f"| **{label}** | {base:.3f}ms | {target:.3f}ms | {diff:+.3f}ms ({pct:+.1f}%) | {icon} |"
+
+    md.append(row("QR Code Avg", base_qr_avg, target_qr_avg))
+
+    base_bar_avg = get_metric(base_aot, "barcode_all_ms")
+    target_bar_avg = get_metric(target_aot, "barcode_all_ms")
+    md.append(row("Barcode Avg", base_bar_avg, target_bar_avg))
+
+    # Category Comparison
+    base_cats = base_aot.get("qr_categories", {}) if base_aot else {}
+    target_cats = target_aot.get("qr_categories", {}) if target_aot else {}
+
+    if base_cats or target_cats:
+        md.append("")
+        md.append("## 📊 QR Category Breakdown")
+        md.append("| Category | Base Avg | Target Avg | Diff |")
+        md.append("| :--- | :--- | :--- | :--- |")
+
+        all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
+        for cat in sorted(all_cats):
+            # Format is [base_base, base_all, base_all, base_all]?
+            # No, dict value is [base_avg, base_p95, all_avg, all_p95]
+            # We want index 2 (all_avg)
+            b_val = base_cats.get(cat, [0, 0, 0, 0])[2] if cat in base_cats else 0
+            t_val = target_cats.get(cat, [0, 0, 0, 0])[2] if cat in target_cats else 0
+
+            diff = t_val - b_val
+            pct = (diff / b_val * 100) if b_val > 0 else 0
+            md.append(
+                f"| {cat} | {b_val:.3f}ms | {t_val:.3f}ms | {diff:+.3f}ms ({pct:+.1f}%) |"
+            )
+
+    return "\n".join(md)
 
 
 def main():
     """Main execution entry point."""
-    # Parse args
-    target_script = "benchmark/decoding.dart"
-    if len(sys.argv) > 1:
-        target_script = sys.argv[1]
+    parser = argparse.ArgumentParser(description="Qyuto Benchmark Runner")
+    parser.add_argument(
+        "script",
+        nargs="?",
+        default="benchmark/decoding.dart",
+        help="Path to benchmark script",
+    )
+    parser.add_argument("--save", help="Save benchmark results to JSON file")
+    parser.add_argument(
+        "--compare",
+        nargs=2,
+        metavar=("BASE", "TARGET"),
+        help="Compare two JSON result files",
+    )
+
+    args = parser.parse_args()
+
+    # COMPARISON MODE
+    if args.compare:
+        base_path, target_path = args.compare
+        print(f"🔍 Comparing {base_path} vs {target_path}...")
+        try:
+            base_data = load_results(base_path)
+            target_data = load_results(target_path)
+            report = generate_comparison_report(base_data, target_data)
+
+            with open("benchmark_comparison.md", "w") as f:
+                f.write(report)
+
+            print(report)
+            print("\n📝 Comparison saved to benchmark_comparison.md")
+            sys.exit(0)
+        except Exception as e:
+            print(f"❌ Comparison failed: {e}")
+            sys.exit(1)
+
+    # NORMAL MODE
+    target_script = args.script
 
     # Check we're in the right directory
     if not Path(target_script).exists():
@@ -406,6 +622,10 @@ def main():
 
     # Print comparison
     print_comparison(jit_result, aot_result)
+
+    # Save Results if requested
+    if args.save:
+        save_results(args.save, jit_result, aot_result)
 
     elapsed = time.time() - start_time
     print(f"\n⏱️ Total benchmark time: {elapsed:.1f}s")

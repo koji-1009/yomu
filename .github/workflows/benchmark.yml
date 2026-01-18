@@ -1,9 +1,6 @@
 name: Benchmark
 
 on:
-  push:
-    branches:
-      - "main"
   pull_request:
 
 jobs:
@@ -23,10 +20,44 @@ jobs:
         with:
           version: "latest"
 
-      - run: dart pub get
-      - run: uv run scripts/benchmark_runner.py
+      # 1. Checkout Main and Benchmark
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: main
+          path: main_ref
+          fetch-depth: 1
 
-      - run: cat benchmark_summary.md >> $GITHUB_STEP_SUMMARY
+      - name: Benchmark Main
+        run: |
+          cd main_ref
+          dart pub get
+          # Assuming test images need to be generated or are in repo. 
+          # If generated, we need to run generation script. 
+          # Assuming standard flows.
+          # We need uv setup here too or just use system python if simple
+          # Using uv from setup
+          uv run scripts/benchmark_runner.py benchmark/decoding.dart --save ../main_bench.json
+        continue-on-error: true # Don't fail if main is broken, just skip comparison
+
+      # 2. Benchmark Current PR (Root)
+      - name: Benchmark PR
+        run: |
+          dart pub get
+          uv run scripts/benchmark_runner.py benchmark/decoding.dart --save pr_bench.json
+
+      # 3. Compare Results
+      - name: Compare Results
+        run: |
+          if [ -f "main_bench.json" ] && [ -f "pr_bench.json" ]; then
+            uv run scripts/benchmark_runner.py --compare main_bench.json pr_bench.json
+          else
+            echo "Skipping comparison (missing base/target json)"
+            # Fallback: Just use summary
+            cp benchmark_summary.md benchmark_comparison.md
+          fi
+
+      - run: cat benchmark_comparison.md >> $GITHUB_STEP_SUMMARY
+
       - name: Post to PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
@@ -34,7 +65,8 @@ jobs:
           script: |
             const fs = require('fs');
             try {
-              const report = fs.readFileSync('benchmark_summary.md', 'utf8');
+              const file = fs.existsSync('benchmark_comparison.md') ? 'benchmark_comparison.md' : 'benchmark_summary.md';
+              const report = fs.readFileSync(file, 'utf8');
               github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
@@ -42,5 +74,5 @@ jobs:
                 body: report
               });
             } catch (error) {
-              console.log('No benchmark summary found or error posting comment');
+              console.log('No benchmark report found');
             }

@@ -53,9 +53,6 @@ class GenericGF {
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
   int log(int a) {
-    if (a == 0) {
-      throw ArgumentError('Cannot take log(0)');
-    }
     return _logTable[a];
   }
 
@@ -63,9 +60,6 @@ class GenericGF {
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
   int inverse(int a) {
-    if (a == 0) {
-      throw ArgumentError('Cannot calculate inverse of 0');
-    }
     return _expTable[_size - 1 - _logTable[a]];
   }
 
@@ -84,7 +78,6 @@ class GenericGF {
 
   /// Helper to build a monomial
   GenericGFPoly buildMonomial(int degree, int coefficient) {
-    if (degree < 0) throw ArgumentError();
     if (coefficient == 0) return zero;
     final coeffs = List<int>.filled(degree + 1, 0);
     coeffs[0] = coefficient;

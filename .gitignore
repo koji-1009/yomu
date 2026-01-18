@@ -16,3 +16,6 @@ docs/*.js.map
 
 # macOS
 .DS_Store
+
+# Benchmark artifacts
+benchmark_summary.md

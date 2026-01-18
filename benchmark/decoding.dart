@@ -82,37 +82,65 @@ void _runComparison({
   }
 
   // Run A
-  final resultA = _bench(configA.$2, images);
+  final (avgA, detailsA) = _bench(configA.$2, images);
   // Run B
-  final resultB = _bench(configB.$2, images);
+  final (avgB, detailsB) = _bench(configB.$2, images);
 
-  // Report
+  // Report Summary
   print(
-    '${configA.$1.padRight(20)} | Avg: ${resultA.toStringAsFixed(3)}ms | Total: ${(resultA * files.length).toStringAsFixed(1)}ms',
+    '${configA.$1.padRight(20)} | Avg: ${avgA.toStringAsFixed(3)}ms | Total: ${(avgA * files.length).toStringAsFixed(1)}ms',
   );
   print(
-    '${configB.$1.padRight(20)} | Avg: ${resultB.toStringAsFixed(3)}ms | Total: ${(resultB * files.length).toStringAsFixed(1)}ms',
+    '${configB.$1.padRight(20)} | Avg: ${avgB.toStringAsFixed(3)}ms | Total: ${(avgB * files.length).toStringAsFixed(1)}ms',
   );
 
-  final diff = resultB - resultA;
-  final pct = (diff / resultA) * 100;
+  final diff = avgB - avgA;
+  final pct = (diff / avgA) * 100;
   final sign = diff > 0 ? '+' : '';
   print(
     'Overhead: $sign${diff.toStringAsFixed(3)}ms ($sign${pct.toStringAsFixed(1)}%)',
   );
+
+  // Report Details
+  print('\nDetailed Performance (ms):');
+  print(
+    '${'Image'.padRight(40)} | ${configA.$1.padRight(12)} | ${configB.$1.padRight(12)} | Diff',
+  );
+  print('-' * 90);
+
+  for (final path in images.keys) {
+    final name = path.split('/').last;
+    final timeA = detailsA[path] ?? 0.0;
+    final timeB = detailsB[path] ?? 0.0;
+    final d = timeB - timeA;
+
+    print(
+      'DETAILS:${name.padRight(32)} | ${timeA.toStringAsFixed(3).padRight(12)} | ${timeB.toStringAsFixed(3).padRight(12)} | ${d > 0 ? '+' : ''}${d.toStringAsFixed(3)}',
+    );
+  }
 }
 
-double _bench(Yomu yomu, Map<String, (int, int, Uint8List)> images) {
+(double, Map<String, double>) _bench(
+  Yomu yomu,
+  Map<String, (int, int, Uint8List)> images,
+) {
   var totalUs = 0;
-  for (final entry in images.values) {
+  final details = <String, double>{};
+
+  for (final entry in images.entries) {
     final sw = Stopwatch()..start();
     try {
-      yomu.decode(bytes: entry.$3, width: entry.$1, height: entry.$2);
+      yomu.decode(
+        bytes: entry.value.$3,
+        width: entry.value.$1,
+        height: entry.value.$2,
+      );
     } catch (_) {}
     sw.stop();
     totalUs += sw.elapsedMicroseconds;
+    details[entry.key] = sw.elapsedMicroseconds / 1000.0;
   }
-  return (totalUs / images.length) / 1000.0;
+  return ((totalUs / images.length) / 1000.0, details);
 }
 
 Uint8List _imageToBytes(img.Image image) {

@@ -198,8 +198,10 @@ yomu/
 Run the benchmark comparison (JIT vs AOT):
 
 ```bash
-python3 scripts/benchmark_runner.py
+uv run scripts/benchmark_runner.py
 ```
+
+Benchmarks are automatically run on CI (GitHub Actions) for every usage. We enforce strict performance thresholds to prevent regressions.
 
 ### Standard Images (≤1000px)
 

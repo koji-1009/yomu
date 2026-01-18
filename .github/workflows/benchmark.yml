@@ -36,20 +36,20 @@ jobs:
           # Assuming standard flows.
           # We need uv setup here too or just use system python if simple
           # Using uv from setup
-          uv run scripts/benchmark_runner.py benchmark/decoding.dart --save ../main_bench.json
+          uv run scripts/benchmark_runner.py benchmark/decoding.dart --mode aot --save ../main_bench.json
         continue-on-error: true # Don't fail if main is broken, just skip comparison
 
       # 2. Benchmark Current PR (Root)
       - name: Benchmark PR
         run: |
           dart pub get
-          uv run scripts/benchmark_runner.py benchmark/decoding.dart --save pr_bench.json
+          uv run scripts/benchmark_runner.py benchmark/decoding.dart --mode aot --save pr_bench.json
 
       # 3. Compare Results
       - name: Compare Results
         run: |
           if [ -f "main_bench.json" ] && [ -f "pr_bench.json" ]; then
-            uv run scripts/benchmark_runner.py --compare main_bench.json pr_bench.json
+            uv run scripts/benchmark_runner.py --compare main_bench.json pr_bench.json --mode aot
           else
             echo "Skipping comparison (missing base/target json)"
             # Fallback: Just use summary

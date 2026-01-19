@@ -19,12 +19,14 @@ class UPCADecoder extends EAN13Decoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
+    List<int>? runs,
   }) {
     // UPC-A is EAN-13 with first digit = 0
     final ean13Result = super.decodeRow(
       row: row,
       rowNumber: rowNumber,
       width: width,
+      runs: runs,
     );
 
     if (ean13Result == null) return null;

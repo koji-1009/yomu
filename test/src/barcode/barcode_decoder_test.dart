@@ -14,6 +14,7 @@ class MockBarcodeDecoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
+    List<int>? runs,
   }) {
     // Return result if middle pixel is black
     if (width > 0 && row[width ~/ 2]) {

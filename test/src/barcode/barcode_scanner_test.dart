@@ -98,6 +98,7 @@ class MockBarcodeDecoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
+    List<int>? runs,
   }) {
     final currentIndex = decodeRowCount++;
 

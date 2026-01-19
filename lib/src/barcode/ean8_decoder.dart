@@ -49,13 +49,14 @@ class EAN8Decoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
+    List<int>? runs,
   }) {
     // Convert to run-length encoding
-    final runs = _getRunLengths(row);
-    if (runs.length < 44) return null; // Need at least 44 runs for EAN-8
+    final runData = runs ?? _getRunLengths(row);
+    if (runData.length < 44) return null; // Need at least 44 runs for EAN-8
 
     // Find start guard (1:1:1 pattern)
-    final startInfo = _findStartGuard(runs);
+    final startInfo = _findStartGuard(runData);
     if (startInfo == null) return null;
 
     final startIndex = startInfo.$1;
@@ -68,9 +69,9 @@ class EAN8Decoder extends BarcodeDecoder {
     final digits = <int>[];
 
     for (var i = 0; i < 4; i++) {
-      if (runIndex + 4 > runs.length) return null;
+      if (runIndex + 4 > runData.length) return null;
 
-      final digitRuns = runs.sublist(runIndex, runIndex + 4);
+      final digitRuns = runData.sublist(runIndex, runIndex + 4);
       final digit = _decodeLeftDigit(digitRuns, moduleWidth);
       if (digit == null) return null;
 
@@ -83,9 +84,9 @@ class EAN8Decoder extends BarcodeDecoder {
 
     // Decode right 4 digits (R pattern only)
     for (var i = 0; i < 4; i++) {
-      if (runIndex + 4 > runs.length) return null;
+      if (runIndex + 4 > runData.length) return null;
 
-      final digitRuns = runs.sublist(runIndex, runIndex + 4);
+      final digitRuns = runData.sublist(runIndex, runIndex + 4);
       final digit = _decodeRightDigit(digitRuns, moduleWidth);
       if (digit == null) return null;
 

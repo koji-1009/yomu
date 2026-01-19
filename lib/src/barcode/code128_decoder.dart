@@ -131,13 +131,14 @@ class Code128Decoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
+    List<int>? runs,
   }) {
     // Convert to run-length encoding
-    final runs = _getRunLengths(row);
-    if (runs.length < 10) return null; // Need at least start + stop
+    final runData = runs ?? _getRunLengths(row);
+    if (runData.length < 10) return null; // Need at least start + stop
 
     // Find start pattern
-    final startInfo = _findStartPattern(runs);
+    final startInfo = _findStartPattern(runData);
     if (startInfo == null) return null;
 
     var runIndex = startInfo.$1;
@@ -167,17 +168,17 @@ class Code128Decoder extends BarcodeDecoder {
     runIndex += 6;
 
     // Decode data characters
-    while (runIndex + 6 <= runs.length) {
+    while (runIndex + 6 <= runData.length) {
       // Check for stop pattern (7 runs)
-      if (runIndex + 7 <= runs.length) {
-        final stopRuns = runs.sublist(runIndex, runIndex + 7);
+      if (runIndex + 7 <= runData.length) {
+        final stopRuns = runData.sublist(runIndex, runIndex + 7);
         if (_matchStop(stopRuns, moduleWidth)) {
           break;
         }
       }
 
       // Decode character (6 runs)
-      final charRuns = runs.sublist(runIndex, runIndex + 6);
+      final charRuns = runData.sublist(runIndex, runIndex + 6);
       final code = _decodeCharacter(charRuns, moduleWidth);
       if (code == null) break;
 

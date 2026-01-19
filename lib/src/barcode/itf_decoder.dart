@@ -37,13 +37,14 @@ class ITFDecoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
+    List<int>? runs,
   }) {
     // Convert to run-length encoding
-    final runs = _getRunLengths(row);
-    if (runs.length < 10) return null;
+    final runData = runs ?? _getRunLengths(row);
+    if (runData.length < 10) return null;
 
     // Find start pattern (4 narrow elements: NNNN)
-    final startInfo = _findStartPattern(runs);
+    final startInfo = _findStartPattern(runData);
     if (startInfo == null) return null;
 
     var runIndex = startInfo.$1;
@@ -57,14 +58,14 @@ class ITFDecoder extends BarcodeDecoder {
 
     // Decode digit pairs
     // Each pair uses 10 runs (5 bars + 5 spaces)
-    while (runIndex + 10 <= runs.length) {
+    while (runIndex + 10 <= runData.length) {
       // Check for end pattern (3 runs: WNN)
-      if (_isEndPattern(runs, runIndex, narrowWidth)) {
+      if (_isEndPattern(runData, runIndex, narrowWidth)) {
         break;
       }
 
       // Decode pair of digits
-      final pairRuns = runs.sublist(runIndex, runIndex + 10);
+      final pairRuns = runData.sublist(runIndex, runIndex + 10);
       final pair = _decodeDigitPair(pairRuns, narrowWidth);
       if (pair == null) break;
 

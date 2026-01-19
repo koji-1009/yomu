@@ -7,14 +7,14 @@
 Benchmark runner for yomu.
 
 Compares performance between JIT execution (dart run) and AOT execution (compiled exe).
-Parses output from benchmark/decoding_benchmark.dart (or compatible scripts).
+Parses output from benchmark/bench_compare.dart (or compatible scripts).
 
 Usage:
     uv run scripts/benchmark_runner.py [benchmark_script]
 
     Example:
-    uv run scripts/benchmark_runner.py benchmark/decoding.dart
-    uv run scripts/benchmark_runner.py benchmark/small.dart
+    uv run scripts/benchmark_runner.py benchmark/bench_compare.dart
+    uv run scripts/benchmark_runner.py benchmark/bench_throughput.dart
 """
 
 import re
@@ -198,7 +198,7 @@ def _parse_comparative(output: str) -> Optional[ComparativeBenchmarkResult]:
 
 
 def run_jit_benchmark(
-    script_path: str = "benchmark/decoding.dart",
+    script_path: str = "benchmark/bench_compare.dart",
 ) -> Optional[BenchmarkResult]:
     """Run benchmark in JIT mode (dart run)."""
     print(f"🔄 Running JIT benchmark ({script_path})...")
@@ -215,7 +215,7 @@ def run_jit_benchmark(
 
 
 def run_aot_benchmark(
-    script_path: str = "benchmark/decoding.dart",
+    script_path: str = "benchmark/bench_compare.dart",
 ) -> Optional[BenchmarkResult]:
     """Run benchmark in AOT mode (compiled executable)."""
     exe_name = Path(script_path).stem + "_exe"
@@ -553,7 +553,7 @@ def main():
     parser.add_argument(
         "script",
         nargs="?",
-        default="benchmark/decoding.dart",
+        default="benchmark/bench_compare.dart",
         help="Path to benchmark script",
     )
     parser.add_argument("--save", help="Save benchmark results to JSON file")

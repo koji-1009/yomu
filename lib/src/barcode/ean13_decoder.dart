@@ -74,13 +74,14 @@ class EAN13Decoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
+    List<int>? runs,
   }) {
     // Convert to run-length encoding
-    final runs = _getRunLengths(row);
-    if (runs.length < 60) return null; // Need at least 60 runs for EAN-13
+    final runData = runs ?? _getRunLengths(row);
+    if (runData.length < 60) return null; // Need at least 60 runs for EAN-13
 
     // Find start guard (1:1:1 pattern starting after white quiet zone)
-    final startInfo = _findStartGuard(runs);
+    final startInfo = _findStartGuard(runData);
     if (startInfo == null) return null;
 
     final startIndex = startInfo.$1;
@@ -94,9 +95,9 @@ class EAN13Decoder extends BarcodeDecoder {
     final digits = <int>[];
 
     for (var i = 0; i < 6; i++) {
-      if (runIndex + 4 > runs.length) return null;
+      if (runIndex + 4 > runData.length) return null;
 
-      final digitRuns = runs.sublist(runIndex, runIndex + 4);
+      final digitRuns = runData.sublist(runIndex, runIndex + 4);
       final digitInfo = _decodeLeftDigit(digitRuns, moduleWidth);
       if (digitInfo == null) return null;
 
@@ -110,9 +111,9 @@ class EAN13Decoder extends BarcodeDecoder {
 
     // Decode right 6 digits
     for (var i = 0; i < 6; i++) {
-      if (runIndex + 4 > runs.length) return null;
+      if (runIndex + 4 > runData.length) return null;
 
-      final digitRuns = runs.sublist(runIndex, runIndex + 4);
+      final digitRuns = runData.sublist(runIndex, runIndex + 4);
       final digit = _decodeRightDigit(digitRuns, moduleWidth);
       if (digit == null) return null;
 

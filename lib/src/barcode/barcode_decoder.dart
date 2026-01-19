@@ -18,10 +18,12 @@ abstract class BarcodeDecoder {
   /// - [row]: The row data as a list of booleans (true = black, false = white)
   /// - [rowNumber]: The Y coordinate of this row in the image
   /// - [width]: The width of the row
+  /// - [runs]: Optional pre-calculated run-length encoded data for this row.
   BarcodeResult? decodeRow({
     required List<bool> row,
     required int rowNumber,
     required int width,
+    List<int>? runs,
   });
 
   /// Scans the bit matrix to find and decode a barcode.

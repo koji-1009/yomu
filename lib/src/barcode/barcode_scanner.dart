@@ -1,4 +1,5 @@
-import '../common/binarizer/binarizer.dart';
+import 'dart:typed_data';
+
 import '../common/binarizer/luminance_source.dart';
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
@@ -76,9 +77,8 @@ class BarcodeScanner {
   BarcodeResult? scan(LuminanceSource source) {
     if (decoders.isEmpty) return null;
 
-    final matrix = Binarizer(source).getBlackMatrix();
-    final height = matrix.height;
-    final width = matrix.width;
+    final height = source.height;
+    final width = source.width;
 
     // Try rows at 10%, 30%, 50%, 70%, 90% of height
     final rowPositions = [
@@ -89,16 +89,24 @@ class BarcodeScanner {
       height * 9 ~/ 10,
     ];
 
-    final row = List<bool>.filled(width, false);
+    // Reusable buffer for luminance data
+    final lumBuffer = Uint8List(width);
 
     for (final y in rowPositions) {
-      // Extract row data ONCE for all decoders
-      for (var x = 0; x < width; x++) {
-        row[x] = matrix.get(x, y);
-      }
+      // Extract row luminance data
+      final lumRow = source.getRow(y, lumBuffer);
+
+      // Binarize row directly (1D)
+      final row = _binarizeRow(lumRow);
+      final runs = getRunLengths(row);
 
       for (final decoder in decoders) {
-        final result = decoder.decodeRow(row: row, rowNumber: y, width: width);
+        final result = decoder.decodeRow(
+          row: row,
+          rowNumber: y,
+          width: width,
+          runs: runs,
+        );
         if (result != null) {
           return result;
         }
@@ -114,9 +122,8 @@ class BarcodeScanner {
   List<BarcodeResult> scanAll(LuminanceSource source) {
     if (decoders.isEmpty) return [];
 
-    final matrix = Binarizer(source).getBlackMatrix();
-    final height = matrix.height;
-    final width = matrix.width;
+    final height = source.height;
+    final width = source.width;
     final results = <BarcodeResult>[];
 
     // Try rows at 10%, 30%, 50%, 70%, 90% of height
@@ -128,16 +135,24 @@ class BarcodeScanner {
       height * 9 ~/ 10,
     ];
 
-    final row = List<bool>.filled(width, false);
+    // Reusable buffer for luminance data
+    final lumBuffer = Uint8List(width);
 
     for (final y in rowPositions) {
-      // Extract row data ONCE for all decoders
-      for (var x = 0; x < width; x++) {
-        row[x] = matrix.get(x, y);
-      }
+      // Extract row luminance data
+      final lumRow = source.getRow(y, lumBuffer);
+
+      // Binarize row directly (1D)
+      final row = _binarizeRow(lumRow);
+      final runs = getRunLengths(row);
 
       for (final decoder in decoders) {
-        final result = decoder.decodeRow(row: row, rowNumber: y, width: width);
+        final result = decoder.decodeRow(
+          row: row,
+          rowNumber: y,
+          width: width,
+          runs: runs,
+        );
         if (result != null) {
           results.add(result);
         }
@@ -145,5 +160,71 @@ class BarcodeScanner {
     }
 
     return results;
+  }
+
+  /// Converts a row of booleans to run-length encoded data.
+  static List<int> getRunLengths(List<bool> row) {
+    final runs = <int>[];
+    if (row.isEmpty) return runs;
+    var currentPos = 0;
+    var currentColor = row[0];
+
+    while (currentPos < row.length) {
+      var runLength = 0;
+      while (currentPos < row.length && row[currentPos] == currentColor) {
+        runLength++;
+        currentPos++;
+      }
+      runs.add(runLength);
+      currentColor = !currentColor;
+    }
+
+    return runs;
+  }
+
+  /// Locally adaptive binarization for a single row.
+  /// Uses a moving average window to determine the threshold.
+  static List<bool> _binarizeRow(Uint8List luminance) {
+    final width = luminance.length;
+    final result = List<bool>.filled(width, false);
+
+    // Adaptive window size: ~1/32 of width, clamped to sane bounds.
+    // Minimum 16px to avoid noise, maximum 64px to capture local gradients.
+    var windowSize = width ~/ 32;
+    if (windowSize < 16) windowSize = 16;
+    if (windowSize > 64) windowSize = 64;
+
+    // Ensure windowSize doesn't exceed width (though width < 16 is unlikely)
+    if (windowSize > width) windowSize = width;
+
+    final halfWindow = windowSize >> 1;
+
+    // Build integral array (prefix sums) for O(1) window sum calculation
+    // Size is width + 1. integral[i] = sum(0..i-1)
+    final integral = Int32List(width + 1);
+    var runningSum = 0;
+    for (var i = 0; i < width; i++) {
+      runningSum += luminance[i];
+      integral[i + 1] = runningSum;
+    }
+
+    for (var x = 0; x < width; x++) {
+      // Define window bounds [x - halfWindow, x + halfWindow]
+      final left = (x - halfWindow < 0) ? 0 : x - halfWindow;
+      final right = (x + halfWindow >= width) ? width - 1 : x + halfWindow;
+
+      final count = right - left + 1;
+      final sum = integral[right + 1] - integral[left];
+      // Average = sum / count
+
+      // Threshold: 7/8 of average (= 0.875 * average)
+      // Pixel is black if pixel * count * 8 <= sum * 7
+      // Using shifts for *8.
+      if ((luminance[x] * count) << 3 <= sum * 7) {
+        result[x] = true; // Black
+      }
+    }
+
+    return result;
   }
 }

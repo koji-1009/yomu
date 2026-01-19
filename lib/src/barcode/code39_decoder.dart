@@ -74,13 +74,14 @@ class Code39Decoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
+    List<int>? runs,
   }) {
     // Convert to run-length encoding
-    final runs = _getRunLengths(row);
-    if (runs.length < 10) return null;
+    final runData = runs ?? _getRunLengths(row);
+    if (runData.length < 10) return null;
 
     // Find start pattern (*)
-    final startInfo = _findStartPattern(runs);
+    final startInfo = _findStartPattern(runData);
     if (startInfo == null) return null;
 
     var runIndex = startInfo.$1;
@@ -93,8 +94,8 @@ class Code39Decoder extends BarcodeDecoder {
     runIndex += 10;
 
     // Decode characters
-    while (runIndex + 9 <= runs.length) {
-      final charRuns = runs.sublist(runIndex, runIndex + 9);
+    while (runIndex + 9 <= runData.length) {
+      final charRuns = runData.sublist(runIndex, runIndex + 9);
       final char = _decodeCharacter(charRuns, narrowWidth);
 
       if (char == null) break;

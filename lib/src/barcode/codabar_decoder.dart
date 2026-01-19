@@ -51,13 +51,14 @@ class CodabarDecoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
+    List<int>? runs,
   }) {
     // Convert to run-length encoding
-    final runs = _getRunLengths(row);
-    if (runs.length < 10) return null;
+    final runData = runs ?? _getRunLengths(row);
+    if (runData.length < 10) return null;
 
     // Find start pattern (A, B, C, or D)
-    final startInfo = _findStartPattern(runs);
+    final startInfo = _findStartPattern(runData);
     if (startInfo == null) return null;
 
     var runIndex = startInfo.$1;
@@ -71,8 +72,8 @@ class CodabarDecoder extends BarcodeDecoder {
     runIndex += 8;
 
     // Decode characters
-    while (runIndex + 7 <= runs.length) {
-      final charRuns = runs.sublist(runIndex, runIndex + 7);
+    while (runIndex + 7 <= runData.length) {
+      final charRuns = runData.sublist(runIndex, runIndex + 7);
       final charInfo = _decodeCharacter(charRuns, narrowWidth);
 
       if (charInfo == null) break;

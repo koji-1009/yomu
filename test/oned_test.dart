@@ -30,11 +30,7 @@ void main() {
     final luminances = rgbaToGrayscale(rgbaBytes, width, height);
 
     return (
-      LuminanceSource(
-        width: width,
-        height: height,
-        luminances: luminances,
-      ),
+      LuminanceSource(width: width, height: height, luminances: luminances),
       width,
       height,
     );

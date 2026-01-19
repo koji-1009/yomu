@@ -8,7 +8,7 @@ Yomu is a **zero-dependency** pure Dart implementation of a QR code and barcode 
 
 * **🎯 Pure Dart** - No native code required, platform-independent
 * **📦 Zero Dependencies** - No external package dependencies
-* **🚀 High Performance** - 4K in < 6ms, Full HD in < 4ms, 120fps capable
+* **🚀 High Performance** - 4K in < 5.2ms, Full HD in < 3ms, 120fps capable
 * **📐 Full QR Support** - QR code versions 1-40, Multi-QR detection
 * **📊 7 Barcode Formats** - EAN-13/8, UPC-A, Code 128/39, ITF, Codabar
 * **🛡️ Robust Error Correction** - Complete Reed-Solomon implementation
@@ -205,10 +205,12 @@ Benchmarks are automatically run on CI (GitHub Actions) for every usage. We enfo
 
 ### Standard Images (≤1000px)
 
+* **Environment**: M4 MacBook Air (2024), AOT Compiled
+
 | Mode | Avg Decode Time |
 | ---- | --------------- |
-| AOT  | ~1.39ms         |
-| JIT  | ~1.54ms         |
+| AOT  | ~1.29ms         |
+| JIT  | ~2.15ms         |
 
 > **Note**: `Yomu.all` adds negligible overhead (~4%) for QR codes, but significant overhead (~92%) for 1D barcodes due to QR detection checks. Use `Yomu.barcodeOnly` if you only need 1D scanning performance.
 
@@ -218,9 +220,9 @@ Images >1MP are automatically processed with a fused conversion step for optimal
 
 | Resolution          | Avg Decode Time |
 | ------------------- | --------------- |
-| 4K (3840×2160)      | ~5.6ms          |
-| Full HD (1920×1080) | ~2.9ms          |
-| 1600×1600           | ~5.3ms          |
+| 4K (3840×2160)      | ~5.16ms         |
+| Full HD (1920×1080) | ~2.93ms         |
+| 1600×1600           | ~3.65ms         |
 
 ## ⚠️ Limitations
 

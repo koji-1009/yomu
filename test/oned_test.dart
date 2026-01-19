@@ -6,33 +6,37 @@ import 'package:test/test.dart';
 import 'package:yomu/src/barcode/barcode_scanner.dart';
 import 'package:yomu/src/barcode/ean13_decoder.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
+import 'package:yomu/src/common/image_conversion.dart';
 
 void main() {
-  (RGBLuminanceSource, int, int) loadSource(String path) {
+  (LuminanceSource, int, int) loadSource(String path) {
     final file = File(path);
     final bytes = file.readAsBytesSync();
     final decoded = img.decodePng(bytes)!;
     final image = decoded.convert(format: img.Format.uint8, numChannels: 4);
 
-    final pixels = Int32List(image.width * image.height);
-    for (var y = 0; y < image.height; y++) {
-      for (var x = 0; x < image.width; x++) {
-        final p = image.getPixel(x, y);
-        pixels[y * image.width + x] =
-            (0xFF << 24) |
-            (p.r.toInt() << 16) |
-            (p.g.toInt() << 8) |
-            p.b.toInt();
-      }
+    // Get RGBA bytes directly
+    final width = image.width;
+    final height = image.height;
+    final rgbaBytes = Uint8List(width * height * 4);
+    for (var i = 0; i < width * height; i++) {
+      final p = image.getPixel(i % width, i ~/ width);
+      rgbaBytes[i * 4] = p.r.toInt();
+      rgbaBytes[i * 4 + 1] = p.g.toInt();
+      rgbaBytes[i * 4 + 2] = p.b.toInt();
+      rgbaBytes[i * 4 + 3] = 0xFF; // Alpha
     }
+
+    final luminances = rgbaToGrayscale(rgbaBytes, width, height);
+
     return (
-      RGBLuminanceSource(
-        width: image.width,
-        height: image.height,
-        pixels: pixels,
+      LuminanceSource(
+        width: width,
+        height: height,
+        luminances: luminances,
       ),
-      image.width,
-      image.height,
+      width,
+      height,
     );
   }
 
@@ -223,10 +227,11 @@ void main() {
       for (var i = 0; i < emptyPixels.length; i++) {
         emptyPixels[i] = 0xFFFFFFFF;
       }
-      final source = RGBLuminanceSource(
+      final luminances = int32ToGrayscale(emptyPixels, 100, 100);
+      final source = LuminanceSource(
         width: 100,
         height: 100,
-        pixels: emptyPixels,
+        luminances: luminances,
       );
 
       const scanner = BarcodeScanner.all;
@@ -240,10 +245,11 @@ void main() {
       for (var i = 0; i < emptyPixels.length; i++) {
         emptyPixels[i] = 0xFFFFFFFF;
       }
-      final source = RGBLuminanceSource(
+      final luminances = int32ToGrayscale(emptyPixels, 100, 100);
+      final source = LuminanceSource(
         width: 100,
         height: 100,
-        pixels: emptyPixels,
+        luminances: luminances,
       );
 
       const scanner = BarcodeScanner.all;

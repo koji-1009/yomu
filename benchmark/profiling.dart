@@ -104,51 +104,81 @@ Map<String, int>? _profileDecode(File file) {
   if (decoded == null) return null;
   final loadTime = sw.elapsedMicroseconds;
 
-  // Convert to pixels
-  sw.reset();
-  sw.start();
+  // Prep (Untimed) - Get raw RGBA bytes to simulate Yomu's input
   final image = decoded.convert(format: img.Format.uint8, numChannels: 4);
   final width = image.width;
   final height = image.height;
-
-  final pixels = Int32List(width * height);
-  for (var y = 0; y < height; y++) {
-    for (var x = 0; x < width; x++) {
-      final p = image.getPixel(x, y);
-      pixels[y * width + x] =
-          (0xFF << 24) | (p.r.toInt() << 16) | (p.g.toInt() << 8) | p.b.toInt();
-    }
+  final rgbaBytes = Uint8List(width * height * 4);
+  for (var i = 0; i < width * height; i++) {
+    final p = image.getPixel(i % width, i ~/ width);
+    rgbaBytes[i * 4] = p.r.toInt();
+    rgbaBytes[i * 4 + 1] = p.g.toInt();
+    rgbaBytes[i * 4 + 2] = p.b.toInt();
+    rgbaBytes[i * 4 + 3] = 0xFF;
   }
-  final convertTime = sw.elapsedMicroseconds;
 
-  // Downsample (if needed)
+  // Convert to Grayscale & Downsample
   sw.reset();
   sw.start();
   const targetPixels = 1000000;
   final totalPixels = width * height;
 
-  var processPixels = pixels;
+  Uint8List processPixels;
   var processWidth = width;
   var processHeight = height;
 
-  if (totalPixels > targetPixels) {
+  if (totalPixels <= targetPixels) {
+    final total = width * height;
+    processPixels = Uint8List(total);
+    var offset = 0;
+    for (var i = 0; i < total; i++) {
+      final r = rgbaBytes[offset];
+      final g = rgbaBytes[offset + 1];
+      final b = rgbaBytes[offset + 2];
+      processPixels[i] = (306 * r + 601 * g + 117 * b) >> 10;
+      offset += 4;
+    }
+  } else {
+    // Downscale logic
     final scaleFactor = totalPixels / targetPixels;
     final scale = math.sqrt(scaleFactor).ceil();
-    if (scale >= 2) {
-      processWidth = width ~/ scale;
-      processHeight = height ~/ scale;
-      processPixels = _downsamplePixels(pixels, width, height, scale);
+    processWidth = width ~/ scale;
+    processHeight = height ~/ scale;
+    processPixels = Uint8List(processWidth * processHeight);
+
+    // ... replicate downsampling logic manually for profiling ...
+    // Or just simplify for profiling sake to assume we want to measure the "prep" phase.
+    // I'll stick to the "Small" path for strict "Convert" measurement, or implementing strict
+    // downsampling here is tedious.
+    // Let's implement the fused loop from Yomu.dart
+    final halfScale = scale ~/ 2;
+    final pixelStride = scale * 4;
+    for (var dstY = 0; dstY < processHeight; dstY++) {
+      final srcY = dstY * scale + halfScale;
+      final rowOffset = srcY * width * 4;
+      final dstRowOffset = dstY * processWidth;
+      var currentByteOffset = rowOffset + (halfScale * 4);
+
+      for (var dstX = 0; dstX < processWidth; dstX++) {
+        final r = rgbaBytes[currentByteOffset];
+        final g = rgbaBytes[currentByteOffset + 1];
+        final b = rgbaBytes[currentByteOffset + 2];
+        processPixels[dstRowOffset + dstX] =
+            (306 * r + 601 * g + 117 * b) >> 10;
+        currentByteOffset += pixelStride;
+      }
     }
   }
-  final downsampleTime = sw.elapsedMicroseconds;
+
+  final convertTime = sw.elapsedMicroseconds;
 
   // Binarize
   sw.reset();
   sw.start();
-  final source = RGBLuminanceSource(
+  final source = LuminanceSource(
     width: processWidth,
     height: processHeight,
-    pixels: processPixels,
+    luminances: processPixels,
   );
   final blackMatrix = Binarizer(source).getBlackMatrix();
   final binarizeTime = sw.elapsedMicroseconds;
@@ -179,13 +209,13 @@ Map<String, int>? _profileDecode(File file) {
   return {
     'load': loadTime ~/ 1000,
     'convert': convertTime ~/ 1000,
-    'downsample': downsampleTime ~/ 1000,
+    'downsample': 0, // Merged into convert
     'binarize': binarizeTime ~/ 1000,
     'detect': detectTime ~/ 1000,
     'decode': decodeTime ~/ 1000,
     'total':
         (convertTime +
-            downsampleTime +
+            // downsampleTime +
             binarizeTime +
             detectTime +
             decodeTime) ~/
@@ -193,28 +223,4 @@ Map<String, int>? _profileDecode(File file) {
   };
 }
 
-Int32List _downsamplePixels(
-  Int32List src,
-  int srcWidth,
-  int srcHeight,
-  int scale,
-) {
-  final dstWidth = srcWidth ~/ scale;
-  final dstHeight = srcHeight ~/ scale;
-  final result = Int32List(dstWidth * dstHeight);
-  final halfScale = scale ~/ 2;
-
-  for (var dstY = 0; dstY < dstHeight; dstY++) {
-    final srcY = dstY * scale + halfScale;
-    final clampedSrcY = srcY >= srcHeight ? srcHeight - 1 : srcY;
-    final srcOffset = clampedSrcY * srcWidth;
-    final dstOffset = dstY * dstWidth;
-
-    for (var dstX = 0; dstX < dstWidth; dstX++) {
-      final srcX = dstX * scale + halfScale;
-      final clampedSrcX = srcX >= srcWidth ? srcWidth - 1 : srcX;
-      result[dstOffset + dstX] = src[srcOffset + clampedSrcX];
-    }
-  }
-  return result;
-}
+// Removing _downsamplePixels as it's now inlined/fused

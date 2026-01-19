@@ -33,38 +33,49 @@ class FinderPatternFinder {
       var currentState = 0;
       final rowOffset = i * rowStride;
 
-      for (var j = 0; j < maxJ; j++) {
-        // Optimized inline access: bits[rowOffset + (j >> 5)] & (1 << (j & 0x1f))
-        if ((bits[rowOffset + (j >> 5)] & (1 << (j & 0x1f))) != 0) {
-          // Black
-          if ((currentState & 1) == 1) {
-            currentState++;
-          }
-          stateCount[currentState]++;
-        } else {
-          // White
-          if ((currentState & 1) == 0) {
-            if (currentState == 4) {
-              // Found B W B W B sequence
-              if (foundPatternCross(stateCount)) {
-                final confirmed = _handlePossibleCenter(stateCount, i, j);
-                if (!confirmed) {
+      var wordOffset = rowOffset;
+      // Process row in 32-bit words
+      // This reduces array access by 32x
+      for (var j = 0; j < maxJ; j += 32) {
+        final remaining = maxJ - j;
+        final currentWord = bits[wordOffset++];
+
+        final limit = (remaining < 32) ? remaining : 32;
+
+        for (var b = 0; b < limit; b++) {
+          if ((currentWord & (1 << b)) != 0) {
+            // Black
+            if ((currentState & 1) == 1) {
+              currentState++;
+            }
+            stateCount[currentState]++;
+          } else {
+            // White
+            if ((currentState & 1) == 0) {
+              if (currentState == 4) {
+                // Found B W B W B sequence
+                if (foundPatternCross(stateCount)) {
+                  // The actual pixel coordinate is j + b
+                  final confirmed = _handlePossibleCenter(stateCount, i, j + b);
+                  if (!confirmed) {
+                    _shiftCounts2(stateCount);
+                    currentState = 3; // Continue detecting
+                    // No need to 'continue' here as we are in inner bit loop
+                  } else {
+                    currentState = 0;
+                    stateCount.fillRange(0, 5, 0);
+                  }
+                } else {
                   _shiftCounts2(stateCount);
-                  currentState = 3; // Continue detecting
-                  continue;
+                  currentState = 3;
                 }
-                currentState = 0;
-                stateCount.fillRange(0, 5, 0);
               } else {
-                _shiftCounts2(stateCount);
-                currentState = 3;
+                currentState++;
+                stateCount[currentState]++;
               }
             } else {
-              currentState++;
               stateCount[currentState]++;
             }
-          } else {
-            stateCount[currentState]++;
           }
         }
       }

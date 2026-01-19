@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:test/test.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
+import 'package:yomu/src/yomu_exception.dart';
 
 void main() {
   group('BitMatrix', () {
@@ -23,9 +24,12 @@ void main() {
     });
 
     test('throws on invalid dimensions', () {
-      expect(() => BitMatrix(width: 0), throwsArgumentError);
-      expect(() => BitMatrix(width: -1), throwsArgumentError);
-      expect(() => BitMatrix(width: 5, height: 0), throwsArgumentError);
+      expect(() => BitMatrix(width: 0), throwsA(isA<ArgumentException>()));
+      expect(() => BitMatrix(width: -1), throwsA(isA<ArgumentException>()));
+      expect(
+        () => BitMatrix(width: 5, height: 0),
+        throwsA(isA<ArgumentException>()),
+      );
     });
 
     test('get and set bits', () {

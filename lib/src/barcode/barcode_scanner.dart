@@ -73,7 +73,7 @@ class BarcodeScanner {
   /// Scans for a 1D barcode in the image.
   ///
   /// Returns the first barcode found, or null if none found.
-  BarcodeResult? scan(RGBLuminanceSource source) {
+  BarcodeResult? scan(LuminanceSource source) {
     if (decoders.isEmpty) return null;
 
     final matrix = Binarizer(source).getBlackMatrix();
@@ -111,7 +111,7 @@ class BarcodeScanner {
   /// Scans for all 1D barcodes in the image.
   ///
   /// Returns a list of all barcodes found.
-  List<BarcodeResult> scanAll(RGBLuminanceSource source) {
+  List<BarcodeResult> scanAll(LuminanceSource source) {
     if (decoders.isEmpty) return [];
 
     final matrix = Binarizer(source).getBlackMatrix();

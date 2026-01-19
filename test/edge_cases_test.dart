@@ -7,6 +7,7 @@ import 'package:test/test.dart';
 import 'package:yomu/src/common/binarizer/binarizer.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
+import 'package:yomu/src/common/image_conversion.dart';
 import 'package:yomu/yomu.dart';
 
 Uint8List _pixelsToBytes(int width, int height, int color) {
@@ -18,7 +19,7 @@ Uint8List _pixelsToBytes(int width, int height, int color) {
     bytes[i * 4] = r;
     bytes[i * 4 + 1] = g;
     bytes[i * 4 + 2] = b;
-    bytes[i * 4 + 3] = 0xFF;
+    bytes[i * 4 + 3] = 0xFF; // Alpha
   }
   return bytes;
 }
@@ -40,7 +41,8 @@ void main() {
       });
 
       test('throws on insufficient bytes', () {
-        // 100 bytes but claim 20x20 = 1600 bytes needed
+        // 100 bytes but claim 20x20 = 1600 pixels * 4 bytes/pixel = 6400 bytes needed
+        // The decoder expects RGBA, so it checks for enough bytes.
         final bytes = Uint8List(100);
         expect(
           () => yomu.decode(bytes: bytes, width: 20, height: 20),
@@ -90,7 +92,13 @@ void main() {
         pixels[2] = 0xFFFFFFFF; // White
         pixels[3] = 0xFF000000; // Black
 
-        final source = RGBLuminanceSource(width: 2, height: 2, pixels: pixels);
+        final luminances = int32ToGrayscale(pixels, 2, 2);
+        final source = LuminanceSource(
+          width: 2,
+          height: 2,
+          luminances: luminances,
+        );
+
         expect(source.width, 2);
         expect(source.height, 2);
         // Black pixel should have low luminance
@@ -106,7 +114,12 @@ void main() {
         pixels[1] = 0xFF00FF00; // Green
         pixels[2] = 0xFF0000FF; // Blue
 
-        final source = RGBLuminanceSource(width: 3, height: 1, pixels: pixels);
+        final luminances = int32ToGrayscale(pixels, 3, 1);
+        final source = LuminanceSource(
+          width: 3,
+          height: 1,
+          luminances: luminances,
+        );
         final row = source.getRow(0, null);
 
         // Green contributes most to luminance
@@ -122,10 +135,11 @@ void main() {
         for (var i = 0; i < 100; i++) {
           pixels[i] = 0xFF808080; // Gray
         }
-        final source = RGBLuminanceSource(
+        final luminances = int32ToGrayscale(pixels, 10, 10);
+        final source = LuminanceSource(
           width: 10,
           height: 10,
-          pixels: pixels,
+          luminances: luminances,
         );
         final binarizer = Binarizer(source);
 

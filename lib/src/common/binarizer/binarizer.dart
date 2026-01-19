@@ -11,7 +11,7 @@ import 'luminance_source.dart';
 class Binarizer {
   const Binarizer(this.source);
 
-  final RGBLuminanceSource source;
+  final LuminanceSource source;
 
   // Block size for the window.
   // 1/8th of the image width is a reasonable heuristic for QR codes.

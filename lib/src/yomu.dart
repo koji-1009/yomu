@@ -5,6 +5,7 @@ import 'barcode/barcode_result.dart';
 import 'barcode/barcode_scanner.dart';
 import 'common/binarizer/binarizer.dart';
 import 'common/binarizer/luminance_source.dart';
+import 'common/image_conversion.dart';
 import 'qr/decoder/decoded_bit_stream_parser.dart';
 import 'qr/decoder/qrcode_decoder.dart';
 import 'qr/detector/detector.dart';
@@ -104,7 +105,7 @@ class Yomu {
   ///
   /// ## Throws
   ///
-  /// - [ArgumentError] if [bytes] length is less than `width * height * 4`
+  /// - [ArgumentException] if [bytes] length is less than `width * height * 4`
   /// - [DetectionException] if no valid code is found
   /// - [DecodeException] if decoding fails
   ///
@@ -120,7 +121,7 @@ class Yomu {
     required int height,
   }) {
     if (bytes.length < width * height * 4) {
-      throw ArgumentError('Byte array too small for RGBA image');
+      throw const ArgumentException('Byte array too small for RGBA image');
     }
 
     final (pixels, processWidth, processHeight) = _convertAndMaybeDownsample(
@@ -185,7 +186,7 @@ class Yomu {
     required int height,
   }) {
     if (bytes.length < width * height * 4) {
-      throw ArgumentError('Byte array too small for RGBA image');
+      throw const ArgumentException('Byte array too small for RGBA image');
     }
 
     if (!enableQRCode) {
@@ -204,35 +205,16 @@ class Yomu {
     );
   }
 
-  /// Converts RGBA bytes to Int32List pixels.
-  Int32List _rgbaToPixels({
-    required Uint8List bytes,
-    required int width,
-    required int height,
-  }) {
-    final pixels = Int32List(width * height);
-    var offset = 0;
-    final total = width * height;
-    for (var i = 0; i < total; i++) {
-      final r = bytes[offset];
-      final g = bytes[offset + 1];
-      final b = bytes[offset + 2];
-      pixels[i] = (0xFF << 24) | (r << 16) | (g << 8) | b;
-      offset += 4;
-    }
-    return pixels;
-  }
-
-  /// Internal: Decodes a QR code from pixel array.
+  /// Internal: Decodes a QR code from luminance array.
   DecoderResult _decodeQRFromPixels({
-    required Int32List pixels,
+    required Uint8List pixels,
     required int width,
     required int height,
   }) {
-    final source = RGBLuminanceSource(
+    final source = LuminanceSource(
       width: width,
       height: height,
-      pixels: pixels,
+      luminances: pixels,
     );
     final blackMatrix = Binarizer(source).getBlackMatrix();
     final detector = Detector(blackMatrix);
@@ -241,30 +223,30 @@ class Yomu {
     return _decoder.decode(detectorResult.bits);
   }
 
-  /// Internal: Decodes a barcode from pixel array.
+  /// Internal: Decodes a barcode from luminance array.
   BarcodeResult? _decodeBarcodeFromPixels({
-    required Int32List pixels,
+    required Uint8List pixels,
     required int width,
     required int height,
   }) {
-    final source = RGBLuminanceSource(
+    final source = LuminanceSource(
       width: width,
       height: height,
-      pixels: pixels,
+      luminances: pixels,
     );
     return barcodeScanner.scan(source);
   }
 
-  /// Internal: Decodes all QR codes from pixel array.
+  /// Internal: Decodes all QR codes from luminance array.
   List<DecoderResult> _decodeAllQRFromPixels({
-    required Int32List pixels,
+    required Uint8List pixels,
     required int width,
     required int height,
   }) {
-    final source = RGBLuminanceSource(
+    final source = LuminanceSource(
       width: width,
       height: height,
-      pixels: pixels,
+      luminances: pixels,
     );
     final blackMatrix = Binarizer(source).getBlackMatrix();
     final detector = Detector(blackMatrix);
@@ -281,9 +263,9 @@ class Yomu {
     return results;
   }
 
-  /// Converts bytes to pixels, downsampling if necessary.
+  /// Converts bytes to grayscale luminance, downsampling if necessary.
   /// This fused operation avoids allocating full-size buffers for large images.
-  (Int32List, int, int) _convertAndMaybeDownsample({
+  (Uint8List, int, int) _convertAndMaybeDownsample({
     required Uint8List bytes,
     required int width,
     required int height,
@@ -293,21 +275,17 @@ class Yomu {
 
     if (totalPixels <= targetPixels) {
       // Small enough: direct conversion
-      return (
-        _rgbaToPixels(bytes: bytes, width: width, height: height),
-        width,
-        height,
-      );
+      return (rgbaToGrayscale(bytes, width, height), width, height);
     }
 
     final scaleFactor = totalPixels / targetPixels;
     final scale = math.sqrt(scaleFactor).ceil();
 
-    // Large image: fused convert + downsample
+    // Large image: fused convert + downsample + grayscale
     // O(TargetSize) instead of O(OriginalSize)
     final dstWidth = width ~/ scale;
     final dstHeight = height ~/ scale;
-    final result = Int32List(dstWidth * dstHeight);
+    final result = Uint8List(dstWidth * dstHeight);
     final halfScale = scale ~/ 2;
 
     // Pre-calculate stride for inner loop
@@ -326,7 +304,8 @@ class Yomu {
         final g = bytes[currentByteOffset + 1];
         final b = bytes[currentByteOffset + 2];
 
-        result[dstRowOffset + dstX] = (0xFF << 24) | (r << 16) | (g << 8) | b;
+        // Integer approximation: (306 * r + 601 * g + 117 * b) >> 10
+        result[dstRowOffset + dstX] = (306 * r + 601 * g + 117 * b) >> 10;
 
         // Advance to next sample pixel
         currentByteOffset += pixelStride;

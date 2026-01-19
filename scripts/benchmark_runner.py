@@ -281,18 +281,19 @@ def generate_markdown_report(
         md.append("| Category | Average (ms) | p95 (ms) | Notes |")
         md.append("| :--- | :--- | :--- | :--- |")
 
-        for cat in ["Standard", "Heavy", "HiRes", "Distorted", "Noise", "Edge"]:
+        cats = aot.qr_categories
+        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
             if cat in cats:
                 c = cats[cat]
                 note = ""
                 if cat == "Standard":
                     note = "Version 1-4, Alphanumeric"
-                elif cat == "Heavy":
-                    note = "Complex versions"
+                elif cat == "Complex":
+                    note = "High Versions (V5+)"
                 elif cat == "HiRes":
                     note = "4K / Large images"
                 elif cat == "Distorted":
-                    note = "Rotated / Tilted"
+                    note = "Rotated / Tilted / Skewed"
                 elif cat == "Noise":
                     note = "Noisy background"
                 elif cat == "Edge":
@@ -308,7 +309,7 @@ def generate_markdown_report(
         md.append("| :--- | :--- | :--- | :--- |")
 
         cats = aot.barcode_categories
-        for cat in ["Standard", "Heavy", "HiRes", "Distorted", "Noise", "Edge"]:
+        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
             if cat in cats:
                 c = cats[cat]
                 md.append(f"| **{cat}** | {c[2]:.2f}ms | {c[3]:.2f}ms | |")
@@ -422,7 +423,7 @@ def _print_comparative_comparison(
         print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
         print("-" * 50)
         cats = aot.qr_categories
-        for cat in ["Standard", "Heavy", "HiRes", "Distorted", "Noise", "Edge"]:
+        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
             if cat in cats:
                 c = cats[cat]
                 print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")
@@ -432,7 +433,7 @@ def _print_comparative_comparison(
         print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
         print("-" * 50)
         cats = aot.barcode_categories
-        for cat in ["Standard", "Heavy", "HiRes", "Distorted", "Noise", "Edge"]:
+        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
             if cat in cats:
                 c = cats[cat]
                 print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")

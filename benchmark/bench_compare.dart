@@ -134,7 +134,7 @@ void _printCategoryReport(String name, Map<String, Metric> metrics) {
   print('--- $name Metrics ---');
   for (final category in [
     'Standard',
-    'Heavy',
+    'Complex',
     'HiRes',
     'Distorted',
     'Noise',
@@ -154,20 +154,22 @@ String _categorize(String filename) {
   if (filename.contains('4k_')) {
     return 'HiRes';
   }
-  if (filename.contains('rotation') || filename.contains('tilt')) {
+  if (filename.contains('rotation') ||
+      filename.contains('tilt') ||
+      filename.contains('distorted') ||
+      filename.contains('qr_distorted')) {
     return 'Distorted';
   }
   if (filename.contains('noise')) {
     return 'Noise';
   }
 
-  if (filename.contains('distorted') ||
-      filename.contains('version_7') ||
+  if (filename.contains('version_7') ||
       filename.contains('version_10') ||
-      filename.contains('version_5') || // Assuming 5+ is heavy
+      filename.contains('version_5') || // Assuming 5+ is complex
       filename.contains('qr_version_5') ||
       filename.contains('qr_version_6')) {
-    return 'Heavy';
+    return 'Complex';
   }
   if (filename.contains('edge_') || filename.contains('ec_level_h')) {
     return 'Edge';
@@ -186,7 +188,7 @@ const int _iterations =
   final categoryTimes = <String, List<double>>{
     'All': [],
     'Standard': [],
-    'Heavy': [],
+    'Complex': [],
     'HiRes': [],
     'Distorted': [],
     'Noise': [],

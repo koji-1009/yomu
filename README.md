@@ -188,7 +188,7 @@ yomu/
 │       ├── yomu.dart       # Main entry point
 │       ├── common/         # Generic utilities (Binarizer, BitMatrix)
 │       ├── qr/             # QR-specific logic (Decoder, Detector)
-│       └── oned/           # 1D barcode decoders (EAN-13, Code128)
+│       └── barcode/        # 1D barcode decoders (EAN-13, Code128)
 ├── web/                    # Browser demo
 └── benchmark/              # Performance tests
 ```

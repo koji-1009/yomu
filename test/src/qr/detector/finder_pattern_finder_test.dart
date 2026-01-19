@@ -186,6 +186,29 @@ void main() {
         expect(info.bottomLeft, equals(p3));
       });
     });
+
+    group('findMulti', () {
+      test('finds finder pattern at the very right edge of image', () {
+        // Width 21. Indices 0..20.
+        final matrix = BitMatrix(width: 21, height: 21);
+
+        // Place a finder pattern at the right edge
+        // x=14 to x=20 (width-1)
+        _drawFinderPattern(matrix, 14, 0);
+
+        // Place other patterns to form a valid QR code
+        _drawFinderPattern(matrix, 0, 0);
+        _drawFinderPattern(matrix, 0, 14);
+
+        final finder = FinderPatternFinder(matrix);
+        // Use findMulti() to exercise the loop that hits line 405
+        final infoList = finder.findMulti();
+
+        expect(infoList, hasLength(1));
+        // Verify detection of the Top Right pattern
+        expect(infoList.first.topRight.x, closeTo(17.5, 0.5));
+      });
+    });
   });
 }
 

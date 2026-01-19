@@ -15,29 +15,32 @@ import 'package:yomu/src/barcode/ean8_decoder.dart';
 import 'package:yomu/src/barcode/itf_decoder.dart';
 import 'package:yomu/src/barcode/upca_decoder.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
+import 'package:yomu/src/common/image_conversion.dart';
 
-(RGBLuminanceSource, int, int) _loadImageAsSource(String path) {
+(LuminanceSource, int, int) _loadImageAsSource(String path) {
   final file = File(path);
   final decoded = img.decodePng(file.readAsBytesSync());
   if (decoded == null) throw Exception('Failed to decode image');
 
   final image = decoded.convert(format: img.Format.uint8, numChannels: 4);
-  final pixels = Int32List(image.width * image.height);
-  for (var i = 0; i < pixels.length; i++) {
-    final x = i % image.width;
-    final y = i ~/ image.width;
-    final p = image.getPixel(x, y);
-    pixels[i] =
-        (0xFF << 24) | (p.r.toInt() << 16) | (p.g.toInt() << 8) | p.b.toInt();
+  // Get RGBA bytes directly
+  final width = image.width;
+  final height = image.height;
+  final rgbaBytes = Uint8List(width * height * 4);
+  for (var i = 0; i < width * height; i++) {
+    final p = image.getPixel(i % width, i ~/ width);
+    rgbaBytes[i * 4] = p.r.toInt();
+    rgbaBytes[i * 4 + 1] = p.g.toInt();
+    rgbaBytes[i * 4 + 2] = p.b.toInt();
+    rgbaBytes[i * 4 + 3] = 0xFF; // Alpha
   }
+
+  final luminances = rgbaToGrayscale(rgbaBytes, width, height);
+
   return (
-    RGBLuminanceSource(
-      width: image.width,
-      height: image.height,
-      pixels: pixels,
-    ),
-    image.width,
-    image.height,
+    LuminanceSource(width: width, height: height, luminances: luminances),
+    width,
+    height,
   );
 }
 
@@ -161,10 +164,11 @@ void main() {
       for (var i = 0; i < pixels.length; i++) {
         pixels[i] = 0xFFFFFFFF;
       }
-      final source = RGBLuminanceSource(
+      final luminances = int32ToGrayscale(pixels, 100, 100);
+      final source = LuminanceSource(
         width: 100,
         height: 100,
-        pixels: pixels,
+        luminances: luminances,
       );
       final result = scanner.scan(source);
 
@@ -177,7 +181,12 @@ void main() {
       for (var i = 0; i < pixels.length; i++) {
         pixels[i] = (i * 17) % 2 == 0 ? 0xFF000000 : 0xFFFFFFFF;
       }
-      final source = RGBLuminanceSource(width: 200, height: 50, pixels: pixels);
+      final luminances = int32ToGrayscale(pixels, 200, 50);
+      final source = LuminanceSource(
+        width: 200,
+        height: 50,
+        luminances: luminances,
+      );
       final results = scanner.scanAll(source);
 
       // Should not crash, may find false positives or empty list
@@ -193,10 +202,11 @@ void main() {
       for (var i = 0; i < pixels.length; i++) {
         pixels[i] = 0xFFFFFFFF;
       }
-      final source = RGBLuminanceSource(
+      final luminances = int32ToGrayscale(pixels, 100, 100);
+      final source = LuminanceSource(
         width: 100,
         height: 100,
-        pixels: pixels,
+        luminances: luminances,
       );
 
       // Should not crash with limited decoders

@@ -10,6 +10,7 @@ import 'package:yomu/src/barcode/barcode_scanner.dart';
 import 'package:yomu/src/barcode/itf_decoder.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
+import 'package:yomu/src/common/image_conversion.dart';
 import 'package:yomu/src/common/perspective_transform.dart';
 import 'package:yomu/src/qr/decoder/generic_gf.dart';
 import 'package:yomu/src/qr/decoder/generic_gf_poly.dart';
@@ -323,7 +324,7 @@ void main() {
       expect(
         () => yomu.decodeAll(bytes: smallBytes, width: 100, height: 100),
         throwsA(
-          isA<ArgumentError>().having(
+          isA<ArgumentException>().having(
             (e) => e.message,
             'message',
             contains('Byte array too small'),
@@ -517,10 +518,11 @@ void main() {
 
       // Create a 100x100 white image
       final pixels = Int32List(100 * 100);
-      final source = RGBLuminanceSource(
+      final luminances = int32ToGrayscale(pixels, 100, 100);
+      final source = LuminanceSource(
         width: 100,
         height: 100,
-        pixels: pixels,
+        luminances: luminances,
       );
 
       final result = scanner.scan(source);
@@ -545,10 +547,11 @@ void main() {
 
       final scanner = BarcodeScanner(decoders: [mockDecoder]);
       final pixels = Int32List(100 * 100);
-      final source = RGBLuminanceSource(
+      final luminances = int32ToGrayscale(pixels, 100, 100);
+      final source = LuminanceSource(
         width: 100,
         height: 100,
-        pixels: pixels,
+        luminances: luminances,
       );
 
       final results = scanner.scanAll(source);

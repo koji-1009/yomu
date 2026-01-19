@@ -23,57 +23,6 @@ import '../yomu_exception.dart';
 /// - [Binarizer] which produces BitMatrix from images
 /// - [Detector] which reads BitMatrix to find QR patterns
 class BitMatrix {
-  /// Creates a [BitMatrix] directly from a luminance array (grayscale).
-  ///
-  /// This is a high-performance optimization to avoid calling [set] for every pixel.
-  /// It processes pixels in blocks of 32 to minimize memory writes and bounds checks.
-  ///
-  /// [luminances] is the linear array of grayscale values (0-255).
-  /// [threshold] is the value below which a pixel is considered black (true).
-  factory BitMatrix.fromLuminance({
-    required int width,
-    required int height,
-    required Uint8List luminances,
-    required int threshold,
-  }) {
-    if (width < 1 || height < 1) {
-      throw const ArgumentException('Both dimensions must be greater than 0');
-    }
-    final totalPixelCount = width * height;
-    if (luminances.length < totalPixelCount) {
-      throw const ArgumentException('Luminance array is too small');
-    }
-
-    final rowStride = (width + 31) ~/ 32;
-    final bits = Uint32List(rowStride * height);
-
-    var yOffset = 0;
-    var rowOffset = 0;
-
-    for (var y = 0; y < height; y++) {
-      for (var x = 0; x < width; x += 32) {
-        final end = (x + 32 > width) ? width : x + 32;
-        var word = 0;
-
-        for (var k = x; k < end; k++) {
-          if (luminances[yOffset + k] < threshold) {
-            word |= 1 << (k & 0x1f);
-          }
-        }
-        bits[rowOffset + (x >> 5)] = word;
-      }
-      yOffset += width;
-      rowOffset += rowStride;
-    }
-
-    return BitMatrix.fromBits(
-      width: width,
-      height: height,
-      bits: bits,
-      rowStride: rowStride,
-    );
-  }
-
   BitMatrix.fromBits({
     required this.width,
     required this.height,
@@ -86,7 +35,7 @@ class BitMatrix {
   /// If [height] is omitted, creates a square matrix of size [width] x [width].
   BitMatrix({required this.width, int? height}) : height = height ?? width {
     if (width < 1 || this.height < 1) {
-      throw ArgumentError('Both dimensions must be greater than 0');
+      throw const ArgumentException('Both dimensions must be greater than 0');
     }
     _rowStride = (width + 31) ~/ 32;
     _bits = Uint32List(_rowStride * this.height);
@@ -106,12 +55,6 @@ class BitMatrix {
   /// Use only for high-performance optimization.
   Uint32List get bits => _bits;
 
-  /// Gets the bit at [x], [y].
-  ///
-  /// Returns true if set (black), false otherwise (white).
-  ///
-  /// This method performs NO bounds checking for maximum performance.
-  /// Caller must ensure coordinates are within bounds [0, width) and [0, height).
   /// Gets the bit at [x], [y].
   ///
   /// Returns true if set (black), false otherwise (white).

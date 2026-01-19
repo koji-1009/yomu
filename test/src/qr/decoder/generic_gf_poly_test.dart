@@ -40,6 +40,14 @@ void main() {
       expect(product.coefficients, [1, 0, 1]);
     });
 
+    test('multiply with zero returns zero', () {
+      final p1 = poly([1, 1]); // x + 1
+      final zero = poly([0]);
+
+      expect(p1.multiply(zero).isZero, isTrue);
+      expect(zero.multiply(p1).isZero, isTrue);
+    });
+
     test('evaluateAt', () {
       // f(x) = x^2 + 2x + 1
       // f(3) = 9 + 6 + 1 = (9^6)^1 ? No, arithmetic is in GF.

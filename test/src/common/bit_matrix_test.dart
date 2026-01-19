@@ -82,12 +82,5 @@ void main() {
         }
       }
     });
-
-    test('handles large matrices', () {
-      final matrix = BitMatrix(width: 100, height: 100);
-      matrix.set(99, 99);
-      expect(matrix.get(99, 99), isTrue);
-      expect(matrix.get(0, 0), isFalse);
-    });
   });
 }

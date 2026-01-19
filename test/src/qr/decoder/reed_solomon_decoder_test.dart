@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:test/test.dart';
 import 'package:yomu/src/qr/decoder/generic_gf.dart';
+import 'package:yomu/src/qr/decoder/generic_gf_poly.dart';
 import 'package:yomu/src/qr/decoder/reed_solomon_decoder.dart';
 
 void main() {
@@ -14,51 +15,83 @@ void main() {
       decoder = ReedSolomonDecoder(field);
     });
 
+    // Helper to build generator poly
+    GenericGFPoly buildGenerator(GenericGF field, int ecBytes) {
+      var g = GenericGFPoly(field, [1]);
+      for (var i = 0; i < ecBytes; i++) {
+        // (x + alpha^i) in GF2^n
+        // coeffs: [1, alpha^i]
+        final term = GenericGFPoly(field, [1, field.exp(i)]);
+        g = g.multiply(term);
+      }
+      return g;
+    }
+
+    // Helper to generate a valid RS codeword
+    List<int> encode(List<int> data, int ecBytes) {
+      final generator = buildGenerator(field, ecBytes);
+      final dataPoly = GenericGFPoly(field, data);
+
+      // Multiply by x^ecBytes (shift)
+      final shifted = dataPoly.multiplyByMonomial(ecBytes, 1);
+
+      // Remainder = shifted % generator
+      final result = shifted.divide(generator);
+      final remainder = result[1];
+
+      // Result = shifted + remainder (effectively [data] + [ec])
+      final resultPoly = shifted.addOrSubtract(remainder);
+      final coeffs = resultPoly.coefficients.toList();
+
+      // Pad leading zeros if necessary to match expected length
+      final expectedLength = data.length + ecBytes;
+      if (coeffs.length < expectedLength) {
+        final padded = List<int>.filled(expectedLength, 0);
+        final offset = expectedLength - coeffs.length;
+        for (var i = 0; i < coeffs.length; i++) {
+          padded[offset + i] = coeffs[i];
+        }
+        return padded;
+      }
+      return coeffs;
+    }
+
     test('decodes no errors', () {
-      final received = Uint8List.fromList([
-        // Hello World in QR codes essentially.
-        // Let's use a simpler known RS Codeword set.
-        // Or generate one.
-        // For TDD, I need a known valid codeword.
-        // (x+1) is a poly. multiply by generator poly to get codeword.
-        // Let's rely on the decoder logic being derived correctly or use a simple case.
-        // 0, 0, 0 is a valid codeword (all zeros).
-        0, 0, 0, 0,
-      ]);
+      final received = Uint8List.fromList([0, 0, 0, 0]);
       decoder.decode(received: received, twoS: 2); // 2 EC bytes
       expect(received, equals([0, 0, 0, 0]));
     });
 
     test('decodes single error', () {
-      // Prepare a valid codeword?
-      // Let's assume the user encodes '123' and EC adds checksum.
-      // Since I don't have Encoder yet, I have to hardcode a VALID sequence for GF(256)/0x11D.
-      //
-      // Or, I can use the same logic as the encoder to generate one in the test helper.
-      // Encoder essentially multiplies data poly by generator poly.
-      // Generator poly for 2 EC bytes is (x - 2^0)(x - 2^1) = (x-1)(x-2).
-      // (x+1)(x+2) = x^2 + (1 XOR 2)x + (1*2) = x^2 + 3x + 2.
-      // So coeffs [1, 3, 2].
-      // If data is just [5] (constant),
-      // 5 * (x^2 + 3x + 2) = 5x^2 + 15x + 10.
-      // [5, 15, 10] should be a valid codeword with 2 EC bytes.
-      // (5, 5*3=15, 5*2=10).
+      // 5 * (x^2 + 3x + 2) = 5x^2 + 15x + 10
       final valid = [5, 15, 10]; // Data=5, EC=15, 10
       final corrupted = Int32List.fromList(valid);
       corrupted[1] = 0; // Error!
 
-      // decode(codeword, ecBytes)
       decoder.decode(received: corrupted, twoS: 2);
 
       expect(corrupted, equals(valid));
     });
 
     test('decodes two errors if capacity allows (e.g. 4 EC bytes)', () {
-      // Generator for 4 bytes: (x-1)(x-2)(x-4)(x-8) ...
-      // Too complex to calculate by hand easily.
-      // I will trust the decoder implementation for complex cases,
-      // or I can implement a helper in the test to encode.
-      // Let's implement a simple encode helper locally for testing.
+      // 4 EC bytes can correct 2 errors.
+      final data = [10, 20, 30];
+      const ecBytes = 4;
+
+      final valid = encode(data, ecBytes);
+      // Verify length: 3 data + 4 EC = 7 bytes
+      expect(valid.length, 7);
+
+      final corrupted = Int32List.fromList(valid);
+
+      // Corrupt 2 positions
+      corrupted[1] ^= 0xFF; // Corrupt data
+      corrupted[5] ^= 0xFF; // Corrupt EC
+
+      decoder.decode(received: corrupted, twoS: ecBytes);
+
+      // Should result in original valid sequence
+      expect(corrupted, equals(valid));
     });
 
     test('throws ReedSolomonException when too many errors', () {
@@ -71,7 +104,7 @@ void main() {
       expect(
         () => decoder.decode(received: corrupted, twoS: 2),
         throwsException,
-      ); // Custom exception later
+      );
     });
   });
 }

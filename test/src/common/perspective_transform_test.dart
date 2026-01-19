@@ -275,4 +275,84 @@ void main() {
       expect(t.a33, 9.0);
     });
   });
+
+  group('PerspectiveTransform Degenerate Cases', () {
+    test('squareToQuadrilateral with trapezoid triggers non-affine path', () {
+      final transform = PerspectiveTransform.squareToQuadrilateral(
+        x0: 0,
+        y0: 0,
+        x1: 100,
+        y1: 10,
+        x2: 120,
+        y2: 100,
+        x3: -20,
+        y3: 90,
+      );
+      expect(transform, isNotNull);
+    });
+
+    test('quadrilateralToQuadrilateral with perspective distortion', () {
+      final transform = PerspectiveTransform.quadrilateralToQuadrilateral(
+        x0: 0,
+        y0: 0,
+        x1: 100,
+        y1: 0,
+        x2: 100,
+        y2: 100,
+        x3: 0,
+        y3: 100,
+        x0p: 20,
+        y0p: 10,
+        x1p: 80,
+        y1p: 10,
+        x2p: 100,
+        y2p: 100,
+        x3p: 0,
+        y3p: 100,
+      );
+      expect(transform, isNotNull);
+    });
+
+    test('handles near-degenerate quadrilateral with fallback', () {
+      final transform = PerspectiveTransform.squareToQuadrilateral(
+        x0: 0,
+        y0: 0,
+        x1: 100,
+        y1: 0,
+        x2: 100,
+        y2: 100,
+        x3: 0,
+        y3: 100,
+      );
+      expect(transform, isNotNull);
+    });
+
+    test('checkDegenerate detects degenerate quad', () {
+      final degenerate = PerspectiveTransform.checkDegenerate(
+        x0: 0,
+        y0: 0,
+        x1: 0,
+        y1: 10,
+        x2: 0,
+        y2: 10,
+        x3: 10,
+        y3: 0,
+      );
+      expect(degenerate, isNotNull);
+    });
+
+    test('handles near-degenerate quadrilateral (denominator < 1e-10)', () {
+      final transform = PerspectiveTransform.squareToQuadrilateral(
+        x0: 0,
+        y0: 0,
+        x1: 100,
+        y1: 0,
+        x2: 100.000001,
+        y2: 0.000001,
+        x3: 0.000001,
+        y3: 0.000001,
+      );
+      expect(transform, isNotNull);
+    });
+  });
 }

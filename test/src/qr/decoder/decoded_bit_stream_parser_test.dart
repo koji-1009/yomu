@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:yomu/src/qr/decoder/decoded_bit_stream_parser.dart';
 import 'package:yomu/src/qr/version.dart';
+import 'package:yomu/src/yomu_exception.dart';
 
 void main() {
   group('DecodedBitStreamParser', () {
@@ -395,6 +396,226 @@ void main() {
     test('allows null ecLevel', () {
       const result = DecoderResult(text: 'test', byteSegments: []);
       expect(result.ecLevel, isNull);
+    });
+  });
+
+  group('DecodedBitStreamParser Exception Paths', () {
+    test('throws DecodeException on not enough bits for numeric', () {
+      final bytes = Uint8List.fromList([0x10, 0x28]);
+      final version = Version.getVersionForNumber(1);
+
+      expect(
+        () => DecodedBitStreamParser.decode(bytes: bytes, version: version),
+        throwsA(
+          isA<DecodeException>().having(
+            (e) => e.message,
+            'message',
+            contains('Not enough bits for numeric'),
+          ),
+        ),
+      );
+    });
+
+    test('throws DecodeException on not enough bits for alphanumeric', () {
+      final bytes = Uint8List.fromList([0x20, 0x20]);
+      final version = Version.getVersionForNumber(1);
+
+      expect(
+        () => DecodedBitStreamParser.decode(bytes: bytes, version: version),
+        throwsA(
+          isA<DecodeException>().having(
+            (e) => e.message,
+            'message',
+            contains('Not enough bits for alphanumeric'),
+          ),
+        ),
+      );
+    });
+
+    test('throws DecodeException on not enough bits for byte mode', () {
+      final bytes = Uint8List.fromList([0x40, 0x50]);
+      final version = Version.getVersionForNumber(1);
+
+      expect(
+        () => DecodedBitStreamParser.decode(bytes: bytes, version: version),
+        throwsA(
+          isA<DecodeException>().having(
+            (e) => e.message,
+            'message',
+            contains('Not enough bits for byte mode'),
+          ),
+        ),
+      );
+    });
+
+    test('throws DecodeException on unsupported mode (Hanzi)', () {
+      final bytes = Uint8List.fromList([0xD0, 0x10, 0x00, 0x00]);
+      final version = Version.getVersionForNumber(1);
+
+      expect(
+        () => DecodedBitStreamParser.decode(bytes: bytes, version: version),
+        throwsA(
+          isA<DecodeException>().having(
+            (e) => e.message,
+            'message',
+            contains('Unsupported mode'),
+          ),
+        ),
+      );
+    });
+
+    test('throws DecodeException on unsupported mode (StructuredAppend)', () {
+      final bytes = Uint8List.fromList([0x30, 0x00, 0x00, 0x00]);
+      final version = Version.getVersionForNumber(1);
+
+      expect(
+        () => DecodedBitStreamParser.decode(bytes: bytes, version: version),
+        throwsA(anything),
+      );
+    });
+  });
+
+  group('DecodedBitStreamParser Kanji Mode', () {
+    test('decodes Kanji mode with hiragana character', () {
+      final bytes = Uint8List.fromList([0x80, 0x10, 0x58, 0x00]);
+      final version = Version.getVersionForNumber(1);
+
+      final result = DecodedBitStreamParser.decode(
+        bytes: bytes,
+        version: version,
+      );
+      expect(result.text, isNotEmpty);
+    });
+
+    test('decodes Kanji mode with katakana character', () {
+      final bytes = Uint8List.fromList([0x80, 0x10, 0x20, 0x10, 0x00, 0x00]);
+      final version = Version.getVersionForNumber(1);
+
+      final result = DecodedBitStreamParser.decode(
+        bytes: bytes,
+        version: version,
+      );
+      expect(result.text, isNotEmpty);
+    });
+
+    test('decodes Kanji mode with high range character', () {
+      final bytes = Uint8List.fromList([0x80, 0x1F, 0x80, 0x00]);
+      final version = Version.getVersionForNumber(1);
+
+      expect(
+        () => DecodedBitStreamParser.decode(bytes: bytes, version: version),
+        returnsNormally,
+      );
+    });
+
+    test('handles unknown Shift JIS lead byte', () {
+      final bytes = Uint8List.fromList([0x80, 0x13, 0xFF, 0x80]);
+      final version = Version.getVersionForNumber(1);
+
+      expect(
+        () => DecodedBitStreamParser.decode(bytes: bytes, version: version),
+        returnsNormally,
+      );
+    });
+
+    test('handles half-width katakana bytes', () {
+      final bytes = Uint8List.fromList([0x80, 0x10, 0x28, 0x80]);
+      final version = Version.getVersionForNumber(1);
+
+      expect(
+        () => DecodedBitStreamParser.decode(bytes: bytes, version: version),
+        returnsNormally,
+      );
+    });
+  });
+
+  group('Shift-JIS Decoder Direct Tests', () {
+    test('decodes ASCII characters', () {
+      final bytes = [0x41, 0x42, 0x43];
+      final result = DecodedBitStreamParser.decodeShiftJis(bytes);
+      expect(result, 'ABC');
+    });
+
+    test('decodes half-width katakana', () {
+      final bytes = [0xA1, 0xA2, 0xB1];
+      final result = DecodedBitStreamParser.decodeShiftJis(bytes);
+      expect(result.codeUnits[0], 0xFF61);
+      expect(result.codeUnits[1], 0xFF62);
+    });
+
+    test('handles unknown lead byte with replacement character', () {
+      final bytes = [0xF5, 0x40];
+      final result = DecodedBitStreamParser.decodeShiftJis(bytes);
+      expect(result, contains('\uFFFD'));
+    });
+
+    test('handles unknown trail byte with replacement character', () {
+      final bytes = [0x81, 0x30];
+      final result = DecodedBitStreamParser.decodeShiftJis(bytes);
+      expect(result, contains('\uFFFD'));
+    });
+
+    test('handles incomplete double-byte sequence', () {
+      final bytes = [0x81];
+      final result = DecodedBitStreamParser.decodeShiftJis(bytes);
+      expect(result, contains('\uFFFD'));
+    });
+
+    test('decodes valid double-byte with trail in 0x40-0x7E range', () {
+      final bytes = [0x81, 0x40];
+      final result = DecodedBitStreamParser.decodeShiftJis(bytes);
+      expect(result.isNotEmpty, isTrue);
+    });
+
+    test('decodes hiragana characters (row 4 path)', () {
+      final bytes = [0x82, 0x9F];
+      final result = DecodedBitStreamParser.decodeShiftJis(bytes);
+      expect(result.codeUnits[0], 0x3041);
+    });
+
+    test('decodes valid double-byte with trail in 0x80-0x9E range', () {
+      final bytes = [0x81, 0x80];
+      final result = DecodedBitStreamParser.decodeShiftJis(bytes);
+      expect(result.isNotEmpty, isTrue);
+    });
+
+    test('decodes valid double-byte with trail in 0x9F-0xFC range', () {
+      final bytes = [0x81, 0x9F];
+      final result = DecodedBitStreamParser.decodeShiftJis(bytes);
+      expect(result.isNotEmpty, isTrue);
+    });
+
+    test('decodes high range lead byte (0xE0-0xEF)', () {
+      final bytes = [0xE0, 0x40];
+      final result = DecodedBitStreamParser.decodeShiftJis(bytes);
+      expect(result.isNotEmpty, isTrue);
+    });
+  });
+
+  group('JIS-to-Unicode Mapping Direct Tests', () {
+    test('maps hiragana row 4', () {
+      final result = DecodedBitStreamParser.jisToUnicode(row: 4, cell: 1);
+      expect(result, 0x3041);
+    });
+
+    test('maps katakana row 5', () {
+      final result = DecodedBitStreamParser.jisToUnicode(row: 5, cell: 1);
+      expect(result, 0x30A1);
+    });
+
+    test('returns null for unmapped rows', () {
+      final result = DecodedBitStreamParser.jisToUnicode(row: 10, cell: 1);
+      expect(result, isNull);
+    });
+
+    test('returns null for out-of-range cells in hiragana', () {
+      final result = DecodedBitStreamParser.jisToUnicode(row: 4, cell: 84);
+      expect(result, isNull);
+    });
+
+    test('returns null for out-of-range cells in katakana', () {
+      final result = DecodedBitStreamParser.jisToUnicode(row: 5, cell: 87);
+      expect(result, isNull);
     });
   });
 }

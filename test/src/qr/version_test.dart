@@ -35,6 +35,11 @@ void main() {
         () => Version.getProvisionalVersionForDimension(20),
         throwsArgumentError,
       );
+      // Dimension 13 (13 % 4 == 1) but results in version -1
+      expect(
+        () => Version.getProvisionalVersionForDimension(13),
+        throwsArgumentError,
+      );
     });
 
     test('Version 1 has empty alignment pattern centers', () {
@@ -102,6 +107,16 @@ void main() {
 
       // Version 5-H has multiple blocks
       expect(ecBlocks.ecBlocks.isNotEmpty, true);
+    });
+  });
+
+  group('Version Boundary Tests', () {
+    // Tests moved from remaining_coverage_test.dart
+    test('Version.decodeVersionInformation calculates BCH', () {
+      expect(Version.decodeVersionInformation(0x07C94)?.versionNumber, 7);
+      expect(Version.decodeVersionInformation(0x07C95)?.versionNumber, 7);
+      expect(Version.decodeVersionInformation(0x07C93)?.versionNumber, 7);
+      expect(Version.decodeVersionInformation(0x07C9B), isNull);
     });
   });
 }

@@ -46,4 +46,31 @@ void main() {
       }
     });
   });
+
+  group('GenericGF operations', () {
+    test('buildMonomial creates correct polynomial', () {
+      final field = GenericGF.qrCodeField256;
+      final mono = field.buildMonomial(3, 5);
+      expect(mono.degree, 3);
+      expect(mono.getCoefficient(3), 5);
+    });
+
+    test('exp and log are inverse operations', () {
+      final field = GenericGF.qrCodeField256;
+      for (var i = 0; i < 10; i++) {
+        final exp = field.exp(i);
+        final log = field.log(exp);
+        expect(log, i);
+      }
+    });
+
+    test('inverse produces correct result', () {
+      final field = GenericGF.qrCodeField256;
+      for (var i = 1; i < 10; i++) {
+        final inv = field.inverse(i);
+        final product = field.multiply(i, inv);
+        expect(product, 1);
+      }
+    });
+  });
 }

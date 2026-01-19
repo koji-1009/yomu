@@ -76,4 +76,69 @@ void main() {
       expect(remainder.isZero, isTrue);
     });
   });
+
+  group('GenericGFPoly Exception Paths', () {
+    test('divide by zero throws', () {
+      final field = GenericGF.qrCodeField256;
+      final poly1 = GenericGFPoly(field, [1, 2, 3]);
+      final zero = field.zero;
+
+      expect(() => poly1.divide(zero), throwsA(isA<ArgumentError>()));
+    });
+
+    test('multiplyByMonomial with negative degree throws', () {
+      final field = GenericGF.qrCodeField256;
+      final poly = GenericGFPoly(field, [1, 2]);
+
+      expect(
+        () => poly.multiplyByMonomial(-1, 3),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('evaluateAt with zero returns constant term', () {
+      final field = GenericGF.qrCodeField256;
+      final poly = GenericGFPoly(field, [5, 10, 15]);
+      expect(poly.evaluateAt(0), 15);
+    });
+
+    test('multiply by scalar zero returns zero poly', () {
+      final field = GenericGF.qrCodeField256;
+      final poly = GenericGFPoly(field, [1, 2, 3]);
+      final result = poly.multiplyByScalar(0);
+      expect(result.isZero, isTrue);
+    });
+
+    test('add/subtract identical polys returns zero', () {
+      final field = GenericGF.qrCodeField256;
+      final poly = GenericGFPoly(field, [1, 2, 3]);
+      final result = poly.addOrSubtract(poly);
+      expect(result.isZero, isTrue);
+    });
+
+    test('multiply by monomial', () {
+      final field = GenericGF.qrCodeField256;
+      final poly = GenericGFPoly(field, [1, 2]);
+      final result = poly.multiplyByMonomial(2, 3);
+      expect(result.degree, poly.degree + 2);
+    });
+
+    test('divide returns quotient and remainder', () {
+      final field = GenericGF.qrCodeField256;
+      final dividend = GenericGFPoly(field, [1, 2, 3, 4]);
+      final divisor = GenericGFPoly(field, [1, 1]);
+      final result = dividend.divide(divisor);
+      expect(result.length, 2); // [quotient, remainder]
+    });
+
+    test('toString returns formatted polynomial', () {
+      final field = GenericGF.qrCodeField256;
+      final poly = GenericGFPoly(field, [5, 10, 15]);
+      // 5x^2 + 10x^1 + 15x^0
+      // Actual format depends on toString impl: "5x^2 + 10x^1 + 15x^0" or similar?
+      // Code: sb.write('${coefficients[i]}x^$deg');
+      // 5x^2 + 10x^1 + 15x^0
+      expect(poly.toString(), '5x^2 + 10x^1 + 15x^0');
+    });
+  });
 }

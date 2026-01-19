@@ -1,12 +1,12 @@
 import 'dart:typed_data';
 
+import 'package:yomu/src/common/binarizer/binarizer.dart';
+import 'package:yomu/src/common/binarizer/luminance_source.dart';
+
 /// Binarizer micro-benchmark.
 ///
 /// Measures raw performance of the binarization step (LuminanceSource -> BitMatrix).
 /// See `benchmark/README.md` for details.
-import 'package:yomu/src/common/binarizer/binarizer.dart';
-import 'package:yomu/src/common/binarizer/luminance_source.dart';
-
 void main() {
   // Simulate 4K image (3840 x 2160)
   const width = 3840;

@@ -1,13 +1,13 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:image/image.dart' as img;
+import 'package:yomu/yomu.dart';
+
 /// Comparative benchmark detector configurations.
 ///
 /// Goal: Measure overhead of different configurations (e.g. qrOnly vs all).
 /// See `benchmark/README.md` for details.
-import 'package:image/image.dart' as img;
-import 'package:yomu/yomu.dart';
-
 void main() {
   print('================================================');
   print('📊 YOMU COMPARATIVE BENCHMARK');
@@ -27,17 +27,22 @@ void main() {
   }
   print('');
 
-  // 2. Barcode Performance
-  print('--- Barcode Performance (fixtures/barcode_images) ---');
-  final barcodeFiles = _getFiles('fixtures/barcode_images');
-  if (barcodeFiles.isNotEmpty) {
+  // 3. Performance & Distortion
+  print(
+    '--- Extended Performance (fixtures/performance_test_images, distorted_images) ---',
+  );
+  final perfFiles = _getFiles('fixtures/performance_test_images');
+  final distFiles = _getFiles('fixtures/distorted_images');
+  final extendedFiles = [...perfFiles, ...distFiles];
+
+  if (extendedFiles.isNotEmpty) {
     _runComparison(
-      files: barcodeFiles,
-      configA: ('Yomu.barcodeOnly', Yomu.barcodeOnly),
+      files: extendedFiles,
+      configA: ('Yomu.qrOnly', Yomu.qrOnly), // Compare QR mode for these
       configB: ('Yomu.all', Yomu.all),
     );
   } else {
-    print('No Barcode images found.');
+    print('No Extended images found.');
   }
 }
 
@@ -127,7 +132,14 @@ class Metric {
 
 void _printCategoryReport(String name, Map<String, Metric> metrics) {
   print('--- $name Metrics ---');
-  for (final category in ['Standard', 'Heavy', 'Edge']) {
+  for (final category in [
+    'Standard',
+    'Heavy',
+    'HiRes',
+    'Distorted',
+    'Noise',
+    'Edge',
+  ]) {
     if (metrics.containsKey(category)) {
       final m = metrics[category]!;
       print(
@@ -139,6 +151,16 @@ void _printCategoryReport(String name, Map<String, Metric> metrics) {
 }
 
 String _categorize(String filename) {
+  if (filename.contains('4k_')) {
+    return 'HiRes';
+  }
+  if (filename.contains('rotation') || filename.contains('tilt')) {
+    return 'Distorted';
+  }
+  if (filename.contains('noise')) {
+    return 'Noise';
+  }
+
   if (filename.contains('distorted') ||
       filename.contains('version_7') ||
       filename.contains('version_10') ||
@@ -153,7 +175,8 @@ String _categorize(String filename) {
   return 'Standard';
 }
 
-const int _iterations = 500;
+const int _iterations =
+    50; // Reduced iterations for extended tests to save time
 
 (Map<String, Metric>, Map<String, double>) _bench(
   Yomu yomu,
@@ -164,6 +187,9 @@ const int _iterations = 500;
     'All': [],
     'Standard': [],
     'Heavy': [],
+    'HiRes': [],
+    'Distorted': [],
+    'Noise': [],
     'Edge': [],
   };
 

@@ -14,7 +14,6 @@ Usage:
 
     Example:
     uv run scripts/benchmark_runner.py benchmark/bench_compare.dart
-    uv run scripts/benchmark_runner.py benchmark/bench_throughput.dart
 """
 
 import re
@@ -282,22 +281,24 @@ def generate_markdown_report(
         md.append("| Category | Average (ms) | p95 (ms) | Notes |")
         md.append("| :--- | :--- | :--- | :--- |")
 
-        cats = aot.qr_categories
-        if "Standard" in cats:
-            c = cats["Standard"]
-            md.append(
-                f"| **Standard** | {c[2]:.2f}ms | {c[3]:.2f}ms | Version 1-4, Alphanumeric |"
-            )
-        if "Heavy" in cats:
-            c = cats["Heavy"]
-            md.append(
-                f"| **Heavy** | {c[2]:.2f}ms | {c[3]:.2f}ms | Distorted, Version 7+ |"
-            )
-        if "Edge" in cats:
-            c = cats["Edge"]
-            md.append(
-                f"| **Edge** | {c[2]:.2f}ms | {c[3]:.2f}ms | Tiny, uniform, error cases |"
-            )
+        for cat in ["Standard", "Heavy", "HiRes", "Distorted", "Noise", "Edge"]:
+            if cat in cats:
+                c = cats[cat]
+                note = ""
+                if cat == "Standard":
+                    note = "Version 1-4, Alphanumeric"
+                elif cat == "Heavy":
+                    note = "Complex versions"
+                elif cat == "HiRes":
+                    note = "4K / Large images"
+                elif cat == "Distorted":
+                    note = "Rotated / Tilted"
+                elif cat == "Noise":
+                    note = "Noisy background"
+                elif cat == "Edge":
+                    note = "Tiny, uniform, error cases"
+
+                md.append(f"| **{cat}** | {c[2]:.2f}ms | {c[3]:.2f}ms | {note} |")
 
     # Barcode Category Breakdown (AOT)
     if aot.barcode_categories and len(aot.barcode_categories) > 0:
@@ -307,18 +308,10 @@ def generate_markdown_report(
         md.append("| :--- | :--- | :--- | :--- |")
 
         cats = aot.barcode_categories
-        if "Standard" in cats:
-            c = cats["Standard"]
-            md.append(
-                f"| **Standard** | {c[2]:.2f}ms | {c[3]:.2f}ms | EAN, Code39, Code128 |"
-            )
-        # Reuse categories if they exist for barcodes
-        if "Heavy" in cats:
-            c = cats["Heavy"]
-            md.append(f"| **Heavy** | {c[2]:.2f}ms | {c[3]:.2f}ms | |")
-        if "Edge" in cats:
-            c = cats["Edge"]
-            md.append(f"| **Edge** | {c[2]:.2f}ms | {c[3]:.2f}ms | |")
+        for cat in ["Standard", "Heavy", "HiRes", "Distorted", "Noise", "Edge"]:
+            if cat in cats:
+                c = cats[cat]
+                md.append(f"| **{cat}** | {c[2]:.2f}ms | {c[3]:.2f}ms | |")
 
     # Detailed Table
     if aot.details:
@@ -429,7 +422,7 @@ def _print_comparative_comparison(
         print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
         print("-" * 50)
         cats = aot.qr_categories
-        for cat in ["Standard", "Heavy", "Edge"]:
+        for cat in ["Standard", "Heavy", "HiRes", "Distorted", "Noise", "Edge"]:
             if cat in cats:
                 c = cats[cat]
                 print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")
@@ -439,7 +432,7 @@ def _print_comparative_comparison(
         print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
         print("-" * 50)
         cats = aot.barcode_categories
-        for cat in ["Standard", "Heavy", "Edge"]:
+        for cat in ["Standard", "Heavy", "HiRes", "Distorted", "Noise", "Edge"]:
             if cat in cats:
                 c = cats[cat]
                 print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")

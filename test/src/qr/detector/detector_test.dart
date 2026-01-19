@@ -41,6 +41,24 @@ void main() {
       expect(result.bits.get(3, 3), isTrue); // Center of Finder is Black
     });
   });
+
+  group('Detector Dimension Adjustment', () {
+    test('adjusts dimension when mod 4 == 0 (adds 1)', () {
+      expect(Detector.adjustDimension(20), 21);
+    });
+
+    test('leaves dimension unchanged when mod 4 == 1', () {
+      expect(Detector.adjustDimension(21), 21);
+    });
+
+    test('adjusts dimension when mod 4 == 2 (subtracts 1)', () {
+      expect(Detector.adjustDimension(22), 21);
+    });
+
+    test('adjusts dimension when mod 4 == 3 (adds 2)', () {
+      expect(Detector.adjustDimension(23), 25);
+    });
+  });
 }
 
 void _drawFinderPattern(BitMatrix matrix, int xStart, int yStart) {

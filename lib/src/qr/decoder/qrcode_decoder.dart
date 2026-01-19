@@ -16,6 +16,17 @@ class QRCodeDecoder {
   final ReedSolomonDecoder _rsDecoder;
 
   DecoderResult decode(BitMatrix bits) {
+    try {
+      return _decodeBody(bits);
+    } catch (e) {
+      if (e is YomuException) {
+        rethrow;
+      }
+      throw DecodeException('Decoding failed: $e');
+    }
+  }
+
+  DecoderResult _decodeBody(BitMatrix bits) {
     final parser = BitMatrixParser(bits);
 
     // Read Format Information

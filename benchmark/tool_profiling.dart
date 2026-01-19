@@ -2,21 +2,16 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+/// Detailed profiling tool.
+///
+/// Purpose: Breaks down decoding pipeline into stages.
+/// See `benchmark/README.md` for details.
 import 'package:image/image.dart' as img;
 import 'package:yomu/src/common/binarizer/binarizer.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
 import 'package:yomu/src/qr/decoder/qrcode_decoder.dart';
 import 'package:yomu/src/qr/detector/detector.dart';
 
-/// **Detailed Profiling Tool**
-///
-/// **Purpose**:
-/// Breaks down the decoding pipeline into stages (Load, Convert, Downsample, Binarize, Detect, Decode)
-/// to identify bottlenecks.
-///
-/// **Usage**:
-/// Run manually when `performance.dart` or `decoding_benchmark.dart` shows regression.
-/// `dart run benchmark/profiling.dart`
 void main() {
   final dir = Directory('fixtures/performance_test_images');
   if (!dir.existsSync()) {
@@ -222,5 +217,3 @@ Map<String, int>? _profileDecode(File file) {
         1000,
   };
 }
-
-// Removing _downsamplePixels as it's now inlined/fused

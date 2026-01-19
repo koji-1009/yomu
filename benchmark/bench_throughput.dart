@@ -1,28 +1,19 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+/// Throughput and stability benchmark.
+///
+/// Goal: Verify >120fps throughput and stable frame times on realistic images.
+/// See `benchmark/README.md` for details.
 import 'package:image/image.dart' as img;
 import 'package:yomu/yomu.dart';
 
-/// **Real-world Throughput Benchmark**
-///
-/// **Purpose**:
-/// Measures performance on varied, realistic images (camera capture, noise, rotation).
-/// This simulates the actual user experience in a scanning session.
-///
-/// **Goal**:
-/// - Validate stability and robustness against noise.
-/// - Ensure consistent frame rates under load.
-///
-/// **Target**:
-/// - **< 8.33ms (120fps)** average.
-/// - No single frame spiking above 16.6ms (60fps) to avoid jank.
 void main() {
   final dir = Directory('fixtures/performance_test_images');
 
   if (!dir.existsSync()) {
     print('Performance test images not found.');
-    print('Run: python3 scripts/generate_performance_test_images.py');
+    print('Run: uv run scripts/generate_performance_test_images.py');
     exit(1);
   }
 

@@ -1,22 +1,13 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+/// Latency benchmark for standard QR codes.
+///
+/// Goal: Verify ultra-low latency (<1ms) for simple cases.
+/// See `benchmark/README.md` for details.
 import 'package:image/image.dart' as img;
 import 'package:yomu/yomu.dart';
 
-/// **Latency Optimization Benchmark**
-///
-/// **Purpose**:
-/// Verifies that small standard codes (QR/Barcode) can be decoded with ultra-low latency.
-/// This simulates "easy" frames in a video stream where the detector should finish almost instantly.
-///
-/// **Goal**:
-/// - Verify minimal overhead of the library.
-/// - Ensure hot path efficiency for common cases.
-///
-/// **Target**:
-/// - **< 1.0ms** per image on AOT (Compiled).
-/// - Essential for leaving CPU budget for UI/GPU tasks in 120fps applications.
 void main() {
   // Path to the fixtures directory
   final fixturesDir = Directory('fixtures/qr_images');

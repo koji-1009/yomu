@@ -8,10 +8,10 @@ Before running benchmarks, you must generate the test fixtures:
 
 ```bash
 # Generate basic QR tests
-python3 scripts/generate_test_qr.py
+uv run scripts/generate_test_qr.py
 
 # Generate performance test set (noise, rotation, etc.)
-python3 scripts/generate_performance_test_images.py
+uv run scripts/generate_performance_test_images.py
 ```
 
 ## Running Benchmarks

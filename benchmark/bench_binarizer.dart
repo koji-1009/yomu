@@ -1,5 +1,9 @@
 import 'dart:typed_data';
 
+/// Binarizer micro-benchmark.
+///
+/// Measures raw performance of the binarization step (LuminanceSource -> BitMatrix).
+/// See `benchmark/README.md` for details.
 import 'package:yomu/src/common/binarizer/binarizer.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
 

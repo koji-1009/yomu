@@ -1,17 +1,13 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+/// Comparative benchmark detector configurations.
+///
+/// Goal: Measure overhead of different configurations (e.g. qrOnly vs all).
+/// See `benchmark/README.md` for details.
 import 'package:image/image.dart' as img;
 import 'package:yomu/yomu.dart';
 
-/// **Comparative Benchmark**
-///
-/// **Purpose**:
-/// Compares performance overhead between different detector configurations.
-///
-/// **Modes**:
-/// 1. **QR Images**: Compare `Yomu.qrOnly` vs `Yomu.all`
-/// 2. **Barcode Images**: Compare `Yomu.barcodeOnly` vs `Yomu.all`
 void main() {
   print('================================================');
   print('📊 YOMU COMPARATIVE BENCHMARK');

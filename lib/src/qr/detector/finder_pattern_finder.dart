@@ -42,6 +42,20 @@ class FinderPatternFinder {
 
         final limit = (remaining < 32) ? remaining : 32;
 
+        if (currentWord == 0 && (currentState & 1) == 1 && limit == 32) {
+          // Optimization: All white, currently counting white
+          stateCount[currentState] += 32;
+          continue;
+        }
+
+        if (currentWord == 0xFFFFFFFF &&
+            (currentState & 1) == 0 &&
+            limit == 32) {
+          // Optimization: All black, currently counting black
+          stateCount[currentState] += 32;
+          continue;
+        }
+
         for (var b = 0; b < limit; b++) {
           if ((currentWord & (1 << b)) != 0) {
             // Black
@@ -206,9 +220,14 @@ class FinderPatternFinder {
     int originalStateCountTotal,
   ) {
     // Scan up and down from centerJ, startI
-    final matrix = image;
-    final maxI = matrix.height;
+    final bits = image.bits;
+    final stride = image.rowStride;
+    final maxI = image.height;
     var i = startI;
+
+    // Precompute x offset and mask for this column
+    final xOffset = centerJ >> 5;
+    final xMask = 1 << (centerJ & 0x1f);
 
     // Use reusable buffer
     final stateCount = _crossCheckStateCount;
@@ -216,52 +235,65 @@ class FinderPatternFinder {
 
     // Start counting up from center
     // 2: center black
-    // scan up until white, then black...
+
+    // Initial offset for startI
+    var offset = i * stride + xOffset;
 
     // We are "in" the center black module (state 2).
     // Up
     // 1. Scan up (decrease i) inside Black (state 2)
-    while (i >= 0 && matrix.get(centerJ, i)) {
+    while (i >= 0 && (bits[offset] & xMask) != 0) {
       stateCount[2]++;
       i--;
+      offset -= stride;
     }
     if (i < 0) return null;
 
     // 2. Scan up White (state 1)
-    while (i >= 0 && !matrix.get(centerJ, i) && stateCount[1] <= maxCount) {
+    while (i >= 0 && (bits[offset] & xMask) == 0 && stateCount[1] <= maxCount) {
       stateCount[1]++;
       i--;
+      offset -= stride;
     }
     if (i < 0 || stateCount[1] > maxCount) return null;
 
     // 3. Scan up Black (state 0)
-    while (i >= 0 && matrix.get(centerJ, i) && stateCount[0] <= maxCount) {
+    while (i >= 0 && (bits[offset] & xMask) != 0 && stateCount[0] <= maxCount) {
       stateCount[0]++;
       i--;
+      offset -= stride;
     }
     if (stateCount[0] > maxCount) return null;
 
     // Go down
     i = startI + 1;
+    offset = i * stride + xOffset;
 
     // 4. Scan down Black (state 2 residue)
-    while (i < maxI && matrix.get(centerJ, i)) {
+    while (i < maxI && (bits[offset] & xMask) != 0) {
       stateCount[2]++;
       i++;
+      offset += stride;
     }
     if (i == maxI) return null;
 
     // 5. Scan down White (state 3)
-    while (i < maxI && !matrix.get(centerJ, i) && stateCount[3] <= maxCount) {
+    while (i < maxI &&
+        (bits[offset] & xMask) == 0 &&
+        stateCount[3] <= maxCount) {
       stateCount[3]++;
       i++;
+      offset += stride;
     }
     if (i == maxI || stateCount[3] > maxCount) return null;
 
     // 6. Scan down Black (state 4)
-    while (i < maxI && matrix.get(centerJ, i) && stateCount[4] <= maxCount) {
+    while (i < maxI &&
+        (bits[offset] & xMask) != 0 &&
+        stateCount[4] <= maxCount) {
       stateCount[4]++;
       i++;
+      offset += stride;
     }
     if (stateCount[4] > maxCount) return null;
 

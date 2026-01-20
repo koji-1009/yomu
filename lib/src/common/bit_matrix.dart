@@ -87,18 +87,6 @@ class BitMatrix {
     _bits[offset] ^= (1 << (x & 0x1f));
   }
 
-  @override
-  String toString() {
-    final buffer = StringBuffer();
-    for (var y = 0; y < height; y++) {
-      for (var x = 0; x < width; x++) {
-        buffer.write(get(x, y) ? 'X ' : '  ');
-      }
-      buffer.writeln();
-    }
-    return buffer.toString();
-  }
-
   BitMatrix clone() {
     return BitMatrix.fromBits(
       width: width,

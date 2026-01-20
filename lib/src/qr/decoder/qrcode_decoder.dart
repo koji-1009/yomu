@@ -126,11 +126,11 @@ class QRCodeDecoder {
       codewordBytes.setRange(block.data.length, codewordBytes.length, block.ec);
 
       final ints = Int32List.fromList(codewordBytes); // Make generic list
-      rsDecode(
-        codewords: ints,
-        ecCount: block.ec.length,
-        rsDecoder: _rsDecoder,
-      );
+      try {
+        _rsDecoder.decode(received: ints, twoS: block.ec.length);
+      } catch (e) {
+        throw DecodeException('RS error: $e');
+      }
 
       // Copy back data
       for (var i = 0; i < block.data.length; i++) {
@@ -139,21 +139,6 @@ class QRCodeDecoder {
     }
 
     return DecodedBitStreamParser.decode(bytes: resultBytes, version: version);
-  }
-
-  /// Attempts to decode the codewords using Reed-Solomon error correction.
-  /// Throws [DecodeException] if decoding fails.
-  /// Visible for testing to verify defensive error handling.
-  static void rsDecode({
-    required List<int> codewords,
-    required int ecCount,
-    required ReedSolomonDecoder rsDecoder,
-  }) {
-    try {
-      rsDecoder.decode(received: codewords, twoS: ecCount);
-    } catch (e) {
-      throw DecodeException('RS error: $e');
-    }
   }
 }
 

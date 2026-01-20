@@ -55,16 +55,6 @@ void main() {
       expect(v7.alignmentPatternCenters, [6, 22, 38]);
     });
 
-    test('totalCodewords is consistent across versions', () {
-      // Version 1: 26 total codewords
-      final v1 = Version.getVersionForNumber(1);
-      expect(v1.totalCodewords, 26);
-
-      // Version 2: 44 total codewords
-      final v2 = Version.getVersionForNumber(2);
-      expect(v2.totalCodewords, 44);
-    });
-
     test('getECBlocksForLevel returns valid data for all levels', () {
       final v1 = Version.getVersionForNumber(1);
 

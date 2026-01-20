@@ -13,12 +13,18 @@ void main() {
   print('📊 YOMU COMPARATIVE BENCHMARK');
   print('================================================\n');
 
-  // 1. QR Performance
-  print('--- QR Code Performance (fixtures/qr_images) ---');
+  // 1. QR Performance (Combined: Standard + Extended)
+  print('--- QR Code Performance (fixtures/qr_images + extended) ---');
   final qrFiles = _getFiles('fixtures/qr_images');
-  if (qrFiles.isNotEmpty) {
+  final perfFiles = _getFiles('fixtures/performance_test_images');
+  final distFiles = _getFiles('fixtures/distorted_images');
+
+  // Combine all QR-related files
+  final allQrFiles = [...qrFiles, ...perfFiles, ...distFiles];
+
+  if (allQrFiles.isNotEmpty) {
     _runComparison(
-      files: qrFiles,
+      files: allQrFiles,
       configA: ('Yomu.qrOnly', Yomu.qrOnly),
       configB: ('Yomu.all', Yomu.all),
     );
@@ -27,22 +33,17 @@ void main() {
   }
   print('');
 
-  // 3. Performance & Distortion
-  print(
-    '--- Extended Performance (fixtures/performance_test_images, distorted_images) ---',
-  );
-  final perfFiles = _getFiles('fixtures/performance_test_images');
-  final distFiles = _getFiles('fixtures/distorted_images');
-  final extendedFiles = [...perfFiles, ...distFiles];
-
-  if (extendedFiles.isNotEmpty) {
+  // 2. Barcode Performance
+  print('--- Barcode Performance (fixtures/barcode_images) ---');
+  final barcodeFiles = _getFiles('fixtures/barcode_images');
+  if (barcodeFiles.isNotEmpty) {
     _runComparison(
-      files: extendedFiles,
-      configA: ('Yomu.qrOnly', Yomu.qrOnly), // Compare QR mode for these
+      files: barcodeFiles,
+      configA: ('Yomu.barcodeOnly', Yomu.barcodeOnly),
       configB: ('Yomu.all', Yomu.all),
     );
   } else {
-    print('No Extended images found.');
+    print('No Barcode images found.');
   }
 }
 

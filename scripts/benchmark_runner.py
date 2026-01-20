@@ -164,17 +164,35 @@ def _parse_comparative(output: str) -> Optional[ComparativeBenchmarkResult]:
     if len(overheads) < 2 or len(avgs) < 4:
         return None
 
-    # QR Metrics
+    # QR Metrics (Section 1: Standard)
     qr_base = float(avgs[0])
     qr_all = float(avgs[1])
     qr_ohm = float(overheads[0][0])
     qr_ohp = float(overheads[0][1])
 
-    # Barcode Metrics
-    bc_base = float(avgs[2])
-    bc_all = float(avgs[3])
-    bc_ohm = float(overheads[1][0])
-    bc_ohp = float(overheads[1][1])
+    # Stress Metrics (Section 2: Stress) - currently unused in summary but parsed
+    # stress_base = float(avgs[2])
+    # stress_all = float(avgs[3])
+
+    # Barcode Metrics (Section 3: Barcode)
+    # We expect 6 avgs and 3 overheads if all sections run.
+    # If stress run is empty, we might revert to old indices.
+    # But usually Benchmark scripts print sections even if empty?
+    # Actually bench_compare prints "No Stress images found" but doesn't runComparison if empty.
+    # For CI consistency, we assume images exist.
+
+    if len(avgs) >= 6 and len(overheads) >= 3:
+        bc_base = float(avgs[4])
+        bc_all = float(avgs[5])
+        bc_ohm = float(overheads[2][0])
+        bc_ohp = float(overheads[2][1])
+    else:
+        # Fallback for when Stress images are missing (partial run)
+        # This handles the 2-section case (Standard + Barcode)
+        bc_base = float(avgs[2])
+        bc_all = float(avgs[3])
+        bc_ohm = float(overheads[1][0])
+        bc_ohp = float(overheads[1][1])
 
     # Pass logic
     passed = qr_ohp < 15.0

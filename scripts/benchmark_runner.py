@@ -14,7 +14,6 @@ Usage:
 
     Example:
     uv run scripts/benchmark_runner.py benchmark/bench_compare.dart
-    uv run scripts/benchmark_runner.py benchmark/bench_throughput.dart
 """
 
 import re
@@ -141,7 +140,7 @@ def _parse_comparative(output: str) -> Optional[ComparativeBenchmarkResult]:
     qr_cats = {}
     bc_cats = {}
 
-    for cat in ["Standard", "Heavy", "Edge"]:
+    for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
         matches = re.findall(rf"{cat}\s+: Avg ([\d.]+)ms, p95 ([\d.]+)ms", output)
 
         # QR Section (indices 0 and 1)
@@ -165,17 +164,35 @@ def _parse_comparative(output: str) -> Optional[ComparativeBenchmarkResult]:
     if len(overheads) < 2 or len(avgs) < 4:
         return None
 
-    # QR Metrics
+    # QR Metrics (Section 1: Standard)
     qr_base = float(avgs[0])
     qr_all = float(avgs[1])
     qr_ohm = float(overheads[0][0])
     qr_ohp = float(overheads[0][1])
 
-    # Barcode Metrics
-    bc_base = float(avgs[2])
-    bc_all = float(avgs[3])
-    bc_ohm = float(overheads[1][0])
-    bc_ohp = float(overheads[1][1])
+    # Stress Metrics (Section 2: Stress) - currently unused in summary but parsed
+    # stress_base = float(avgs[2])
+    # stress_all = float(avgs[3])
+
+    # Barcode Metrics (Section 3: Barcode)
+    # We expect 6 avgs and 3 overheads if all sections run.
+    # If stress run is empty, we might revert to old indices.
+    # But usually Benchmark scripts print sections even if empty?
+    # Actually bench_compare prints "No Stress images found" but doesn't runComparison if empty.
+    # For CI consistency, we assume images exist.
+
+    if len(avgs) >= 6 and len(overheads) >= 3:
+        bc_base = float(avgs[4])
+        bc_all = float(avgs[5])
+        bc_ohm = float(overheads[2][0])
+        bc_ohp = float(overheads[2][1])
+    else:
+        # Fallback for when Stress images are missing (partial run)
+        # This handles the 2-section case (Standard + Barcode)
+        bc_base = float(avgs[2])
+        bc_all = float(avgs[3])
+        bc_ohm = float(overheads[1][0])
+        bc_ohp = float(overheads[1][1])
 
     # Pass logic
     passed = qr_ohp < 15.0
@@ -283,21 +300,24 @@ def generate_markdown_report(
         md.append("| :--- | :--- | :--- | :--- |")
 
         cats = aot.qr_categories
-        if "Standard" in cats:
-            c = cats["Standard"]
-            md.append(
-                f"| **Standard** | {c[2]:.2f}ms | {c[3]:.2f}ms | Version 1-4, Alphanumeric |"
-            )
-        if "Heavy" in cats:
-            c = cats["Heavy"]
-            md.append(
-                f"| **Heavy** | {c[2]:.2f}ms | {c[3]:.2f}ms | Distorted, Version 7+ |"
-            )
-        if "Edge" in cats:
-            c = cats["Edge"]
-            md.append(
-                f"| **Edge** | {c[2]:.2f}ms | {c[3]:.2f}ms | Tiny, uniform, error cases |"
-            )
+        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
+            if cat in cats:
+                c = cats[cat]
+                note = ""
+                if cat == "Standard":
+                    note = "Version 1-4, Alphanumeric"
+                elif cat == "Complex":
+                    note = "High Versions (V5+)"
+                elif cat == "HiRes":
+                    note = "4K / Large images"
+                elif cat == "Distorted":
+                    note = "Rotated / Tilted / Skewed"
+                elif cat == "Noise":
+                    note = "Noisy background"
+                elif cat == "Edge":
+                    note = "Tiny, uniform, error cases"
+
+                md.append(f"| **{cat}** | {c[2]:.2f}ms | {c[3]:.2f}ms | {note} |")
 
     # Barcode Category Breakdown (AOT)
     if aot.barcode_categories and len(aot.barcode_categories) > 0:
@@ -307,18 +327,10 @@ def generate_markdown_report(
         md.append("| :--- | :--- | :--- | :--- |")
 
         cats = aot.barcode_categories
-        if "Standard" in cats:
-            c = cats["Standard"]
-            md.append(
-                f"| **Standard** | {c[2]:.2f}ms | {c[3]:.2f}ms | EAN, Code39, Code128 |"
-            )
-        # Reuse categories if they exist for barcodes
-        if "Heavy" in cats:
-            c = cats["Heavy"]
-            md.append(f"| **Heavy** | {c[2]:.2f}ms | {c[3]:.2f}ms | |")
-        if "Edge" in cats:
-            c = cats["Edge"]
-            md.append(f"| **Edge** | {c[2]:.2f}ms | {c[3]:.2f}ms | |")
+        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
+            if cat in cats:
+                c = cats[cat]
+                md.append(f"| **{cat}** | {c[2]:.2f}ms | {c[3]:.2f}ms | |")
 
     # Detailed Table
     if aot.details:
@@ -429,7 +441,7 @@ def _print_comparative_comparison(
         print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
         print("-" * 50)
         cats = aot.qr_categories
-        for cat in ["Standard", "Heavy", "Edge"]:
+        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
             if cat in cats:
                 c = cats[cat]
                 print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")
@@ -439,7 +451,7 @@ def _print_comparative_comparison(
         print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
         print("-" * 50)
         cats = aot.barcode_categories
-        for cat in ["Standard", "Heavy", "Edge"]:
+        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
             if cat in cats:
                 c = cats[cat]
                 print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")
@@ -531,7 +543,19 @@ def generate_comparison_report(base_data: dict, target_data: dict) -> str:
         md.append("| :--- | :--- | :--- | :--- |")
 
         all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
-        for cat in sorted(all_cats):
+        # Define sort order
+        cat_order = ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]
+
+        all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
+
+        # Sort based on defined order, put undefined ones at the end
+        def sort_key(k):
+            try:
+                return cat_order.index(k)
+            except ValueError:
+                return 999
+
+        for cat in sorted(all_cats, key=sort_key):
             # Format is [base_base, base_all, base_all, base_all]?
             # No, dict value is [base_avg, base_p95, all_avg, all_p95]
             # We want index 2 (all_avg)

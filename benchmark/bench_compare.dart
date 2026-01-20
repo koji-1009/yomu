@@ -1,33 +1,55 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:image/image.dart' as img;
+import 'package:yomu/yomu.dart';
+
 /// Comparative benchmark detector configurations.
 ///
 /// Goal: Measure overhead of different configurations (e.g. qrOnly vs all).
 /// See `benchmark/README.md` for details.
-import 'package:image/image.dart' as img;
-import 'package:yomu/yomu.dart';
-
 void main() {
   print('================================================');
   print('📊 YOMU COMPARATIVE BENCHMARK');
   print('================================================\n');
 
-  // 1. QR Performance
-  print('--- QR Code Performance (fixtures/qr_images) ---');
-  final qrFiles = _getFiles('fixtures/qr_images');
-  if (qrFiles.isNotEmpty) {
+  // 1. Run QR Standard (Pure)
+  // Now strictly reads from fixtures/qr_images which contains only Standard files.
+  print('--- QR Code Standard Performance (fixtures/qr_images) ---');
+  final standardFiles = _getFiles('fixtures/qr_images');
+
+  if (standardFiles.isNotEmpty) {
     _runComparison(
-      files: qrFiles,
+      files: standardFiles,
       configA: ('Yomu.qrOnly', Yomu.qrOnly),
       configB: ('Yomu.all', Yomu.all),
     );
   } else {
-    print('No QR images found.');
+    print('No Standard QR images found.');
   }
   print('');
 
-  // 2. Barcode Performance
+  // 2. Run QR Stress (Complex, HiRes, Distorted, Edge, Noise)
+  // Aggregates all other stress-test directories.
+  print('--- QR Code Stress Performance (Complex, HiRes, Distorted) ---');
+  final complexFiles = _getFiles('fixtures/qr_complex_images');
+  final perfFiles = _getFiles('fixtures/performance_test_images');
+  final distFiles = _getFiles('fixtures/distorted_images');
+
+  final stressFiles = [...complexFiles, ...perfFiles, ...distFiles];
+
+  if (stressFiles.isNotEmpty) {
+    _runComparison(
+      files: stressFiles,
+      configA: ('Yomu.qrOnly', Yomu.qrOnly),
+      configB: ('Yomu.all', Yomu.all),
+    );
+  } else {
+    print('No Stress images found.');
+  }
+  print('');
+
+  // 3. Barcode Performance
   print('--- Barcode Performance (fixtures/barcode_images) ---');
   final barcodeFiles = _getFiles('fixtures/barcode_images');
   if (barcodeFiles.isNotEmpty) {
@@ -127,7 +149,14 @@ class Metric {
 
 void _printCategoryReport(String name, Map<String, Metric> metrics) {
   print('--- $name Metrics ---');
-  for (final category in ['Standard', 'Heavy', 'Edge']) {
+  for (final category in [
+    'Standard',
+    'Complex',
+    'HiRes',
+    'Distorted',
+    'Noise',
+    'Edge',
+  ]) {
     if (metrics.containsKey(category)) {
       final m = metrics[category]!;
       print(
@@ -139,13 +168,25 @@ void _printCategoryReport(String name, Map<String, Metric> metrics) {
 }
 
 String _categorize(String filename) {
-  if (filename.contains('distorted') ||
-      filename.contains('version_7') ||
+  if (filename.contains('4k_')) {
+    return 'HiRes';
+  }
+  if (filename.contains('rotation') ||
+      filename.contains('tilt') ||
+      filename.contains('distorted') ||
+      filename.contains('qr_distorted')) {
+    return 'Distorted';
+  }
+  if (filename.contains('noise')) {
+    return 'Noise';
+  }
+
+  if (filename.contains('version_7') ||
       filename.contains('version_10') ||
-      filename.contains('version_5') || // Assuming 5+ is heavy
+      filename.contains('version_5') || // Assuming 5+ is complex
       filename.contains('qr_version_5') ||
       filename.contains('qr_version_6')) {
-    return 'Heavy';
+    return 'Complex';
   }
   if (filename.contains('edge_') || filename.contains('ec_level_h')) {
     return 'Edge';
@@ -153,7 +194,8 @@ String _categorize(String filename) {
   return 'Standard';
 }
 
-const int _iterations = 500;
+const int _iterations =
+    50; // Reduced iterations for extended tests to save time
 
 (Map<String, Metric>, Map<String, double>) _bench(
   Yomu yomu,
@@ -163,7 +205,10 @@ const int _iterations = 500;
   final categoryTimes = <String, List<double>>{
     'All': [],
     'Standard': [],
-    'Heavy': [],
+    'Complex': [],
+    'HiRes': [],
+    'Distorted': [],
+    'Noise': [],
     'Edge': [],
   };
 

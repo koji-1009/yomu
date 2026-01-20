@@ -2,16 +2,16 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-/// Detailed profiling tool.
-///
-/// Purpose: Breaks down decoding pipeline into stages.
-/// See `benchmark/README.md` for details.
 import 'package:image/image.dart' as img;
 import 'package:yomu/src/common/binarizer/binarizer.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
 import 'package:yomu/src/qr/decoder/qrcode_decoder.dart';
 import 'package:yomu/src/qr/detector/detector.dart';
 
+/// Detailed profiling tool.
+///
+/// Purpose: Breaks down decoding pipeline into stages.
+/// See `benchmark/README.md` for details.
 void main() {
   final dir = Directory('fixtures/performance_test_images');
   if (!dir.existsSync()) {

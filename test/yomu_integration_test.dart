@@ -100,8 +100,13 @@ void main() {
           // These files are expected to exist from generate_test_qr.py or previous setup
           // Check if file exists first to avoid crashing
           final filename = 'qr_version_$v.png';
-          if (File('${qrFixturesDir.path}/$filename').existsSync()) {
-            final file = File('${qrFixturesDir.path}/$filename');
+          // Check Standard directory first, then Complex
+          var file = File('${qrFixturesDir.path}/$filename');
+          if (!file.existsSync()) {
+            file = File('fixtures/qr_complex_images/$filename');
+          }
+
+          if (file.existsSync()) {
             final bytes = file.readAsBytesSync();
             final image = img.decodePng(bytes)!;
             final pixels = _imageToRgba(image);
@@ -508,8 +513,19 @@ void _testPngDecode(
   bool checkContent = true,
   MatchMode matchMode = MatchMode.exact,
 }) {
-  final file = File('${fixturesDir.path}/$filename');
-  if (!file.existsSync()) fail('$filename not found');
+  var file = File('${fixturesDir.path}/$filename');
+  if (!file.existsSync()) {
+    // Fallback search for QR tests impacted by refactor
+    if (File('fixtures/qr_complex_images/$filename').existsSync()) {
+      file = File('fixtures/qr_complex_images/$filename');
+    } else if (File('fixtures/distorted_images/$filename').existsSync()) {
+      file = File('fixtures/distorted_images/$filename');
+    } else {
+      fail(
+        '$filename not found in ${fixturesDir.path} or fallback directories',
+      );
+    }
+  }
 
   final bytes = file.readAsBytesSync();
   final decoded = img.decodePng(bytes);

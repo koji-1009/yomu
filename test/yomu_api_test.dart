@@ -156,7 +156,7 @@ void main() {
       late int height;
 
       setUpAll(() {
-        final file = File('fixtures/qr_images/qr_distorted_v4.png');
+        final file = File('fixtures/distorted_images/qr_distorted_v4.png');
         if (!file.existsSync()) {
           // Fallback if fixture missing (e.g. CI), though we generally expect fixtures.
           // For unit tests, maybe we should skip.
@@ -177,8 +177,9 @@ void main() {
       });
 
       test('Yomu.all should abort fallback on DecodeException', () {
-        if (!File('fixtures/qr_images/qr_distorted_v4.png').existsSync()) {
-          print('Skipping fallback test due to missing fixture');
+        if (!File(
+          'fixtures/distorted_images/qr_distorted_v4.png',
+        ).existsSync()) {
           return;
         }
 
@@ -191,7 +192,9 @@ void main() {
       });
 
       test('Yomu.qrOnly should throw DecodeException', () {
-        if (!File('fixtures/qr_images/qr_distorted_v4.png').existsSync()) {
+        if (!File(
+          'fixtures/distorted_images/qr_distorted_v4.png',
+        ).existsSync()) {
           return;
         }
 

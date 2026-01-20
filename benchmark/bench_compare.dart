@@ -13,28 +13,11 @@ void main() {
   print('📊 YOMU COMPARATIVE BENCHMARK');
   print('================================================\n');
 
-  // 1. Gather all QR candidates
-  final qrDirFiles = _getFiles('fixtures/qr_images');
-  final perfFiles = _getFiles('fixtures/performance_test_images');
-  final distFiles = _getFiles('fixtures/distorted_images');
-  final allQrCandidates = [...qrDirFiles, ...perfFiles, ...distFiles];
+  // 1. Run QR Standard (Pure)
+  // Now strictly reads from fixtures/qr_images which contains only Standard files.
+  print('--- QR Code Standard Performance (fixtures/qr_images) ---');
+  final standardFiles = _getFiles('fixtures/qr_images');
 
-  // 2. Split into Standard vs Stress (Complex, Distorted, HiRes, Edge, Noise)
-  final standardFiles = <File>[];
-  final stressFiles = <File>[];
-
-  for (final file in allQrCandidates) {
-    // Ensure consistent sorting
-    final cat = _categorize(file.path.split('/').last);
-    if (cat == 'Standard') {
-      standardFiles.add(file);
-    } else {
-      stressFiles.add(file);
-    }
-  }
-
-  // 3. Run QR Standard (Pure)
-  print('--- QR Code Standard Performance (Pure Standard) ---');
   if (standardFiles.isNotEmpty) {
     _runComparison(
       files: standardFiles,
@@ -46,8 +29,15 @@ void main() {
   }
   print('');
 
-  // 4. Run QR Stress (Complex, HiRes, Distorted, Edge, Noise)
-  print('--- QR Code Stress Performance (Extended) ---');
+  // 2. Run QR Stress (Complex, HiRes, Distorted, Edge, Noise)
+  // Aggregates all other stress-test directories.
+  print('--- QR Code Stress Performance (Complex, HiRes, Distorted) ---');
+  final complexFiles = _getFiles('fixtures/qr_complex_images');
+  final perfFiles = _getFiles('fixtures/performance_test_images');
+  final distFiles = _getFiles('fixtures/distorted_images');
+
+  final stressFiles = [...complexFiles, ...perfFiles, ...distFiles];
+
   if (stressFiles.isNotEmpty) {
     _runComparison(
       files: stressFiles,
@@ -59,7 +49,7 @@ void main() {
   }
   print('');
 
-  // 5. Barcode Performance
+  // 3. Barcode Performance
   print('--- Barcode Performance (fixtures/barcode_images) ---');
   final barcodeFiles = _getFiles('fixtures/barcode_images');
   if (barcodeFiles.isNotEmpty) {

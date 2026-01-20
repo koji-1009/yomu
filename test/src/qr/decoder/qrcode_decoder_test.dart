@@ -215,11 +215,17 @@ class _MockThrowingRSDecoder implements ReedSolomonDecoder {
 }
 
 BitMatrix _loadBitMatrix(String filename) {
-  final path = 'fixtures/qr_images/$filename';
-  final file = File(path);
+  var path = 'fixtures/qr_images/$filename';
+  var file = File(path);
+  if (!file.existsSync()) {
+    // Try complex images
+    path = 'fixtures/qr_complex_images/$filename';
+    file = File(path);
+  }
+
   if (!file.existsSync()) {
     throw StateError(
-      'Fixture not found: $path. Run scripts/generate_test_qr.py',
+      'Fixture not found in qr_images or qr_complex_images: $filename. Run scripts/generate_test_qr.py',
     );
   }
 

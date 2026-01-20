@@ -527,8 +527,9 @@ def generate_comparison_report(base_data: dict, target_data: dict) -> str:
         all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
         # Define sort order
         cat_order = ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]
-        
+
         all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
+
         # Sort based on defined order, put undefined ones at the end
         def sort_key(k):
             try:

@@ -140,7 +140,7 @@ def _parse_comparative(output: str) -> Optional[ComparativeBenchmarkResult]:
     qr_cats = {}
     bc_cats = {}
 
-    for cat in ["Standard", "Heavy", "Edge"]:
+    for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
         matches = re.findall(rf"{cat}\s+: Avg ([\d.]+)ms, p95 ([\d.]+)ms", output)
 
         # QR Section (indices 0 and 1)
@@ -525,7 +525,18 @@ def generate_comparison_report(base_data: dict, target_data: dict) -> str:
         md.append("| :--- | :--- | :--- | :--- |")
 
         all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
-        for cat in sorted(all_cats):
+        # Define sort order
+        cat_order = ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]
+        
+        all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
+        # Sort based on defined order, put undefined ones at the end
+        def sort_key(k):
+            try:
+                return cat_order.index(k)
+            except ValueError:
+                return 999
+
+        for cat in sorted(all_cats, key=sort_key):
             # Format is [base_base, base_all, base_all, base_all]?
             # No, dict value is [base_avg, base_p95, all_avg, all_p95]
             # We want index 2 (all_avg)

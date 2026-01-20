@@ -13,27 +13,53 @@ void main() {
   print('📊 YOMU COMPARATIVE BENCHMARK');
   print('================================================\n');
 
-  // 1. QR Performance (Combined: Standard + Extended)
-  print('--- QR Code Performance (fixtures/qr_images + extended) ---');
-  final qrFiles = _getFiles('fixtures/qr_images');
+  // 1. Gather all QR candidates
+  final qrDirFiles = _getFiles('fixtures/qr_images');
   final perfFiles = _getFiles('fixtures/performance_test_images');
   final distFiles = _getFiles('fixtures/distorted_images');
+  final allQrCandidates = [...qrDirFiles, ...perfFiles, ...distFiles];
 
-  // Combine all QR-related files
-  final allQrFiles = [...qrFiles, ...perfFiles, ...distFiles];
+  // 2. Split into Standard vs Stress (Complex, Distorted, HiRes, Edge, Noise)
+  final standardFiles = <File>[];
+  final stressFiles = <File>[];
 
-  if (allQrFiles.isNotEmpty) {
+  for (final file in allQrCandidates) {
+    // Ensure consistent sorting
+    final cat = _categorize(file.path.split('/').last);
+    if (cat == 'Standard') {
+      standardFiles.add(file);
+    } else {
+      stressFiles.add(file);
+    }
+  }
+
+  // 3. Run QR Standard (Pure)
+  print('--- QR Code Standard Performance (Pure Standard) ---');
+  if (standardFiles.isNotEmpty) {
     _runComparison(
-      files: allQrFiles,
+      files: standardFiles,
       configA: ('Yomu.qrOnly', Yomu.qrOnly),
       configB: ('Yomu.all', Yomu.all),
     );
   } else {
-    print('No QR images found.');
+    print('No Standard QR images found.');
   }
   print('');
 
-  // 2. Barcode Performance
+  // 4. Run QR Stress (Complex, HiRes, Distorted, Edge, Noise)
+  print('--- QR Code Stress Performance (Extended) ---');
+  if (stressFiles.isNotEmpty) {
+    _runComparison(
+      files: stressFiles,
+      configA: ('Yomu.qrOnly', Yomu.qrOnly),
+      configB: ('Yomu.all', Yomu.all),
+    );
+  } else {
+    print('No Stress images found.');
+  }
+  print('');
+
+  // 5. Barcode Performance
   print('--- Barcode Performance (fixtures/barcode_images) ---');
   final barcodeFiles = _getFiles('fixtures/barcode_images');
   if (barcodeFiles.isNotEmpty) {

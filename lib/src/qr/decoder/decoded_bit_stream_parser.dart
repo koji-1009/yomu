@@ -52,7 +52,9 @@ class DecoderResult {
   final String? ecLevel;
 }
 
-class DecodedBitStreamParser {
+abstract class DecodedBitStreamParser {
+  const DecodedBitStreamParser._();
+
   static const _alphanumericChars =
       '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ \$%*+-./:';
 

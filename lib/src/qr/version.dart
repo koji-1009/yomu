@@ -25,17 +25,6 @@ class Version {
   final List<int> alignmentPatternCenters;
   final Map<ErrorCorrectionLevel, ECBlocks> _ecBlocks;
 
-  int get totalCodewords {
-    // Calculate total codewords from one of the EC levels (e.g. L)
-    // Total = Data Codewords + EC Codewords * NumBlocks
-    final ecb = _ecBlocks[ErrorCorrectionLevel.L]!;
-    var total = 0;
-    for (final block in ecb.ecBlocks) {
-      total += block.count * (block.dataCodewords + ecb.ecCodewordsPerBlock);
-    }
-    return total;
-  }
-
   int get dimensionForVersion => 17 + 4 * versionNumber;
 
   ECBlocks? getECBlocksForLevel(ErrorCorrectionLevel ecLevel) {

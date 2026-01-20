@@ -166,16 +166,4 @@ class GenericGFPoly {
     }
     return [quotient, remainder];
   }
-
-  @override
-  String toString() {
-    // Just for debugging
-    final sb = StringBuffer();
-    for (var i = 0; i < coefficients.length; i++) {
-      if (i > 0) sb.write(' + ');
-      final deg = coefficients.length - 1 - i;
-      sb.write('${coefficients[i]}x^$deg');
-    }
-    return sb.toString();
-  }
 }

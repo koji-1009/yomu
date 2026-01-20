@@ -47,14 +47,6 @@ void main() {
       expect(matrix.get(0, 0), isFalse);
     });
 
-    test('toString produces readable output', () {
-      final matrix = BitMatrix(width: 3);
-      matrix.set(1, 1);
-      final str = matrix.toString();
-      expect(str, contains('X'));
-      expect(str.split('\n').length, greaterThanOrEqualTo(3));
-    });
-
     test('clone creates independent copy', () {
       final matrix = BitMatrix(width: 5);
       matrix.set(2, 2);

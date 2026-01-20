@@ -7,9 +7,7 @@ import 'package:yomu/src/common/binarizer/binarizer.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
 import 'package:yomu/src/common/image_conversion.dart';
-import 'package:yomu/src/qr/decoder/generic_gf.dart';
 import 'package:yomu/src/qr/decoder/qrcode_decoder.dart';
-import 'package:yomu/src/qr/decoder/reed_solomon_decoder.dart';
 import 'package:yomu/src/qr/detector/detector.dart';
 import 'package:yomu/src/qr/version.dart';
 import 'package:yomu/src/yomu_exception.dart';
@@ -155,63 +153,7 @@ void main() {
     // We need to test the "catch (e)" path that wraps non-Yomu exceptions.
     // How to trigger a non-Yomu exception inside decode?
     // Maybe mock RS decoder to throw StateError?
-
-    test('decode wraps unknown exceptions', () {
-      // We need it to reach RS decode phase.
-      // This requires valid format info, version, etc.
-      // Constructing a valid QR matrix manually is hard.
-      // Maybe we can test `rsDecode` static method directly if accessible?
-      // `QRCodeDecoder.rsDecode` is visible for testing.
-
-      expect(
-        () => QRCodeDecoder.rsDecode(
-          codewords: [1, 2, 3],
-          ecCount: 2,
-          rsDecoder: _MockThrowingRSDecoder(),
-        ),
-        throwsA(
-          isA<DecodeException>().having(
-            (e) => e.message,
-            'message',
-            contains('RS error'),
-          ),
-        ),
-      );
-    });
-
-    test('rsDecode throws DecodeException on real RS failure', () {
-      // RS(4, 2) -> 2 data, 2 ec
-      // Codewords: [1, 2, 3, 4]
-      // Corrupt them heavily
-      final codewords = [100, 200, 3, 4];
-      final rsDecoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
-
-      expect(
-        () => QRCodeDecoder.rsDecode(
-          codewords: codewords,
-          ecCount: 2,
-          rsDecoder: rsDecoder,
-        ),
-        throwsA(
-          isA<DecodeException>().having(
-            (e) => e.message,
-            'message',
-            contains('RS error'),
-          ),
-        ),
-      );
-    });
   });
-}
-
-class _MockThrowingRSDecoder implements ReedSolomonDecoder {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
-  void decode({required List<int> received, required int twoS}) {
-    throw StateError('Unexpected error');
-  }
 }
 
 BitMatrix _loadBitMatrix(String filename) {

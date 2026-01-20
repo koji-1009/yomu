@@ -130,15 +130,5 @@ void main() {
       final result = dividend.divide(divisor);
       expect(result.length, 2); // [quotient, remainder]
     });
-
-    test('toString returns formatted polynomial', () {
-      final field = GenericGF.qrCodeField256;
-      final poly = GenericGFPoly(field, [5, 10, 15]);
-      // 5x^2 + 10x^1 + 15x^0
-      // Actual format depends on toString impl: "5x^2 + 10x^1 + 15x^0" or similar?
-      // Code: sb.write('${coefficients[i]}x^$deg');
-      // 5x^2 + 10x^1 + 15x^0
-      expect(poly.toString(), '5x^2 + 10x^1 + 15x^0');
-    });
   });
 }

@@ -406,8 +406,10 @@ class FinderPatternFinder {
     _possibleCenters.clear();
 
     // First, detect all possible centers (same as find())
-    final maxI = image.height;
     final maxJ = image.width;
+    final maxI = image.height;
+    final bits = image.bits;
+    final rowStride = image.rowStride;
 
     const iSkip = 3;
 
@@ -416,30 +418,62 @@ class FinderPatternFinder {
     for (var i = iSkip - 1; i < maxI; i += iSkip) {
       stateCount.fillRange(0, 5, 0);
       var currentState = 0;
+      final rowOffset = i * rowStride;
+      var wordOffset = rowOffset;
 
-      for (var j = 0; j < maxJ; j++) {
-        if (image.get(j, i)) {
-          if ((currentState & 1) == 1) {
-            currentState++;
-          }
-          stateCount[currentState]++;
-        } else {
-          if ((currentState & 1) == 0) {
-            if (currentState == 4) {
-              if (foundPatternCross(stateCount)) {
-                _handlePossibleCenter(stateCount, i, j);
-                stateCount.fillRange(0, 5, 0);
-                currentState = 0;
+      for (var j = 0; j < maxJ; j += 32) {
+        final remaining = maxJ - j;
+        final currentWord = bits[wordOffset++];
+        final limit = (remaining < 32) ? remaining : 32;
+
+        if (currentWord == 0 && (currentState & 1) == 1 && limit == 32) {
+          // Optimization: All white, currently counting white
+          stateCount[currentState] += 32;
+          continue;
+        }
+
+        if (currentWord == 0xFFFFFFFF &&
+            (currentState & 1) == 0 &&
+            limit == 32) {
+          // Optimization: All black, currently counting black
+          stateCount[currentState] += 32;
+          continue;
+        }
+
+        for (var b = 0; b < limit; b++) {
+          final isBlack = (currentWord & (1 << b)) != 0;
+          if (isBlack) {
+            // Black
+            if ((currentState & 1) == 1) {
+              currentState++;
+            }
+            stateCount[currentState]++;
+          } else {
+            // White
+            if ((currentState & 1) == 0) {
+              if (currentState == 4) {
+                // Found B W B W B sequence
+                if (foundPatternCross(stateCount)) {
+                  // The actual pixel coordinate is j + b
+                  final confirmed = _handlePossibleCenter(stateCount, i, j + b);
+                  if (!confirmed) {
+                    _shiftCounts2(stateCount);
+                    currentState = 3; // Continue detecting
+                  } else {
+                    currentState = 0;
+                    stateCount.fillRange(0, 5, 0);
+                  }
+                } else {
+                  _shiftCounts2(stateCount);
+                  currentState = 3;
+                }
               } else {
-                _shiftCounts2(stateCount);
-                currentState = 3;
+                currentState++;
+                stateCount[currentState]++;
               }
             } else {
-              currentState++;
               stateCount[currentState]++;
             }
-          } else {
-            stateCount[currentState]++;
           }
         }
       }

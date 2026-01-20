@@ -174,7 +174,9 @@ String _categorize(String filename) {
   if (filename.contains('rotation') ||
       filename.contains('tilt') ||
       filename.contains('distorted') ||
-      filename.contains('qr_distorted')) {
+      filename.contains('blur') ||
+      filename.contains('curved') ||
+      filename.contains('damaged')) {
     return 'Distorted';
   }
   if (filename.contains('noise')) {

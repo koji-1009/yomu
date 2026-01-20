@@ -151,7 +151,44 @@ void main() {
             width: image.width,
             height: image.height,
           );
-          expect(result.text, contains('DISTORTION_TEST_DATA'));
+          expect(result.text, contains('Hello World'));
+        }
+      });
+    });
+
+    group('Stress & Robustness Tests', () {
+      final distortedDir = Directory('fixtures/distorted_images');
+
+      test('runs on distorted/stress images', () {
+        if (!distortedDir.existsSync()) return;
+
+        final files = distortedDir
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.png'))
+            .toList();
+
+        if (files.isEmpty) return;
+        for (final file in files) {
+          try {
+            final bytes = file.readAsBytesSync();
+            final decoded = img.decodePng(bytes);
+            if (decoded != null) {
+              final image = decoded.convert(
+                format: img.Format.uint8,
+                numChannels: 4,
+              );
+              final result = Yomu.qrOnly.decode(
+                bytes: image.buffer.asUint8List(),
+                width: image.width,
+                height: image.height,
+              );
+
+              expect(result.text, 'Hello World');
+            }
+          } catch (_) {
+            fail('Failed to decode ${file.path}');
+          }
         }
       });
     });
@@ -265,11 +302,6 @@ void main() {
           fail('Barcode Fixtures not found: ${barcodeFixturesDir.path}');
         }
       });
-
-      // Scan helper using direct scanner for specific format tests
-      // Note: _testPngDecode uses Yomu wrapper, but here we want to test BarcodeScanner directly sometimes
-      // or we can just use Yomu.barcodeOnly.
-      // The original barcode_test.dart used methods like separate scanner instances.
 
       test('EAN-13: decodes product barcode', () {
         _testPngDecode(
@@ -483,8 +515,6 @@ void main() {
     });
   });
 }
-
-// Helpers
 
 // Helpers
 

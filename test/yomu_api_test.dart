@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:image/image.dart' as img;
 import 'package:test/test.dart';
 import 'package:yomu/src/common/binarizer/binarizer.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
@@ -146,62 +144,6 @@ void main() {
         final matrix = binarizer.getBlackMatrix();
         expect(matrix.width, 10);
         expect(matrix.height, 10);
-      });
-    });
-
-    group('Fallback Strategy', () {
-      // Re-using logic from fallback_strategy_test.dart
-      late Uint8List pixels;
-      late int width;
-      late int height;
-
-      setUpAll(() {
-        final file = File('fixtures/distorted_images/qr_distorted_v4.png');
-        if (!file.existsSync()) {
-          // Fallback if fixture missing (e.g. CI), though we generally expect fixtures.
-          // For unit tests, maybe we should skip.
-          // For now, fail loud as per original test.
-          return;
-        }
-        final bytes = file.readAsBytesSync();
-        final image = img.decodePng(bytes)!;
-        width = image.width;
-        height = image.height;
-
-        // Convert to RGBA
-        final converted = image.convert(
-          format: img.Format.uint8,
-          numChannels: 4,
-        );
-        pixels = converted.buffer.asUint8List();
-      });
-
-      test('Yomu.all should abort fallback on DecodeException', () {
-        if (!File(
-          'fixtures/distorted_images/qr_distorted_v4.png',
-        ).existsSync()) {
-          return;
-        }
-
-        expect(
-          () => Yomu.all.decode(bytes: pixels, width: width, height: height),
-          throwsA(isA<DecodeException>()),
-          reason:
-              'Should throw DecodeException directly, ensuring no fallback occurred.',
-        );
-      });
-
-      test('Yomu.qrOnly should throw DecodeException', () {
-        if (!File(
-          'fixtures/distorted_images/qr_distorted_v4.png',
-        ).existsSync()) {
-          return;
-        }
-
-        expect(
-          () => Yomu.qrOnly.decode(bytes: pixels, width: width, height: height),
-          throwsA(isA<DecodeException>()),
-        );
       });
     });
 

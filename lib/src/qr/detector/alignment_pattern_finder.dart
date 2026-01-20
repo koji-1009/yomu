@@ -27,8 +27,8 @@ class AlignmentPattern {
     required double x,
     required double newModuleSize,
   }) {
-    final combinedX = (x + x) / 2.0;
-    final combinedY = (y + y) / 2.0;
+    final combinedX = (this.x + x) / 2.0;
+    final combinedY = (this.y + y) / 2.0;
     final combinedModuleSize = (estimatedModuleSize + newModuleSize) / 2.0;
     return AlignmentPattern(
       x: combinedX,

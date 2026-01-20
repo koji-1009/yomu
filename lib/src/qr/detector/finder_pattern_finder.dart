@@ -153,16 +153,27 @@ class FinderPatternFinder {
 
     if (totalModuleSize < 7) return false;
 
-    final moduleSize = totalModuleSize / 7.0;
-    final maxVariance = moduleSize / 2.0;
+    // Integer arithmetic optimization to avoid expensive division and double ops.
+    // Standard check: |count - moduleSize| < moduleSize / 2
+    // moduleSize = total / 7
+    // |count - total/7| < total/14
+    // Multiply by 14: |14*count - 2*total| < total
+    final total = totalModuleSize;
 
-    // Check 1:1:3:1:1 module ratios
+    // Check middle module (index 2) first.
+    // It's the most significant module (3/7 of total width), so checking it first
+    // allows for earlier rejection of invalid candidates.
+    // |count - 3*total/7| < 3*total/14
+    // Multiply by 14: |14*count - 6*total| < 3*total
+    if ((stateCount[2] * 14 - 6 * total).abs() >= 3 * total) return false;
 
-    return (stateCount[0] - moduleSize).abs() < maxVariance &&
-        (stateCount[1] - moduleSize).abs() < maxVariance &&
-        (stateCount[2] - 3.0 * moduleSize).abs() < 3.0 * maxVariance &&
-        (stateCount[3] - moduleSize).abs() < maxVariance &&
-        (stateCount[4] - moduleSize).abs() < maxVariance;
+    // Check outer modules (0 and 4)
+    if ((stateCount[0] * 14 - 2 * total).abs() >= total) return false;
+    if ((stateCount[4] * 14 - 2 * total).abs() >= total) return false;
+    if ((stateCount[1] * 14 - 2 * total).abs() >= total) return false;
+    if ((stateCount[3] * 14 - 2 * total).abs() >= total) return false;
+
+    return true;
   }
 
   bool _handlePossibleCenter(List<int> stateCount, int i, int j) {

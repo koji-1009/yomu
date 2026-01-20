@@ -144,11 +144,13 @@ class AlignmentPatternFinder {
   static bool foundPatternCross(List<int> stateCount, double moduleSize) {
     final maxVariance = moduleSize / 2.0;
 
-    for (var i = 0; i < 3; i++) {
-      if ((stateCount[i] - moduleSize).abs() >= maxVariance) {
-        return false;
-      }
-    }
+    // Check the center module (black) first.
+    // Since it is the most distinct feature, checking it first allows for
+    // earlier rejection of invalid candidates (false negatives).
+    if ((stateCount[1] - moduleSize).abs() >= maxVariance) return false;
+    if ((stateCount[0] - moduleSize).abs() >= maxVariance) return false;
+    if ((stateCount[2] - moduleSize).abs() >= maxVariance) return false;
+
     return true;
   }
 

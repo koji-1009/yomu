@@ -68,11 +68,6 @@ Uint8List int32ToGrayscale(Int32List pixels, int width, int height) {
 /// Formula: Y = 0.299R + 0.587G + 0.114B
 Uint8List bgraToGrayscale(Uint8List bytes, int width, int height) {
   final total = width * height;
-  if (bytes.length < total * 4) {
-    throw ArgumentException(
-      'Input bytes length is too small for ${width}x$height BGRA image',
-    );
-  }
 
   final luminance = Uint8List(total);
   var offset = 0;

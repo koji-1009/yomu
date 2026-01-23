@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:test/test.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
+import 'package:yomu/src/image_data.dart';
 import 'package:yomu/src/qr/decoder/qrcode_decoder.dart';
 import 'package:yomu/src/qr/detector/detector.dart';
 import 'package:yomu/src/yomu.dart';
@@ -26,7 +27,9 @@ void main() {
         if (width < 5 || height < 5) continue;
 
         try {
-          Yomu.all.decode(bytes: bytes, width: width, height: height);
+          Yomu.all.decode(
+            YomuImage.rgba(bytes: bytes, width: width, height: height),
+          );
         } catch (e) {
           // Should throw typed exceptions, not crash with RangeError etc.
           expect(e, isA<YomuException>());

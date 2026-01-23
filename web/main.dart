@@ -18,7 +18,9 @@ void main() {
       final clamped = (data as JSUint8ClampedArray).toDart;
       // Efficiently convert to Uint8List without copying
       final bytes = Uint8List.view(clamped.buffer);
-      final result = yomu.decode(bytes: bytes, width: w, height: h);
+      final result = yomu.decode(
+        YomuImage.rgba(bytes: bytes, width: w, height: h),
+      );
 
       return JSDecodeResult(
         success: true,

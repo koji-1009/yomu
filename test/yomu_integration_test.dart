@@ -344,6 +344,20 @@ void main() {
         );
       });
 
+      test('Code 128: decodes hello world using Yomu.all (QR fallback)', () {
+        // This validates the path where QR is enabled, fails to find QR, and falls back to barcode.
+        final file = File('${barcodeFixturesDir.path}/code128_hello.png');
+        final bytes = file.readAsBytesSync();
+        final decoded = img.decodePng(bytes)!;
+        final image = decoded.convert(format: img.Format.uint8, numChannels: 4);
+        final rgba = image.buffer.asUint8List();
+
+        final result = Yomu.all.decode(
+          YomuImage.rgba(bytes: rgba, width: image.width, height: image.height),
+        );
+        expect(result.text, 'Hello World');
+      });
+
       test('Code 128: decodes numeric', () {
         _testPngDecode(
           barcodeFixturesDir,

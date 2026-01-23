@@ -30,11 +30,11 @@ void main() {
   print('\nDecoding...');
 
   try {
-    final result = Yomu.qrOnly.decode(
-      bytes: pixels,
-      width: width,
-      height: height,
-    );
+    // Create a YomuImage
+    final image = YomuImage.rgba(bytes: pixels, width: width, height: height);
+
+    // Decode!
+    final result = Yomu.qrOnly.decode(image);
 
     print('----------- RESULT -----------');
     print('Decoded Text: ${result.text}');

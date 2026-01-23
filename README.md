@@ -21,12 +21,15 @@ Yomu is a **zero-dependency** pure Dart implementation of a QR code and barcode 
 import 'package:yomu/yomu.dart';
 
 void main() {
-  // Decode QR codes and all barcode formats
-  final result = Yomu.all.decode(
+  // Create a YomuImage container
+  final image = YomuImage.rgba(
     bytes: imageBytes,
     width: 300,
     height: 300,
   );
+
+  // Decode QR codes and all barcode formats
+  final result = Yomu.all.decode(image);
   print('Decoded: ${result.text}');
 }
 ```
@@ -35,22 +38,22 @@ void main() {
 
 ```dart
 // For QR code only scanning
-final result = Yomu.qrOnly.decode(
+final result = Yomu.qrOnly.decode(YomuImage.rgba(
   bytes: imageBytes,
   width: width,
   height: height,
-);
+));
 ```
 
 ### Barcodes Only
 
 ```dart
 // For 1D barcode only scanning
-final result = Yomu.barcodeOnly.decode(
+final result = Yomu.barcodeOnly.decode(YomuImage.rgba(
   bytes: imageBytes,
   width: width,
   height: height,
-);
+));
 ```
 
 ### Custom Configuration
@@ -85,11 +88,11 @@ Future<String?> decodeFromImage(ui.Image image) async {
   if (byteData == null) return null;
 
   try {
-    final result = Yomu.all.decode(
+    final result = Yomu.all.decode(YomuImage.rgba(
       bytes: byteData.buffer.asUint8List(),
       width: image.width,
       height: image.height,
-    );
+    ));
     return result.text;
   } catch (e) {
     return null;
@@ -110,10 +113,21 @@ The main entry point class.
 | `Yomu.barcodeOnly`                     | 1D barcodes only               |
 | `Yomu({enableQRCode, barcodeScanner})` | Custom configuration           |
 
-| Method                              | Description              |
-| ----------------------------------- | ------------------------ |
-| `decode({bytes, width, height})`    | Decode single QR/barcode |
-| `decodeAll({bytes, width, height})` | Decode all QR codes      |
+| Method             | Description                             |
+| ------------------ | --------------------------------------- |
+| `decode(image)`    | Decode single QR/barcode from YomuImage |
+| `decodeAll(image)` | Decode all QR codes from YomuImage      |
+
+### `YomuImage` Class
+
+A platform-agnostic container for image data.
+
+| Factory                 | Description                                |
+| ----------------------- | ------------------------------------------ |
+| `YomuImage.rgba()`      | Create from RGBA bytes (4 bytes/pixel)     |
+| `YomuImage.bgra()`      | Create from BGRA bytes (4 bytes/pixel)     |
+| `YomuImage.grayscale()` | Create from grayscale bytes (1 byte/pixel) |
+| `YomuImage.yuv420()`    | Create from Y-plane of YUV420 camera image |
 
 ### `BarcodeScanner` Class
 

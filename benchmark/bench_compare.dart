@@ -93,8 +93,12 @@ void _runComparison({
   for (var i = 0; i < 5; i++) {
     for (final entry in images.values) {
       try {
-        configA.$2.decode(bytes: entry.$3, width: entry.$1, height: entry.$2);
-        configB.$2.decode(bytes: entry.$3, width: entry.$1, height: entry.$2);
+        configA.$2.decode(
+          YomuImage.rgba(bytes: entry.$3, width: entry.$1, height: entry.$2),
+        );
+        configB.$2.decode(
+          YomuImage.rgba(bytes: entry.$3, width: entry.$1, height: entry.$2),
+        );
       } catch (_) {}
     }
   }
@@ -222,9 +226,11 @@ const int _iterations =
       final sw = Stopwatch()..start();
       try {
         yomu.decode(
-          bytes: entry.value.$3,
-          width: entry.value.$1,
-          height: entry.value.$2,
+          YomuImage.rgba(
+            bytes: entry.value.$3,
+            width: entry.value.$1,
+            height: entry.value.$2,
+          ),
         );
       } catch (_) {}
       sw.stop();

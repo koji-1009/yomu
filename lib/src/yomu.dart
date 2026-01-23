@@ -6,6 +6,7 @@ import 'barcode/barcode_scanner.dart';
 import 'common/binarizer/binarizer.dart';
 import 'common/binarizer/luminance_source.dart';
 import 'common/image_conversion.dart';
+import 'image_data.dart';
 import 'qr/decoder/decoded_bit_stream_parser.dart';
 import 'qr/decoder/qrcode_decoder.dart';
 import 'qr/detector/detector.dart';
@@ -21,35 +22,13 @@ import 'yomu_exception.dart';
 /// ```dart
 /// import 'package:yomu/yomu.dart';
 ///
-/// // Decode QR codes and all barcode formats
-/// final yomu = Yomu.all;
-/// final result = yomu.decode(bytes: imageBytes, width: 300, height: 300);
+/// // Create a YomuImage container
+/// final image = YomuImage.rgba(bytes: bytes, width: 300, height: 300);
+///
+/// // Decode
+/// final result = Yomu.all.decode(image);
 /// print(result.text);
-///
-/// // QR code only
-/// final qrOnly = Yomu.qrOnly;
-///
-/// // Barcodes only
-/// final barcodeOnly = Yomu.barcodeOnly;
-///
-/// // Custom configuration
-/// const custom = Yomu(
-///   enableQRCode: true,
-///   barcodeScanner: BarcodeScanner.retail,
-/// );
 /// ```
-///
-/// ## Architecture
-///
-/// The decoding pipeline consists of:
-/// 1. **Binarization** - Converting grayscale to black/white using histogram analysis
-/// 2. **Detection** - Finding finder patterns (QR) or bar patterns (1D)
-/// 3. **Decoding** - Error correction and data parsing
-///
-/// See also:
-/// - [DecoderResult] for QR code decoded data
-/// - [BarcodeResult] for 1D barcode decoded data
-/// - [BarcodeScanner] for 1D barcode scanning configuration
 class Yomu {
   /// Creates a new [Yomu] decoder instance.
   ///
@@ -62,14 +41,10 @@ class Yomu {
   final bool enableQRCode;
 
   /// Configuration for 1D barcode scanning.
-  ///
-  /// Set to [BarcodeScanner.all] for all formats, [BarcodeScanner.retail] for
-  /// EAN/UPC only, or [BarcodeScanner.none] to disable 1D barcode scanning.
   final BarcodeScanner barcodeScanner;
 
-  /// Decoder instance for QR code decoding.
-  /// Note: QRCodeDecoder is not const, so we create it lazily.
-  QRCodeDecoder get _decoder => QRCodeDecoder();
+  /// Shared decoder instance for QR code decoding.
+  static final _decoder = QRCodeDecoder();
 
   /// Yomu with QR code and all barcode formats enabled.
   static const all = Yomu(
@@ -89,69 +64,45 @@ class Yomu {
     barcodeScanner: BarcodeScanner.all,
   );
 
-  /// Decodes a QR code or barcode from an RGBA byte array.
+  /// Decodes a QR code or barcode from a [YomuImage].
   ///
-  /// Tries QR code first (if enabled), then falls back to 1D barcodes.
-  ///
-  /// ## Parameters
-  ///
-  /// - [bytes]: Raw RGBA pixel data (4 bytes per pixel: R, G, B, A)
-  /// - [width]: Image width in pixels
-  /// - [height]: Image height in pixels
-  ///
-  /// ## Returns
-  ///
-  /// A [DecoderResult] containing the decoded text and metadata.
-  ///
-  /// ## Throws
-  ///
-  /// - [ArgumentException] if [bytes] length is less than `width * height * 4`
-  /// - [DetectionException] if no valid code is found
-  /// - [DecodeException] if decoding fails
-  ///
-  /// ## Example
-  ///
-  /// ```dart
-  /// final result = Yomu.all.decode(bytes: imageBytes, width: 300, height: 300);
-  /// print(result.text);
-  /// ```
-  DecoderResult decode({
-    required Uint8List bytes,
-    required int width,
-    required int height,
-  }) {
-    if (bytes.length < width * height * 4) {
-      throw const ArgumentException('Byte array too small for RGBA image');
-    }
+  /// This is the preferred method for decoding as it handles different image formats
+  /// and row strides correctly.
+  DecoderResult decode(YomuImage image) {
+    final Uint8List pixels;
+    final int processWidth;
+    final int processHeight;
 
-    final (pixels, processWidth, processHeight) = _convertAndMaybeDownsample(
-      bytes: bytes,
-      width: width,
-      height: height,
-    );
+    if (image.format == YomuImageFormat.grayscale) {
+      // Grayscale processing
+      (pixels, processWidth, processHeight) = _processLuminance(
+        image.bytes,
+        image.width,
+        image.height,
+        image.rowStride,
+      );
+    } else {
+      // RGBA/BGRA processing
+      (pixels, processWidth, processHeight) = _convertAndMaybeDownsample(
+        image: image,
+      );
+    }
 
     // Try QR code first
     if (enableQRCode) {
       try {
-        return _decodeQRFromPixels(
-          pixels: pixels,
-          width: processWidth,
-          height: processHeight,
-        );
+        return _decodeQRFromPixels(pixels, processWidth, processHeight);
       } on DetectionException {
-        // Fall through to barcode scanning (e.g. maybe it wasn't a QR code)
+        // Fall through to barcode scanning
       }
-      // Note: Other exceptions (like DecodeException/ReedSolomonException) will propagate.
-      // This is an optimization: if we found a QR code pattern but failed to decode it,
-      // we assume it is NOT a barcode and abort to save time.
     }
 
     // Try 1D barcodes
     if (!barcodeScanner.isEmpty) {
       final barcodeResult = _decodeBarcodeFromPixels(
-        pixels: pixels,
-        width: processWidth,
-        height: processHeight,
+        pixels,
+        processWidth,
+        processHeight,
       );
       if (barcodeResult != null) {
         return DecoderResult(
@@ -165,52 +116,33 @@ class Yomu {
     throw const DetectionException('No QR code or barcode found');
   }
 
-  /// Decodes all QR codes from an RGBA byte array.
-  ///
-  /// This method attempts to find and decode multiple QR codes in a single image.
-  /// Note: This does not include 1D barcodes.
-  ///
-  /// ## Parameters
-  ///
-  /// - [bytes]: Raw RGBA pixel data (4 bytes per pixel: R, G, B, A)
-  /// - [width]: Image width in pixels
-  /// - [height]: Image height in pixels
-  ///
-  /// ## Returns
-  ///
-  /// A list of [DecoderResult] objects, one for each successfully decoded QR code.
-  /// Returns an empty list if no QR codes are found.
-  List<DecoderResult> decodeAll({
-    required Uint8List bytes,
-    required int width,
-    required int height,
-  }) {
-    if (bytes.length < width * height * 4) {
-      throw const ArgumentException('Byte array too small for RGBA image');
-    }
-
+  /// Decodes all QR codes from a [YomuImage].
+  List<DecoderResult> decodeAll(YomuImage image) {
     if (!enableQRCode) {
       return const [];
     }
 
-    final (pixels, processWidth, processHeight) = _convertAndMaybeDownsample(
-      bytes: bytes,
-      width: width,
-      height: height,
-    );
-    return _decodeAllQRFromPixels(
-      pixels: pixels,
-      width: processWidth,
-      height: processHeight,
-    );
+    final Uint8List pixels;
+    final int processWidth;
+    final int processHeight;
+
+    if (image.format == YomuImageFormat.grayscale) {
+      (pixels, processWidth, processHeight) = _processLuminance(
+        image.bytes,
+        image.width,
+        image.height,
+        image.rowStride,
+      );
+    } else {
+      (pixels, processWidth, processHeight) = _convertAndMaybeDownsample(
+        image: image,
+      );
+    }
+    return _decodeAllQRFromPixels(pixels, processWidth, processHeight);
   }
 
   /// Internal: Decodes a QR code from luminance array.
-  DecoderResult _decodeQRFromPixels({
-    required Uint8List pixels,
-    required int width,
-    required int height,
-  }) {
+  DecoderResult _decodeQRFromPixels(Uint8List pixels, int width, int height) {
     final source = LuminanceSource(
       width: width,
       height: height,
@@ -224,11 +156,11 @@ class Yomu {
   }
 
   /// Internal: Decodes a barcode from luminance array.
-  BarcodeResult? _decodeBarcodeFromPixels({
-    required Uint8List pixels,
-    required int width,
-    required int height,
-  }) {
+  BarcodeResult? _decodeBarcodeFromPixels(
+    Uint8List pixels,
+    int width,
+    int height,
+  ) {
     final source = LuminanceSource(
       width: width,
       height: height,
@@ -238,11 +170,11 @@ class Yomu {
   }
 
   /// Internal: Decodes all QR codes from luminance array.
-  List<DecoderResult> _decodeAllQRFromPixels({
-    required Uint8List pixels,
-    required int width,
-    required int height,
-  }) {
+  List<DecoderResult> _decodeAllQRFromPixels(
+    Uint8List pixels,
+    int width,
+    int height,
+  ) {
     final source = LuminanceSource(
       width: width,
       height: height,
@@ -263,55 +195,123 @@ class Yomu {
     return results;
   }
 
-  /// Converts bytes to grayscale luminance, downsampling if necessary.
-  /// This fused operation avoids allocating full-size buffers for large images.
-  (Uint8List, int, int) _convertAndMaybeDownsample({
-    required Uint8List bytes,
-    required int width,
-    required int height,
-  }) {
+  /// Converts RGBA/BGRA bytes to grayscale luminance, downsampling if necessary.
+  (Uint8List, int, int) _convertAndMaybeDownsample({required YomuImage image}) {
+    final bytes = image.bytes;
+    final width = image.width;
+    final height = image.height;
+    final stride = image.rowStride;
+    final isBgra = image.format == YomuImageFormat.bgra;
+
     const targetPixels = 1000000;
     final totalPixels = width * height;
 
-    if (totalPixels <= targetPixels) {
-      // Small enough: direct conversion
-      return (rgbaToGrayscale(bytes, width, height), width, height);
+    if (totalPixels <= targetPixels && stride == width * 4) {
+      // Small enough and no stride: direct conversion
+      if (isBgra) {
+        return (bgraToGrayscale(bytes, width, height), width, height);
+      } else {
+        return (rgbaToGrayscale(bytes, width, height), width, height);
+      }
     }
 
+    // Compute scale factor (1 for small images with stride, >1 for large images)
     final scaleFactor = totalPixels / targetPixels;
-    final scale = math.sqrt(scaleFactor).ceil();
+    final scale = scaleFactor <= 1.0 ? 1 : math.sqrt(scaleFactor).ceil();
 
-    // Large image: fused convert + downsample + grayscale
-    // O(TargetSize) instead of O(OriginalSize)
     final dstWidth = width ~/ scale;
     final dstHeight = height ~/ scale;
     final result = Uint8List(dstWidth * dstHeight);
     final halfScale = scale ~/ 2;
-
-    // Pre-calculate stride for inner loop
     final pixelStride = scale * 4;
+
     for (var dstY = 0; dstY < dstHeight; dstY++) {
       final srcY = dstY * scale + halfScale;
-
-      final rowOffset = srcY * width * 4;
+      final rowOffset = srcY * stride; // Correct stride usage
       final dstRowOffset = dstY * dstWidth;
 
-      // Start srcX at halfScale
       var currentByteOffset = rowOffset + (halfScale * 4);
 
       for (var dstX = 0; dstX < dstWidth; dstX++) {
-        final r = bytes[currentByteOffset];
-        final g = bytes[currentByteOffset + 1];
-        final b = bytes[currentByteOffset + 2];
+        final rIndex = isBgra ? currentByteOffset + 2 : currentByteOffset;
+        final gIndex = currentByteOffset + 1;
+        final bIndex = isBgra ? currentByteOffset : currentByteOffset + 2;
+
+        final r = bytes[rIndex];
+        final g = bytes[gIndex];
+        final b = bytes[bIndex];
 
         // Integer approximation: (306 * r + 601 * g + 117 * b) >> 10
         result[dstRowOffset + dstX] = (306 * r + 601 * g + 117 * b) >> 10;
-
-        // Advance to next sample pixel
         currentByteOffset += pixelStride;
       }
     }
 
     return (result, dstWidth, dstHeight);
+  }
+
+  /// Processes grayscale luminance bytes, downsampling and/or removing stride if necessary.
+  (Uint8List, int, int) _processLuminance(
+    Uint8List luminance,
+    int width,
+    int height,
+    int rowStride,
+  ) {
+    const targetPixels = 1000000;
+    final totalPixels = width * height;
+
+    if (totalPixels <= targetPixels) {
+      if (rowStride == width) {
+        return (
+          luminance,
+          width,
+          height,
+        ); // Zero copy if already packed and small
+      }
+      // Just remove stride
+      return (
+        _removeStride(luminance, width, height, rowStride),
+        width,
+        height,
+      );
+    }
+
+    // Downsample
+    final scaleFactor = totalPixels / targetPixels;
+    final scale = math.sqrt(scaleFactor).ceil();
+
+    final dstWidth = width ~/ scale;
+    final dstHeight = height ~/ scale;
+    final result = Uint8List(dstWidth * dstHeight);
+    final halfScale = scale ~/ 2;
+
+    for (var dstY = 0; dstY < dstHeight; dstY++) {
+      final srcY = dstY * scale + halfScale;
+      final rowOffset = srcY * rowStride;
+      final dstRowOffset = dstY * dstWidth;
+
+      var currentByteOffset = rowOffset + halfScale;
+
+      for (var dstX = 0; dstX < dstWidth; dstX++) {
+        result[dstRowOffset + dstX] = luminance[currentByteOffset];
+        currentByteOffset += scale;
+      }
+    }
+
+    return (result, dstWidth, dstHeight);
+  }
+
+  /// Helper to remove stride from grayscale image.
+  Uint8List _removeStride(
+    Uint8List bytes,
+    int width,
+    int height,
+    int rowStride,
+  ) {
+    final result = Uint8List(width * height);
+    for (var y = 0; y < height; y++) {
+      result.setRange(y * width, (y + 1) * width, bytes, y * rowStride);
+    }
+    return result;
   }
 }

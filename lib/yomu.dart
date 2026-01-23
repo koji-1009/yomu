@@ -7,15 +7,15 @@
 /// ```dart
 /// import 'package:yomu/yomu.dart';
 ///
+/// // Create a YomuImage container
+/// final image = YomuImage.rgba(bytes: imageBytes, width: 300, height: 300);
+///
 /// // Decode QR codes and all barcode formats
-/// final result = Yomu.all.decode(bytes: imageBytes, width: 300, height: 300);
+/// final result = Yomu.all.decode(image);
 /// print(result.text);
 ///
-/// // QR code only
-/// final qrResult = Yomu.qrOnly.decode(bytes: imageBytes, width: 300, height: 300);
-///
-/// // Barcodes only
-/// final barcodeResult = Yomu.barcodeOnly.decode(bytes: imageBytes, width: 300, height: 300);
+/// // Decode QR codes only
+/// final qrResult = Yomu.qrOnly.decode(image);
 /// ```
 ///
 /// ## Main Classes
@@ -34,7 +34,8 @@
 ///
 /// ```dart
 /// try {
-///   final result = Yomu.all.decode(bytes: imageBytes, width: 300, height: 300);
+///   final image = YomuImage.rgba(bytes: imageBytes, width: 300, height: 300);
+///   final result = Yomu.all.decode(image);
 /// } on YomuException catch (e) {
 ///   print('Failed: ${e.message}');
 /// }
@@ -52,6 +53,8 @@ export 'src/barcode/ean13_decoder.dart' show EAN13Decoder;
 export 'src/barcode/ean8_decoder.dart' show EAN8Decoder;
 export 'src/barcode/itf_decoder.dart' show ITFDecoder;
 export 'src/barcode/upca_decoder.dart' show UPCADecoder;
+// Image Utilities
+export 'src/image_data.dart' show YomuImage, YomuImageFormat;
 // QR Code
 export 'src/qr/decoder/decoded_bit_stream_parser.dart' show DecoderResult;
 // Core API

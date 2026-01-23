@@ -112,9 +112,11 @@ void main() {
             final pixels = _imageToRgba(image);
 
             final results = Yomu.qrOnly.decodeAll(
-              bytes: pixels,
-              width: image.width,
-              height: image.height,
+              YomuImage.rgba(
+                bytes: pixels,
+                width: image.width,
+                height: image.height,
+              ),
             );
             expect(results, isNotEmpty, reason: 'Failed to decode V$v');
           }
@@ -147,9 +149,11 @@ void main() {
           final bytes = image.buffer.asUint8List();
 
           final result = Yomu.qrOnly.decode(
-            bytes: bytes,
-            width: image.width,
-            height: image.height,
+            YomuImage.rgba(
+              bytes: bytes,
+              width: image.width,
+              height: image.height,
+            ),
           );
           expect(result.text, contains('Hello World'));
         }
@@ -179,9 +183,11 @@ void main() {
                 numChannels: 4,
               );
               final result = Yomu.qrOnly.decode(
-                bytes: image.buffer.asUint8List(),
-                width: image.width,
-                height: image.height,
+                YomuImage.rgba(
+                  bytes: image.buffer.asUint8List(),
+                  width: image.width,
+                  height: image.height,
+                ),
               );
 
               expect(result.text, 'Hello World');
@@ -215,9 +221,11 @@ void main() {
             final bytes = image.buffer.asUint8List();
 
             final result = Yomu.qrOnly.decode(
-              bytes: bytes,
-              width: image.width,
-              height: image.height,
+              YomuImage.rgba(
+                bytes: bytes,
+                width: image.width,
+                height: image.height,
+              ),
             );
             expect(result.text, contains('UNEVEN_LIGHTING'));
             successCount++;
@@ -249,9 +257,11 @@ void main() {
           final bytes = _imageToRgba(large);
 
           final result = Yomu.qrOnly.decode(
-            bytes: bytes,
-            width: large.width,
-            height: large.height,
+            YomuImage.rgba(
+              bytes: bytes,
+              width: large.width,
+              height: large.height,
+            ),
           );
           expect(result.text, contains('PerfTest'));
         }
@@ -265,7 +275,9 @@ void main() {
         }
 
         expect(
-          () => Yomu.qrOnly.decode(bytes: bytes, width: 200, height: 200),
+          () => Yomu.qrOnly.decode(
+            YomuImage.rgba(bytes: bytes, width: 200, height: 200),
+          ),
           throwsA(anything), // Should not crash, just throw exception
         );
       });
@@ -282,9 +294,11 @@ void main() {
         final bytes = image.buffer.asUint8List();
 
         final results = Yomu.qrOnly.decodeAll(
-          bytes: bytes,
-          width: image.width,
-          height: image.height,
+          YomuImage.rgba(
+            bytes: bytes,
+            width: image.width,
+            height: image.height,
+          ),
         );
         expect(results.length, 3);
         expect(
@@ -566,9 +580,7 @@ void _testPngDecode(
 
   final decoder = useBarcodeOnly ? Yomu.barcodeOnly : Yomu.qrOnly;
   final result = decoder.decode(
-    bytes: rgba,
-    width: image.width,
-    height: image.height,
+    YomuImage.rgba(bytes: rgba, width: image.width, height: image.height),
   );
 
   if (checkContent) {

@@ -59,3 +59,32 @@ Uint8List int32ToGrayscale(Int32List pixels, int width, int height) {
   }
   return luminance;
 }
+
+/// Converts raw BGRA bytes to a grayscale luminance array.
+///
+/// Input [bytes] must be in BGRA format (4 bytes per pixel).
+/// Output is a [Uint8List] where each byte represents the luminance (Y) of a pixel.
+///
+/// Formula: Y = 0.299R + 0.587G + 0.114B
+Uint8List bgraToGrayscale(Uint8List bytes, int width, int height) {
+  final total = width * height;
+  if (bytes.length < total * 4) {
+    throw ArgumentException(
+      'Input bytes length is too small for ${width}x$height BGRA image',
+    );
+  }
+
+  final luminance = Uint8List(total);
+  var offset = 0;
+
+  for (var i = 0; i < total; i++) {
+    final b = bytes[offset];
+    final g = bytes[offset + 1];
+    final r = bytes[offset + 2];
+    // Ignore A (offset+3)
+
+    luminance[i] = (306 * r + 601 * g + 117 * b) >> 10;
+    offset += 4;
+  }
+  return luminance;
+}

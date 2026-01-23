@@ -32,17 +32,20 @@ void main() {
 
       test('throws on empty byte array', () {
         expect(
-          () => yomu.decode(bytes: Uint8List(0), width: 0, height: 0),
+          () => yomu.decode(
+            YomuImage.rgba(bytes: Uint8List(0), width: 0, height: 0),
+          ),
           throwsA(anything),
         );
       });
 
       test('throws on insufficient bytes', () {
-        // 100 bytes but claim 20x20 = 1600 pixels * 4 bytes/pixel = 6400 bytes needed
+        // 100 bytes but claim 20x20 = 400 pixels * 4 bytes/pixel = 1600 bytes needed
         // The decoder expects RGBA, so it checks for enough bytes.
         final bytes = Uint8List(100);
         expect(
-          () => yomu.decode(bytes: bytes, width: 20, height: 20),
+          () =>
+              yomu.decode(YomuImage.rgba(bytes: bytes, width: 20, height: 20)),
           throwsA(anything),
         );
       });
@@ -51,14 +54,18 @@ void main() {
         // All white image
         final bytes = _pixelsToBytes(100, 100, 0xFFFFFF);
         expect(
-          () => yomu.decode(bytes: bytes, width: 100, height: 100),
+          () => yomu.decode(
+            YomuImage.rgba(bytes: bytes, width: 100, height: 100),
+          ),
           throwsException,
         );
       });
 
       test('decodeAll returns empty list for no QR codes', () {
         final bytes = _pixelsToBytes(100, 100, 0xFFFFFF);
-        final results = yomu.decodeAll(bytes: bytes, width: 100, height: 100);
+        final results = yomu.decodeAll(
+          YomuImage.rgba(bytes: bytes, width: 100, height: 100),
+        );
         expect(results, isEmpty);
       });
     });

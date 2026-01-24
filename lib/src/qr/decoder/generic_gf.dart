@@ -557,7 +557,7 @@ class GenericGF {
   /// Helper to build a monomial polynomial.
   GenericGFPoly buildMonomial(int degree, int coefficient) {
     if (coefficient == 0) return zero;
-    final coeffs = List<int>.filled(degree + 1, 0);
+    final coeffs = Uint8List(degree + 1);
     coeffs[0] = coefficient;
     return GenericGFPoly(this, coeffs);
   }

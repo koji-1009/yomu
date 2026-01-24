@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
 
@@ -37,7 +39,7 @@ class ITFDecoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
-    List<int>? runs,
+    Uint16List? runs,
   }) {
     // Convert to run-length encoding
     final runData = runs ?? _getRunLengths(row);
@@ -94,7 +96,7 @@ class ITFDecoder extends BarcodeDecoder {
     );
   }
 
-  List<int> _getRunLengths(List<bool> row) {
+  Uint16List _getRunLengths(List<bool> row) {
     final runs = <int>[];
     var currentPos = 0;
     var currentColor = row[0];
@@ -109,11 +111,11 @@ class ITFDecoder extends BarcodeDecoder {
       currentColor = !currentColor;
     }
 
-    return runs;
+    return Uint16List.fromList(runs);
   }
 
   /// Find start pattern (NNNN) and return (runIndex, narrowWidth, startX).
-  (int, double, int)? _findStartPattern(List<int> runs) {
+  (int, double, int)? _findStartPattern(Uint16List runs) {
     for (var i = 0; i < runs.length - 10; i++) {
       if (i % 2 == 0 && runs[i] > 5) {
         // At white quiet zone
@@ -143,7 +145,7 @@ class ITFDecoder extends BarcodeDecoder {
     return null;
   }
 
-  bool _isEndPattern(List<int> runs, int index, double narrowWidth) {
+  bool _isEndPattern(Uint16List runs, int index, double narrowWidth) {
     if (index + 4 > runs.length) return false;
 
     final r1 = runs[index];
@@ -161,24 +163,26 @@ class ITFDecoder extends BarcodeDecoder {
   }
 
   /// Decode a pair of digits from 10 runs (5 bars + 5 spaces).
-  (int, int)? _decodeDigitPair(List<int> pairRuns, double narrowWidth) {
+  (int, int)? _decodeDigitPair(Uint16List pairRuns, double narrowWidth) {
     if (pairRuns.length != 10) return null;
 
     // Extract bar widths (odd indices: 0, 2, 4, 6, 8)
     // Extract space widths (even indices: 1, 3, 5, 7, 9)
-    final barWidths = <int>[];
-    final spaceWidths = <int>[];
+    final barWidths = Uint16List(5);
+    final spaceWidths = Uint16List(5);
+    var barIndex = 0;
+    var spaceIndex = 0;
 
     for (var i = 0; i < 10; i++) {
       if (i % 2 == 0) {
-        barWidths.add(pairRuns[i]);
+        barWidths[barIndex++] = pairRuns[i];
       } else {
-        spaceWidths.add(pairRuns[i]);
+        spaceWidths[spaceIndex++] = pairRuns[i];
       }
     }
 
     // Determine threshold for wide/narrow
-    final allWidths = [...barWidths, ...spaceWidths];
+    final allWidths = Uint16List.fromList([...barWidths, ...spaceWidths]);
     allWidths.sort();
     // ITF digit pair has 4 wide and 6 narrow elements.
     // Sorted indices 0-5 should be narrow, 6-9 should be wide.
@@ -209,7 +213,7 @@ class ITFDecoder extends BarcodeDecoder {
     return null;
   }
 
-  int _toPattern(List<int> widths, double threshold) {
+  int _toPattern(Uint16List widths, double threshold) {
     var pattern = 0;
     for (var i = 0; i < widths.length; i++) {
       if (widths[i] > threshold) {

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
 
@@ -49,7 +51,7 @@ class EAN8Decoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
-    List<int>? runs,
+    Uint16List? runs,
   }) {
     // Convert to run-length encoding
     final runData = runs ?? _getRunLengths(row);
@@ -114,7 +116,7 @@ class EAN8Decoder extends BarcodeDecoder {
     );
   }
 
-  List<int> _getRunLengths(List<bool> row) {
+  Uint16List _getRunLengths(List<bool> row) {
     final runs = <int>[];
     var currentPos = 0;
     var currentColor = row[0];
@@ -129,7 +131,7 @@ class EAN8Decoder extends BarcodeDecoder {
       currentColor = !currentColor;
     }
 
-    return runs;
+    return Uint16List.fromList(runs);
   }
 
   /// Find start guard and return (runIndex, moduleWidth, startX).

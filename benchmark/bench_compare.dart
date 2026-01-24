@@ -188,7 +188,7 @@ String _categorize(String filename) {
   return 'Standard';
 }
 
-const int _iterations = 100;
+const int _iterations = 250;
 
 // Isolate worker parameters
 typedef _BenchTask = ({

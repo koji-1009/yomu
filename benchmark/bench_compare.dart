@@ -1,14 +1,16 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
+import 'package:pool/pool.dart';
 import 'package:yomu/yomu.dart';
 
 /// Comparative benchmark detector configurations.
 ///
 /// Goal: Measure overhead of different configurations (e.g. qrOnly vs all).
 /// See `benchmark/README.md` for details.
-void main() {
+void main() async {
   print('================================================');
   print('📊 YOMU COMPARATIVE BENCHMARK');
   print('================================================\n');
@@ -19,7 +21,7 @@ void main() {
   final standardFiles = _getFiles('fixtures/qr_images');
 
   if (standardFiles.isNotEmpty) {
-    _runComparison(
+    await _runComparison(
       files: standardFiles,
       configA: ('Yomu.qrOnly', Yomu.qrOnly),
       configB: ('Yomu.all', Yomu.all),
@@ -39,7 +41,7 @@ void main() {
   final stressFiles = [...complexFiles, ...perfFiles, ...distFiles];
 
   if (stressFiles.isNotEmpty) {
-    _runComparison(
+    await _runComparison(
       files: stressFiles,
       configA: ('Yomu.qrOnly', Yomu.qrOnly),
       configB: ('Yomu.all', Yomu.all),
@@ -53,7 +55,7 @@ void main() {
   print('--- Barcode Performance (fixtures/barcode_images) ---');
   final barcodeFiles = _getFiles('fixtures/barcode_images');
   if (barcodeFiles.isNotEmpty) {
-    _runComparison(
+    await _runComparison(
       files: barcodeFiles,
       configA: ('Yomu.barcodeOnly', Yomu.barcodeOnly),
       configB: ('Yomu.all', Yomu.all),
@@ -75,11 +77,11 @@ List<File> _getFiles(String path) {
     ..sort((a, b) => a.path.compareTo(b.path));
 }
 
-void _runComparison({
+Future<void> _runComparison({
   required List<File> files,
   required (String, Yomu) configA,
   required (String, Yomu) configB,
-}) {
+}) async {
   // Pre-load images
   final images = <String, (int, int, Uint8List)>{};
   for (final file in files) {
@@ -89,24 +91,10 @@ void _runComparison({
     images[file.path] = (image.width, image.height, pixels);
   }
 
-  // Warmup both
-  for (var i = 0; i < 5; i++) {
-    for (final entry in images.values) {
-      try {
-        configA.$2.decode(
-          YomuImage.rgba(bytes: entry.$3, width: entry.$1, height: entry.$2),
-        );
-        configB.$2.decode(
-          YomuImage.rgba(bytes: entry.$3, width: entry.$1, height: entry.$2),
-        );
-      } catch (_) {}
-    }
-  }
-
   // Run A
-  final (metricsA, detailsA) = _bench(configA.$2, images);
+  final (metricsA, detailsA) = await _bench(configA.$2, images);
   // Run B
-  final (metricsB, detailsB) = _bench(configB.$2, images);
+  final (metricsB, detailsB) = await _bench(configB.$2, images);
 
   _printCategoryReport(configA.$1, metricsA);
   _printCategoryReport(configB.$1, metricsB);
@@ -200,13 +188,58 @@ String _categorize(String filename) {
   return 'Standard';
 }
 
-const int _iterations =
-    50; // Reduced iterations for extended tests to save time
+const int _iterations = 100;
 
-(Map<String, Metric>, Map<String, double>) _bench(
+// Isolate worker parameters
+typedef _BenchTask = ({
+  int width,
+  int height,
+  Uint8List pixels,
+  int iterations,
+  bool enableQRCode,
+  bool enableBarcode,
+  String filename,
+});
+
+class _BenchResult {
+  _BenchResult({required this.timesMs, required this.filename});
+  final List<double> timesMs;
+  final String filename;
+}
+
+// Top-level function for Isolate execution
+Future<_BenchResult> _benchImageIsolate(_BenchTask task) async {
+  final yomu = Yomu(
+    enableQRCode: task.enableQRCode,
+    barcodeScanner: task.enableBarcode
+        ? BarcodeScanner.all
+        : BarcodeScanner.none,
+  );
+
+  final times = <double>[];
+
+  for (var i = 0; i < task.iterations; i++) {
+    final sw = Stopwatch()..start();
+    try {
+      yomu.decode(
+        YomuImage.rgba(
+          bytes: task.pixels,
+          width: task.width,
+          height: task.height,
+        ),
+      );
+    } catch (_) {}
+    sw.stop();
+    times.add(sw.elapsedMicroseconds / 1000.0);
+  }
+
+  return _BenchResult(timesMs: times, filename: task.filename);
+}
+
+Future<(Map<String, Metric>, Map<String, double>)> _bench(
   Yomu yomu,
   Map<String, (int, int, Uint8List)> images,
-) {
+) async {
   final details = <String, double>{};
   final categoryTimes = <String, List<double>>{
     'All': [],
@@ -218,33 +251,56 @@ const int _iterations =
     'Edge': [],
   };
 
-  for (final entry in images.entries) {
-    var imageTotalUs = 0;
+  // Get optimal parallelism based on CPU cores
+  final cpuCount = Platform.numberOfProcessors;
+  final maxConcurrent = cpuCount > 1 ? cpuCount - 1 : 1; // Leave 1 core free
 
-    // Run iterations
-    for (var i = 0; i < _iterations; i++) {
-      final sw = Stopwatch()..start();
-      try {
-        yomu.decode(
-          YomuImage.rgba(
-            bytes: entry.value.$3,
-            width: entry.value.$1,
-            height: entry.value.$2,
-          ),
-        );
-      } catch (_) {}
-      sw.stop();
+  print('  Using $maxConcurrent concurrent workers (CPU cores: $cpuCount)');
 
-      final ms = sw.elapsedMicroseconds / 1000.0;
-      imageTotalUs += sw.elapsedMicroseconds;
+  // Create pool to limit concurrent Isolate execution
+  // This prevents OS scheduler overload and stabilizes measurements
+  final pool = Pool(maxConcurrent);
 
-      final cat = _categorize(entry.key.split('/').last);
-      categoryTimes[cat]!.add(ms);
-      categoryTimes['All']!.add(ms);
+  try {
+    // Submit all tasks to pool
+    final tasks = <Future<_BenchResult>>[];
+    final entries = images.entries.toList();
+
+    for (final entry in entries) {
+      final task = (
+        width: entry.value.$1,
+        height: entry.value.$2,
+        pixels: entry.value.$3,
+        iterations: _iterations,
+        enableQRCode: yomu.enableQRCode,
+        enableBarcode: !yomu.barcodeScanner.isEmpty,
+        filename: entry.key,
+      );
+
+      // Pool.withResource limits concurrent execution while Isolate.run handles isolation
+      tasks.add(
+        pool.withResource(() => Isolate.run(() => _benchImageIsolate(task))),
+      );
     }
 
-    // Calculate average for this specific image
-    details[entry.key] = (imageTotalUs / _iterations) / 1000.0;
+    // Wait for all tasks to complete
+    final results = await Future.wait(tasks);
+
+    // Aggregate results
+    for (final result in results) {
+      final cat = _categorize(result.filename.split('/').last);
+
+      // Add all times to category
+      categoryTimes[cat]!.addAll(result.timesMs);
+      categoryTimes['All']!.addAll(result.timesMs);
+
+      // Calculate average for this specific image
+      final avg =
+          result.timesMs.reduce((a, b) => a + b) / result.timesMs.length;
+      details[result.filename] = avg;
+    }
+  } finally {
+    await pool.close();
   }
 
   final metrics = <String, Metric>{};

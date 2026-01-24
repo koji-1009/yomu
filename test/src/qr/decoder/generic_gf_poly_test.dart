@@ -4,7 +4,7 @@ import 'package:yomu/src/qr/decoder/generic_gf_poly.dart';
 
 void main() {
   group('GenericGFPoly', () {
-    final field = GenericGF.qrCodeField256;
+    const field = GenericGF.qrCodeField256;
 
     // Helper to create poly from coefficients (highest degree first)
     GenericGFPoly poly(List<int> coeffs) => GenericGFPoly(field, coeffs);
@@ -79,7 +79,7 @@ void main() {
 
   group('GenericGFPoly Exception Paths', () {
     test('divide by zero throws', () {
-      final field = GenericGF.qrCodeField256;
+      const field = GenericGF.qrCodeField256;
       final poly1 = GenericGFPoly(field, [1, 2, 3]);
       final zero = field.zero;
 
@@ -87,7 +87,7 @@ void main() {
     });
 
     test('multiplyByMonomial with negative degree throws', () {
-      final field = GenericGF.qrCodeField256;
+      const field = GenericGF.qrCodeField256;
       final poly = GenericGFPoly(field, [1, 2]);
 
       expect(
@@ -97,34 +97,34 @@ void main() {
     });
 
     test('evaluateAt with zero returns constant term', () {
-      final field = GenericGF.qrCodeField256;
+      const field = GenericGF.qrCodeField256;
       final poly = GenericGFPoly(field, [5, 10, 15]);
       expect(poly.evaluateAt(0), 15);
     });
 
     test('multiply by scalar zero returns zero poly', () {
-      final field = GenericGF.qrCodeField256;
+      const field = GenericGF.qrCodeField256;
       final poly = GenericGFPoly(field, [1, 2, 3]);
       final result = poly.multiplyByScalar(0);
       expect(result.isZero, isTrue);
     });
 
     test('add/subtract identical polys returns zero', () {
-      final field = GenericGF.qrCodeField256;
+      const field = GenericGF.qrCodeField256;
       final poly = GenericGFPoly(field, [1, 2, 3]);
       final result = poly.addOrSubtract(poly);
       expect(result.isZero, isTrue);
     });
 
     test('multiply by monomial', () {
-      final field = GenericGF.qrCodeField256;
+      const field = GenericGF.qrCodeField256;
       final poly = GenericGFPoly(field, [1, 2]);
       final result = poly.multiplyByMonomial(2, 3);
       expect(result.degree, poly.degree + 2);
     });
 
     test('divide returns quotient and remainder', () {
-      final field = GenericGF.qrCodeField256;
+      const field = GenericGF.qrCodeField256;
       final dividend = GenericGFPoly(field, [1, 2, 3, 4]);
       final divisor = GenericGFPoly(field, [1, 1]);
       final result = dividend.divide(divisor);

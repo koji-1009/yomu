@@ -39,7 +39,7 @@ void main() {
 
     test('QRCodeDecoder handles random bit matrices', () {
       final random = Random(67890);
-      final decoder = QRCodeDecoder();
+      const decoder = QRCodeDecoder();
 
       for (var i = 0; i < 20; i++) {
         final dimension = random.nextInt(50) + 21;

@@ -9,11 +9,11 @@ import 'package:yomu/src/yomu_exception.dart';
 void main() {
   group('ReedSolomonDecoder', () {
     // We use the same field as QR
-    final field = GenericGF.qrCodeField256;
+    const field = GenericGF.qrCodeField256;
     late ReedSolomonDecoder decoder;
 
     setUp(() {
-      decoder = ReedSolomonDecoder(field);
+      decoder = const ReedSolomonDecoder(field);
     });
 
     // Helper to build generator poly
@@ -111,7 +111,7 @@ void main() {
 
   group('ReedSolomonDecoder Exception Paths', () {
     test('decoder handles no errors correctly (all zeros)', () {
-      final decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
+      const decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
       final received = List<int>.filled(10, 0);
 
       expect(
@@ -121,7 +121,7 @@ void main() {
     });
 
     test('decoder attempts to correct errors', () {
-      final decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
+      const decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
       final received = List<int>.filled(10, 0);
       received[0] = 1;
 
@@ -133,7 +133,7 @@ void main() {
     });
 
     test('decoder throws on uncorrectable errors', () {
-      final decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
+      const decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
       final received = List<int>.generate(20, (i) => i * 17 % 256);
 
       expect(
@@ -143,7 +143,7 @@ void main() {
     });
 
     test('decoder throws bad error location on invalid position', () {
-      final decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
+      const decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
       final received = List<int>.generate(5, (i) => (i + 1) * 50 % 256);
 
       try {

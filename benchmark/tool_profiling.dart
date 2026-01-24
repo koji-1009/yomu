@@ -193,7 +193,7 @@ Map<String, int>? _profileDecode(File file) {
   // Decode
   sw.reset();
   sw.start();
-  final decoder = QRCodeDecoder();
+  const decoder = QRCodeDecoder();
   try {
     decoder.decode(detectorResult.bits);
   } catch (_) {

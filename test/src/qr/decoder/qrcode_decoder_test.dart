@@ -80,20 +80,20 @@ void main() {
       final matrix = BitMatrix(width: 21);
       // Empty matrix has invalid format info usually
       expect(
-        () => QRCodeDecoder().decode(matrix),
+        () => const QRCodeDecoder().decode(matrix),
         throwsA(isA<DecodeException>()),
       );
     });
 
     test('decode covers V7+ version reading logic', () {
-      final decoder = QRCodeDecoder();
+      const decoder = QRCodeDecoder();
       // Version 7 is 45x45
       final matrix = BitMatrix(width: 45, height: 45);
       expect(() => decoder.decode(matrix), throwsA(isA<DecodeException>()));
     });
 
     test('decode decodes valid V1 QR code (Happy Path)', () {
-      final decoder = QRCodeDecoder();
+      const decoder = QRCodeDecoder();
       final imageMatrix = _loadBitMatrix('version_1.png');
 
       // Use Detector to extract the QR code bits from the simulated camera image
@@ -105,7 +105,7 @@ void main() {
     });
 
     test('decode decodes valid V5 QR code (Multi-block/Interleaved)', () {
-      final decoder = QRCodeDecoder();
+      const decoder = QRCodeDecoder();
       // Version 5 (37x37) has multiple EC blocks, triggering interleaving logic
       final imageMatrix = _loadBitMatrix('version_5.png');
 
@@ -118,7 +118,7 @@ void main() {
     });
 
     test('decode decodes valid V10 QR code (Complex)', () {
-      final decoder = QRCodeDecoder();
+      const decoder = QRCodeDecoder();
       final imageMatrix = _loadBitMatrix('version_10.png');
 
       final detector = Detector(imageMatrix);
@@ -135,7 +135,7 @@ void main() {
       // Version is inferred from dimension for small versions (1-6).
       // So hard to have "invalid version" for V1 unless dimension is wrong.
       // But BitMatrixParser.readVersion throws if dimension < 17.
-      final decoder = QRCodeDecoder();
+      const decoder = QRCodeDecoder();
       final matrix = BitMatrix(width: 10); // Too small
       expect(() => decoder.decode(matrix), throwsA(isA<DecodeException>()));
     });
@@ -145,7 +145,7 @@ void main() {
       // e.g. detection error if we were detecting.
       // But decode takes a BitMatrix.
       // If we pass too small matrix, it throws DecodeException (which is YomuException).
-      final decoder = QRCodeDecoder();
+      const decoder = QRCodeDecoder();
       final matrix = BitMatrix(width: 10);
       expect(() => decoder.decode(matrix), throwsA(isA<YomuException>()));
     });

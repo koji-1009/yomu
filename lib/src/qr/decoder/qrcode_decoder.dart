@@ -10,10 +10,9 @@ import 'generic_gf.dart';
 import 'reed_solomon_decoder.dart';
 
 class QRCodeDecoder {
-  QRCodeDecoder({ReedSolomonDecoder? rsDecoder})
-    : _rsDecoder = rsDecoder ?? ReedSolomonDecoder(GenericGF.qrCodeField256);
+  const QRCodeDecoder();
 
-  final ReedSolomonDecoder _rsDecoder;
+  static const _rsDecoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
 
   DecoderResult decode(BitMatrix bits) {
     try {

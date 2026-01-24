@@ -51,6 +51,8 @@ class GenericGFPoly {
   }
 
   /// Evaluate this polynomial at [a].
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
   int evaluateAt(int a) {
     if (a == 0) {
       // f(0) is just the constant term

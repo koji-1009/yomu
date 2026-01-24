@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../common/bit_matrix.dart';
 import 'barcode_result.dart';
 
@@ -23,7 +25,7 @@ abstract class BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
-    List<int>? runs,
+    Uint16List? runs,
   });
 
   /// Scans the bit matrix to find and decode a barcode.

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
 
@@ -74,7 +76,7 @@ class Code39Decoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
-    List<int>? runs,
+    Uint16List? runs,
   }) {
     // Convert to run-length encoding
     final runData = runs ?? _getRunLengths(row);
@@ -121,7 +123,7 @@ class Code39Decoder extends BarcodeDecoder {
     );
   }
 
-  List<int> _getRunLengths(List<bool> row) {
+  Uint16List _getRunLengths(List<bool> row) {
     final runs = <int>[];
     var currentPos = 0;
     var currentColor = row[0];
@@ -136,11 +138,11 @@ class Code39Decoder extends BarcodeDecoder {
       currentColor = !currentColor;
     }
 
-    return runs;
+    return Uint16List.fromList(runs);
   }
 
   /// Find start pattern (*) and return (runIndex, narrowWidth, startX).
-  (int, double, int)? _findStartPattern(List<int> runs) {
+  (int, double, int)? _findStartPattern(Uint16List runs) {
     // Look for quiet zone followed by start pattern
     for (var i = 0; i < runs.length - 10; i++) {
       if (i % 2 == 0 && runs[i] > 5) {
@@ -169,7 +171,7 @@ class Code39Decoder extends BarcodeDecoder {
   }
 
   /// Analyze runs to determine narrow and wide widths.
-  (double, double)? _analyzeWidths(List<int> runs) {
+  (double, double)? _analyzeWidths(Uint16List runs) {
     if (runs.length != 9) return null;
 
     // Sort to find narrow and wide groups
@@ -191,7 +193,7 @@ class Code39Decoder extends BarcodeDecoder {
   }
 
   /// Convert runs to pattern bits.
-  int _runsToPattern(List<int> runs, double narrowWidth, double wideWidth) {
+  int _runsToPattern(Uint16List runs, double narrowWidth, double wideWidth) {
     var pattern = 0;
     final threshold = (narrowWidth + wideWidth) / 2.0;
 
@@ -204,7 +206,7 @@ class Code39Decoder extends BarcodeDecoder {
     return pattern;
   }
 
-  String? _decodeCharacter(List<int> runs, double narrowWidth) {
+  String? _decodeCharacter(Uint16List runs, double narrowWidth) {
     final widths = _analyzeWidths(runs);
     if (widths == null) return null;
 

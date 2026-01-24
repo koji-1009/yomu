@@ -163,11 +163,27 @@ class BarcodeScanner {
   }
 
   /// Converts a row of booleans to run-length encoded data.
-  static List<int> getRunLengths(List<bool> row) {
-    final runs = <int>[];
-    if (row.isEmpty) return runs;
+  static Uint16List getRunLengths(List<bool> row) {
+    if (row.isEmpty) return Uint16List(0);
+
+    // First pass: count runs to allocate exact size
+    var runCount = 0;
     var currentPos = 0;
     var currentColor = row[0];
+
+    while (currentPos < row.length) {
+      while (currentPos < row.length && row[currentPos] == currentColor) {
+        currentPos++;
+      }
+      runCount++;
+      currentColor = !currentColor;
+    }
+
+    // Second pass: populate Uint16List
+    final runs = Uint16List(runCount);
+    currentPos = 0;
+    currentColor = row[0];
+    var index = 0;
 
     while (currentPos < row.length) {
       var runLength = 0;
@@ -175,7 +191,7 @@ class BarcodeScanner {
         runLength++;
         currentPos++;
       }
-      runs.add(runLength);
+      runs[index++] = runLength;
       currentColor = !currentColor;
     }
 

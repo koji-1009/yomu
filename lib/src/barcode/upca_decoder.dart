@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'barcode_result.dart';
 import 'ean13_decoder.dart';
 
@@ -19,7 +21,7 @@ class UPCADecoder extends EAN13Decoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
-    List<int>? runs,
+    Uint16List? runs,
   }) {
     // UPC-A is EAN-13 with first digit = 0
     final ean13Result = super.decodeRow(

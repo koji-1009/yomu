@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
 
@@ -131,7 +133,7 @@ class Code128Decoder extends BarcodeDecoder {
     required List<bool> row,
     required int rowNumber,
     required int width,
-    List<int>? runs,
+    Uint16List? runs,
   }) {
     // Convert to run-length encoding
     final runData = runs ?? _getRunLengths(row);
@@ -237,7 +239,7 @@ class Code128Decoder extends BarcodeDecoder {
     );
   }
 
-  List<int> _getRunLengths(List<bool> row) {
+  Uint16List _getRunLengths(List<bool> row) {
     final runs = <int>[];
     var currentPos = 0;
     var currentColor = row[0];
@@ -252,11 +254,11 @@ class Code128Decoder extends BarcodeDecoder {
       currentColor = !currentColor;
     }
 
-    return runs;
+    return Uint16List.fromList(runs);
   }
 
   /// Find start pattern and return (runIndex, moduleWidth, startCode, startX).
-  (int, double, int, int)? _findStartPattern(List<int> runs) {
+  (int, double, int, int)? _findStartPattern(Uint16List runs) {
     for (var i = 0; i < runs.length - 10; i++) {
       if (i % 2 == 0 && runs[i] > 5) {
         // At white run (quiet zone)
@@ -283,15 +285,15 @@ class Code128Decoder extends BarcodeDecoder {
     return null;
   }
 
-  int? _decodeCharacter(List<int> charRuns, double globalModuleWidth) {
+  int? _decodeCharacter(Uint16List charRuns, double globalModuleWidth) {
     // Calculate local module width from this character's runs
     // Each Code128 character is 11 modules
     final total = charRuns.reduce((a, b) => a + b);
     final localModuleWidth = total / 11.0;
 
-    final modules = charRuns
-        .map((r) => (r / localModuleWidth).round())
-        .toList();
+    final modules = Uint16List.fromList(
+      charRuns.map((r) => (r / localModuleWidth).round()).toList(),
+    );
 
     var bestCode = -1;
     var bestError = 999;
@@ -311,7 +313,7 @@ class Code128Decoder extends BarcodeDecoder {
     return null;
   }
 
-  int _patternError(List<int> actual, List<int> expected) {
+  int _patternError(Uint16List actual, List<int> expected) {
     if (actual.length != expected.length) return 999;
 
     var error = 0;
@@ -322,24 +324,28 @@ class Code128Decoder extends BarcodeDecoder {
   }
 
   int _matchPatternWithError(
-    List<int> runs,
+    Uint16List runs,
     List<int> pattern,
     double moduleWidth,
   ) {
     if (runs.length != pattern.length) return 999;
 
-    final modules = runs.map((r) => (r / moduleWidth).round()).toList();
+    final modules = Uint16List.fromList(
+      runs.map((r) => (r / moduleWidth).round()).toList(),
+    );
     return _patternError(modules, pattern);
   }
 
-  bool _matchStop(List<int> runs, double globalModuleWidth) {
+  bool _matchStop(Uint16List runs, double globalModuleWidth) {
     if (runs.length != 7) return false;
 
     // Stop pattern is 13 modules, calculate local module width
     final total = runs.reduce((a, b) => a + b);
     final localModuleWidth = total / 13.0;
 
-    final modules = runs.map((r) => (r / localModuleWidth).round()).toList();
+    final modules = Uint16List.fromList(
+      runs.map((r) => (r / localModuleWidth).round()).toList(),
+    );
     return _patternError(modules, _stopPattern) == 0; // Exact match only
   }
 

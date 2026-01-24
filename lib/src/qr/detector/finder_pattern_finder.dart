@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 import '../../common/bit_matrix.dart';
 import '../../yomu_exception.dart';
@@ -10,7 +11,7 @@ class FinderPatternFinder {
   final BitMatrix image;
   final List<FinderPattern> _possibleCenters = [];
 
-  final List<int> _crossCheckStateCount = List<int>.filled(5, 0);
+  final Uint8List _crossCheckStateCount = Uint8List(5);
 
   FinderPatternInfo find() {
     final maxI = image.height;
@@ -20,7 +21,7 @@ class FinderPatternFinder {
 
     // Skip rows for speed (iSkip=3 is a good balance)
     const iSkip = 3;
-    final stateCount = List<int>.filled(5, 0);
+    final stateCount = Uint8List(5);
 
     // Center-first scanning: scan from center outward
     // This finds QR codes faster when they're centered (common case)
@@ -413,7 +414,7 @@ class FinderPatternFinder {
 
     const iSkip = 3;
 
-    final stateCount = List<int>.filled(5, 0);
+    final stateCount = Uint8List(5);
 
     for (var i = iSkip - 1; i < maxI; i += iSkip) {
       stateCount.fillRange(0, 5, 0);

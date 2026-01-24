@@ -5,7 +5,7 @@ void main() {
   group('GenericGF', () {
     // QR Code uses GF(256) with primitive polynomial 0x11D (285 decimal)
     // Generator for RS is usually 2.
-    final field = GenericGF.qrCodeField256;
+    const field = GenericGF.qrCodeField256;
 
     test('exp returns correct power of 2', () {
       expect(field.exp(0), 1);
@@ -49,14 +49,14 @@ void main() {
 
   group('GenericGF operations', () {
     test('buildMonomial creates correct polynomial', () {
-      final field = GenericGF.qrCodeField256;
+      const field = GenericGF.qrCodeField256;
       final mono = field.buildMonomial(3, 5);
       expect(mono.degree, 3);
       expect(mono.getCoefficient(3), 5);
     });
 
     test('exp and log are inverse operations', () {
-      final field = GenericGF.qrCodeField256;
+      const field = GenericGF.qrCodeField256;
       for (var i = 0; i < 10; i++) {
         final exp = field.exp(i);
         final log = field.log(exp);
@@ -65,7 +65,7 @@ void main() {
     });
 
     test('inverse produces correct result', () {
-      final field = GenericGF.qrCodeField256;
+      const field = GenericGF.qrCodeField256;
       for (var i = 1; i < 10; i++) {
         final inv = field.inverse(i);
         final product = field.multiply(i, inv);

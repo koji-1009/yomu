@@ -17,7 +17,7 @@ class ReedSolomonDecoder {
     // Calculate syndromes
     // S_i = R(alpha^(generatorBase + i))
     for (var i = 0; i < twoS; i++) {
-      final eval = poly.evaluateAt(field.exp(field.generatorBase + i));
+      final eval = poly.evaluateAt(field.exp(GenericGF.generatorBase + i));
       syndromeCoefficients[syndromeCoefficients.length - 1 - i] = eval;
       if (eval != 0) {
         noError = false;
@@ -120,7 +120,7 @@ class ReedSolomonDecoder {
     }
 
     final result = <int>[];
-    for (var i = 1; i < field.size; i++) {
+    for (var i = 1; i < GenericGF.size; i++) {
       if (errorLocator.evaluateAt(i) == 0) {
         result.add(field.inverse(i));
       }

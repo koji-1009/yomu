@@ -44,7 +44,7 @@ class Yomu {
   final BarcodeScanner barcodeScanner;
 
   /// Shared decoder instance for QR code decoding.
-  static final _decoder = QRCodeDecoder();
+  static const _decoder = QRCodeDecoder();
 
   /// Yomu with QR code and all barcode formats enabled.
   static const all = Yomu(

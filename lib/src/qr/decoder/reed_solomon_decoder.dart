@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../yomu_exception.dart';
 import 'generic_gf.dart';
 import 'generic_gf_poly.dart';
@@ -11,7 +13,7 @@ class ReedSolomonDecoder {
   /// [twoS] is the number of error correction bytes (symbols).
   void decode({required List<int> received, required int twoS}) {
     final poly = GenericGFPoly(field, received.toList()); // Copy input to poly
-    final syndromeCoefficients = List<int>.filled(twoS, 0);
+    final syndromeCoefficients = Uint8List(twoS);
     var noError = true;
 
     // Calculate syndromes
@@ -140,7 +142,7 @@ class ReedSolomonDecoder {
   ) {
     // Forney algorithm
     final s = errorLocations.length;
-    final result = List<int>.filled(s, 0);
+    final result = Uint8List(s);
 
     for (var i = 0; i < s; i++) {
       final xiInverse = field.inverse(errorLocations[i]);

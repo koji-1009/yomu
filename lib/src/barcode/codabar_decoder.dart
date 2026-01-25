@@ -84,6 +84,16 @@ class CodabarDecoder extends BarcodeDecoder {
 
       // Check for stop character
       if (_startStopIndices.contains(charIndex)) {
+        // Run index currently points to start of this character.
+        // Stop character is 7 runs.
+        // Check Quiet Zone after stop character.
+        if (runIndex + 7 < runData.length) {
+          final quietZone = runData[runIndex + 7];
+          // Use narrowWidth * 10 as standard quiet zone requirement
+          if (quietZone < narrowWidth * 10) {
+            return null;
+          }
+        }
         break;
       }
 
@@ -126,15 +136,21 @@ class CodabarDecoder extends BarcodeDecoder {
   /// Find start pattern and return (runIndex, narrowWidth, startX, startChar).
   (int, double, int, String)? _findStartPattern(Uint16List runs) {
     for (var i = 0; i < runs.length - 10; i++) {
-      if (i % 2 == 0 && runs[i] > 5) {
-        // At white quiet zone
+      if (i % 2 == 0) {
         if (i + 7 >= runs.length) continue;
+
+        // Verify quiet zone first (must be >= 10 * width)
+        // Calculated later, but pre-check helps performance if we approximate or defer?
+        // Actually, we need to calculate widths from start pattern to verify quiet zone properly.
 
         final charRuns = runs.sublist(i + 1, i + 8);
         final widths = _analyzeWidths(charRuns);
         if (widths == null) continue;
 
         final (narrowWidth, wideWidth) = widths;
+
+        // Validate quiet zone based on calculated narrow width
+        if (runs[i] < narrowWidth * 10) continue;
         final pattern = _runsToPattern(charRuns, narrowWidth, wideWidth);
 
         // Check if this is a start character (A, B, C, D)

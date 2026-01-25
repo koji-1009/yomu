@@ -193,6 +193,10 @@ class Code128Decoder extends BarcodeDecoder {
       final newSet = findCodeSetSwitch(code);
       if (newSet != null) {
         codeSet = newSet;
+      } else if (code == 102) {
+        // FNC1: Typically used as a field separator in GS1-128.
+        // Map to ASCII Group Separator (GS, 0x1D)
+        decodedChars.add(String.fromCharCode(0x1D));
       } else if (code < 96) {
         decodedChars.add(_decodeValue(code, codeSet));
       }
@@ -267,6 +271,9 @@ class Code128Decoder extends BarcodeDecoder {
         final startRuns = runs.sublist(i + 1, i + 7);
         final total = startRuns.reduce((a, b) => a + b);
         final moduleWidth = total / 11.0;
+
+        // Strict Quiet Zone check (at least 10 * moduleWidth)
+        if (runs[i] < moduleWidth * 10) continue;
 
         // Try each start pattern
         for (var code = 103; code <= 105; code++) {

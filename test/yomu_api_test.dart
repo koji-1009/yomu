@@ -401,7 +401,7 @@ void main() {
           );
 
           expect(result, isNotNull);
-          expect(result!.text, '12'); // FNC1 skipped
+          expect(result!.text, '\x1D12'); // FNC1 skipped
         });
 
         test('decodes Code Set A (Control characters logic)', () {

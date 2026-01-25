@@ -12,7 +12,10 @@ import 'barcode_result.dart';
 /// Supported characters: 0-9, A-Z, -, ., $, /, +, %, space
 /// Start/Stop character: * (asterisk)
 class Code39Decoder extends BarcodeDecoder {
-  const Code39Decoder();
+  const Code39Decoder({this.checkDigit = false});
+
+  /// If true, validates and strips Modulo 43 check digit.
+  final bool checkDigit;
 
   @override
   String get format => 'CODE_39';
@@ -92,8 +95,15 @@ class Code39Decoder extends BarcodeDecoder {
 
     final result = StringBuffer();
 
-    // Skip start pattern (9 runs + 1 inter-character space)
-    runIndex += 10;
+    // Skip start pattern (9 runs)
+    runIndex += 9;
+
+    // Check first gap
+    if (runIndex < runData.length) {
+      // Validate gap width
+      if (runData[runIndex] > narrowWidth * 2.0) return null;
+      runIndex++; // Skip valid gap
+    }
 
     // Decode characters
     while (runIndex + 9 <= runData.length) {
@@ -104,7 +114,26 @@ class Code39Decoder extends BarcodeDecoder {
 
       // Check for stop pattern
       if (char == '*') {
+        // Validate Quiet Zone after Stop Pattern (at least 10 * narrowWidth)
+        // If we are at the end of runs, it's considered end of image (valid quiet zone? or assume margin?)
+        // Standard usually requires margin. But if image ends, it is white by default?
+        // Let's enforce it if runs exist.
+        if (runIndex + 9 < runData.length) {
+          final quietZone = runData[runIndex + 9];
+          if (quietZone < narrowWidth * 10) {
+            // Invalid Quiet Zone at end
+            return null;
+          }
+        }
         break;
+      }
+
+      // Validate inter-character gap (should be narrow space) after this char
+      if (runIndex + 9 < runData.length) {
+        final gapFn = runData[runIndex + 9];
+        if (gapFn > narrowWidth * 2.0) {
+          break; // Invalid gap, stop decoding
+        }
       }
 
       result.write(char);
@@ -112,15 +141,48 @@ class Code39Decoder extends BarcodeDecoder {
     }
 
     final text = result.toString();
-    if (text.isEmpty) return null;
+
+    // Default minimum length for Code 39 to avoid false positives is 2.
+    // (excluding start/stop chars)
+    if (text.length < 2) return null;
+
+    final resultText = text;
+
+    // Optional Checksum Validation
+    // Code 39 supports an optional modulo 43 check digit.
+    var finalText = resultText;
+    if (checkDigit) {
+      if (!validateMod43(finalText)) return null;
+      // Strip check digit
+      finalText = finalText.substring(0, finalText.length - 1);
+    }
 
     return BarcodeResult(
-      text: text,
+      text: finalText,
       format: format,
       startX: startX,
       endX: runIndex,
       rowY: rowNumber,
     );
+  }
+
+  /// Validates Modulo 43 check digit.
+  /// This is optional for Code 39 but recommended for high reliability.
+  static bool validateMod43(String text) {
+    if (text.length < 2) return false;
+    final data = text.substring(0, text.length - 1);
+    final checkChar = text[text.length - 1];
+
+    var sum = 0;
+    for (var i = 0; i < data.length; i++) {
+      final index = _characterSet.indexOf(data[i]);
+      if (index < 0) return false; // Invalid char
+      sum += index;
+    }
+
+    final computed = sum % 43;
+    final expected = _characterSet.indexOf(checkChar);
+    return computed == expected;
   }
 
   Uint16List _getRunLengths(List<bool> row) {
@@ -159,6 +221,10 @@ class Code39Decoder extends BarcodeDecoder {
         final pattern = _runsToPattern(patternRuns, narrowWidth, wideWidth);
         if (pattern == _patterns[43]) {
           // * is at index 43
+
+          // Check strict Quiet Zone (at least 10 * narrowWidth)
+          if (runs[i] < narrowWidth * 10) continue;
+
           var startX = 0;
           for (var j = 0; j <= i; j++) {
             startX += runs[j];

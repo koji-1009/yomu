@@ -57,14 +57,20 @@ class ITFDecoder extends BarcodeDecoder {
     runIndex += 4;
 
     final digits = <int>[];
+    var foundEndPattern = false;
 
     // Decode digit pairs
     // Each pair uses 10 runs (5 bars + 5 spaces)
-    while (runIndex + 10 <= runData.length) {
+    // Loop checks for End Pattern (3 runs) first.
+    while (runIndex + 3 <= runData.length) {
       // Check for end pattern (3 runs: WNN)
       if (_isEndPattern(runData, runIndex, narrowWidth)) {
+        foundEndPattern = true;
         break;
       }
+
+      // If not end pattern, we need a full pair (10 runs)
+      if (runIndex + 10 > runData.length) break;
 
       // Decode pair of digits
       final pairRuns = runData.sublist(runIndex, runIndex + 10);
@@ -76,9 +82,14 @@ class ITFDecoder extends BarcodeDecoder {
       runIndex += 10;
     }
 
-    if (digits.isEmpty) return null;
+    if (!foundEndPattern || digits.isEmpty) return null;
 
     final text = digits.join();
+
+    // Default minimum length for ITF to avoid false positives is 6.
+    if (text.length < 6) {
+      return null;
+    }
 
     // Validate checksum if it's ITF-14 (14 digits)
     if (text.length == 14 && !validateITF14Checksum(text)) {
@@ -134,6 +145,10 @@ class ITFDecoder extends BarcodeDecoder {
 
         final avg = startRuns.reduce((a, b) => a + b) / 4.0;
 
+        // Check strict Quiet Zone (at least 10 * narrowWidth)
+        // runs[i] covers the quiet zone before the start pattern
+        if (runs[i] < avg * 10) continue;
+
         var startX = 0;
         for (var j = 0; j <= i; j++) {
           startX += runs[j];
@@ -159,7 +174,7 @@ class ITFDecoder extends BarcodeDecoder {
     return r1 > wideThreshold &&
         r2 < wideThreshold &&
         r3 < wideThreshold &&
-        quietZone > narrowWidth * 5; // Quiet zone should be large
+        quietZone >= narrowWidth * 10; // Quiet zone should be large (>=10x)
   }
 
   /// Decode a pair of digits from 10 runs (5 bars + 5 spaces).

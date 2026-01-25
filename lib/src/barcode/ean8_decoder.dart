@@ -138,15 +138,16 @@ class EAN8Decoder extends BarcodeDecoder {
   (int, double, int)? _findStartGuard(List<int> runs) {
     for (var i = 0; i < runs.length - 44; i++) {
       if (i % 2 == 0) {
-        final quietZone = runs[i];
-        if (quietZone < 10) continue;
-
         final b1 = runs[i + 1];
         final w1 = runs[i + 2];
         final b2 = runs[i + 3];
 
         final total = b1 + w1 + b2;
         final avg = total / 3.0;
+
+        // Strict Quiet Zone check (at least 10 * moduleWidth)
+        final quietZone = runs[i];
+        if (quietZone < avg * 10) continue;
 
         if ((b1 - avg).abs() > avg * 0.5) continue;
         if ((w1 - avg).abs() > avg * 0.5) continue;

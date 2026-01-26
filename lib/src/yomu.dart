@@ -35,13 +35,26 @@ class Yomu {
   /// Parameters:
   /// - [enableQRCode]: Whether to scan for QR codes (default: true)
   /// - [barcodeScanner]: Configuration for 1D barcode scanning (default: none)
-  const Yomu({required this.enableQRCode, required this.barcodeScanner});
+  /// - [binarizerThreshold]: Threshold factor for binarization (default: 0.875)
+  /// - [alignmentAreaAllowance]: Allowance for alignment pattern search (default: 15)
+  const Yomu({
+    required this.enableQRCode,
+    required this.barcodeScanner,
+    this.binarizerThreshold = 0.875,
+    this.alignmentAreaAllowance = 15,
+  });
 
   /// Whether to scan for QR codes.
   final bool enableQRCode;
 
   /// Configuration for 1D barcode scanning.
   final BarcodeScanner barcodeScanner;
+
+  /// Threshold factor for binarization.
+  final double binarizerThreshold;
+
+  /// Allowance for alignment pattern search.
+  final int alignmentAreaAllowance;
 
   /// Shared decoder instance for QR code decoding.
   static const _decoder = QRCodeDecoder();
@@ -148,8 +161,14 @@ class Yomu {
       height: height,
       luminances: pixels,
     );
-    final blackMatrix = Binarizer(source).getBlackMatrix();
-    final detector = Detector(blackMatrix);
+    final blackMatrix = Binarizer(
+      source,
+      thresholdFactor: binarizerThreshold,
+    ).getBlackMatrix();
+    final detector = Detector(
+      blackMatrix,
+      alignmentAreaAllowance: alignmentAreaAllowance,
+    );
     final detectorResult = detector.detect();
 
     return _decoder.decode(detectorResult.bits);
@@ -180,8 +199,14 @@ class Yomu {
       height: height,
       luminances: pixels,
     );
-    final blackMatrix = Binarizer(source).getBlackMatrix();
-    final detector = Detector(blackMatrix);
+    final blackMatrix = Binarizer(
+      source,
+      thresholdFactor: binarizerThreshold,
+    ).getBlackMatrix();
+    final detector = Detector(
+      blackMatrix,
+      alignmentAreaAllowance: alignmentAreaAllowance,
+    );
     final detectorResults = detector.detectMulti();
 
     final results = <DecoderResult>[];

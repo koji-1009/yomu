@@ -152,6 +152,63 @@ void main() {
         expect(matrix.width, 10);
         expect(matrix.height, 10);
       });
+
+      test('Binarizer respects thresholdFactor', () {
+        // Create an image with a uniform background and one slightly darker pixel
+        const width = 10;
+        const height = 10;
+        final pixels = Int32List(width * height);
+
+        // Background: 100 (0xFF646464)
+        for (var i = 0; i < pixels.length; i++) {
+          pixels[i] = 0xFF646464;
+        }
+
+        // Target pixel at (5, 5): 88 (0xFF585858)
+        // With background 100, threshold is 100 * factor.
+        // If factor 0.875 (default): Threshold = 87.5. 88 > 87.5 -> White (False).
+        // If factor 0.90: Threshold = 90. 88 <= 90 -> Black (True).
+        pixels[5 * width + 5] = 0xFF585858;
+
+        final luminances = int32ToGrayscale(pixels, width, height);
+        final source = LuminanceSource(
+          width: width,
+          height: height,
+          luminances: luminances,
+        );
+
+        // Test default (0.875)
+        final binarizerDefault = Binarizer(source); // Default factor
+        final matrixDefault = binarizerDefault.getBlackMatrix();
+        expect(
+          matrixDefault.get(5, 5),
+          isFalse,
+          reason: 'Should be white with default factor',
+        );
+
+        // Test custom (0.90)
+        final binarizerCustom = Binarizer(source, thresholdFactor: 0.90);
+        final matrixCustom = binarizerCustom.getBlackMatrix();
+        expect(
+          matrixCustom.get(5, 5),
+          isTrue,
+          reason: 'Should be black with coarser factor',
+        );
+      });
+    });
+
+    group('Yomu Configuration', () {
+      test('Yomu accepts custom parameters', () {
+        const yomu = Yomu(
+          enableQRCode: true,
+          barcodeScanner: BarcodeScanner.none,
+          binarizerThreshold: 0.5,
+          alignmentAreaAllowance: 20,
+        );
+
+        expect(yomu.binarizerThreshold, 0.5);
+        expect(yomu.alignmentAreaAllowance, 20);
+      });
     });
 
     group('Barcode Decoder Unit Tests', () {

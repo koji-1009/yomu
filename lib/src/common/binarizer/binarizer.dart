@@ -9,9 +9,10 @@ import 'luminance_source.dart';
 /// significantly faster than traditional local thresholding while being
 /// robust to lighting gradients and shadows.
 class Binarizer {
-  const Binarizer(this.source);
+  const Binarizer(this.source, {this.thresholdFactor = 0.875});
 
   final LuminanceSource source;
+  final double thresholdFactor;
 
   // Block size for the window.
   // 1/8th of the image width is a reasonable heuristic for QR codes.
@@ -162,7 +163,7 @@ class Binarizer {
             final h = (y2 - yStart + 1);
             final area = (2 * halfWindow + 1) * h;
 
-            if ((val * area) << 3 <= sumWindow * 7) {
+            if ((val * area) <= sumWindow * thresholdFactor) {
               bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
             }
           }
@@ -217,7 +218,7 @@ class Binarizer {
     final sumWindow = br - bl - tr + tl;
     final area = (x2 - x1 + 1) * (y2 - ((y1 < 0) ? 0 : y1) + 1);
 
-    if ((lumTarget[x] * area) << 3 <= sumWindow * 7) {
+    if ((lumTarget[x] * area) <= sumWindow * thresholdFactor) {
       bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
     }
   }

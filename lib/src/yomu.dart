@@ -165,6 +165,23 @@ class Yomu {
       source,
       thresholdFactor: binarizerThreshold,
     ).getBlackMatrix();
+
+    // Detection Strategy:
+    // 1. Try with standard/tight alignment allowance (5) first.
+    //    This avoids false positives in standard/clean images where noise might exist far away.
+    //    If successful, return result.
+    if (alignmentAreaAllowance > 5) {
+      try {
+        final detector = Detector(blackMatrix, alignmentAreaAllowance: 5);
+        final detectorResult = detector.detect();
+        return _decoder.decode(detectorResult.bits);
+      } catch (_) {
+        // If detection fails or decoding (RS error) fails, fall through to expanded search.
+        // We ignore exceptions here to allow retry.
+      }
+    }
+
+    // 2. Expanded Search (User allowed)
     final detector = Detector(
       blackMatrix,
       alignmentAreaAllowance: alignmentAreaAllowance,
@@ -199,10 +216,27 @@ class Yomu {
       height: height,
       luminances: pixels,
     );
-    final blackMatrix = Binarizer(
-      source,
-      thresholdFactor: binarizerThreshold,
-    ).getBlackMatrix();
+    final binarizer = Binarizer(source, thresholdFactor: binarizerThreshold);
+    final blackMatrix = binarizer.getBlackMatrix();
+
+    // Strategy: Try standard (5) first.
+    if (alignmentAreaAllowance > 5) {
+      final detector = Detector(blackMatrix, alignmentAreaAllowance: 5);
+      final detectorResults = detector.detectMulti();
+      final results = <DecoderResult>[];
+      for (final detectorResult in detectorResults) {
+        try {
+          results.add(_decoder.decode(detectorResult.bits));
+        } catch (_) {
+          continue;
+        }
+      }
+      if (results.isNotEmpty) {
+        return results;
+      }
+    }
+
+    // Fallback: Expanded search
     final detector = Detector(
       blackMatrix,
       alignmentAreaAllowance: alignmentAreaAllowance,

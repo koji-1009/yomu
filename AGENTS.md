@@ -89,7 +89,7 @@ The codebase is structured to allow future expansion (e.g., 1D barcodes).
 2. **Test**: Create a test case in `test/src/...` reproducing the need.
 3. **Implement**: Write minimal clean code.
 4. **Verify**: Run `dart test`. Check `dart analyze --fatal-infos`.
-   * **Python Scripts**: If editing `scripts/*.py`, run:
+   * **Python Scripts**: We use `uv` for script management.
      ```bash
      uvx ruff format scripts/
      ```

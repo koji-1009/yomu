@@ -117,101 +117,166 @@ def _parse_legacy(output: str) -> Optional[LegacyBenchmarkResult]:
     )
 
 
+class BenchmarkParser:
+    """Stateful parser for benchmark output."""
+
+    def __init__(self):
+        # Data storage
+        self.qr_standard_stats = None
+        self.qr_stress_stats = None
+        self.barcode_stats = None
+
+        # State
+        self.current_section = None
+        self.section_avgs = []
+        self.section_overhead = None
+
+        # Additional data
+        self.params = {}  # For categories, etc
+        self.qr_cats = {}
+        self.bc_cats = {}
+        self.details = []
+
+    def parse(self, output: str) -> Optional[ComparativeBenchmarkResult]:
+        lines = output.splitlines()
+
+        for line in lines:
+            self._process_line(line)
+
+        self._commit_section()
+
+        return self._build_result(output)
+
+    def _process_line(self, line: str):
+        line = line.strip()
+        if not line:
+            return
+
+        # Section headers
+        sec_match = re.search(r"^---\s+(.+)\s+---", line)
+        if sec_match:
+            self._commit_section()
+            self.current_section = sec_match.group(1)
+            return
+
+        # Stats
+        if "Yomu." in line:
+            stats_match = re.search(r"Avg:\s+([\d.]+)ms.*p95:\s+([\d.]+)ms", line)
+            if stats_match:
+                avg = float(stats_match.group(1))
+                p95 = float(stats_match.group(2))
+                self.section_avgs.append((avg, p95))
+
+        # Overhead
+        oh_match = re.search(
+            r"Overhead:\s+([+\-]?[\d.]+)ms\s+\(([+\-]?[\d.]+)%\)", line
+        )
+        if oh_match:
+            ms = float(oh_match.group(1))
+            pct = float(oh_match.group(2))
+            self.section_overhead = (ms, pct)
+
+    def _commit_section(self):
+        if not self.current_section or not self.section_avgs:
+            return
+
+        # Expecting at least 2 avgs (Baseline, All) and 1 overhead
+        if len(self.section_avgs) >= 2 and self.section_overhead:
+            stats = {
+                "baseline": self.section_avgs[0],
+                "all": self.section_avgs[1],
+                "overhead": self.section_overhead,
+            }
+
+            if "QR Code Standard" in self.current_section:
+                self.qr_standard_stats = stats
+            elif "QR Code Stress" in self.current_section:
+                self.qr_stress_stats = stats
+            elif "Barcode" in self.current_section:
+                self.barcode_stats = stats
+
+        # Reset
+        self.section_avgs = []
+        self.section_overhead = None
+
+    def _build_result(self, output: str) -> Optional[ComparativeBenchmarkResult]:
+        if not self.qr_standard_stats and not self.barcode_stats:
+            # Fallback if absolutely nothing is found (unlikely in valid run)
+            # But the caller checks for None return
+            if not self.qr_stress_stats:
+                return None
+
+        # Helper to get stat safe
+        def get_stat(stats_dict, key, idx=0):
+            if not stats_dict:
+                return 0.0
+            return stats_dict[key][idx]
+
+        qr_base = get_stat(self.qr_standard_stats, "baseline", 0)
+        qr_all = get_stat(self.qr_standard_stats, "all", 0)
+        qr_ohm = get_stat(self.qr_standard_stats, "overhead", 0)
+        qr_ohp = get_stat(self.qr_standard_stats, "overhead", 1)
+
+        bc_base = get_stat(self.barcode_stats, "baseline", 0)
+        bc_all = get_stat(self.barcode_stats, "all", 0)
+        bc_ohm = get_stat(self.barcode_stats, "overhead", 0)
+        bc_ohp = get_stat(self.barcode_stats, "overhead", 1)
+
+        # Parse Categories (Best effort regex over full output)
+        self._parse_categories(output)
+
+        # Parse Details
+        self._parse_details(output)
+
+        # Pass logic
+        passed = qr_ohp < 15.0
+
+        return ComparativeBenchmarkResult(
+            mode="",
+            qr_baseline_ms=qr_base,
+            qr_all_ms=qr_all,
+            qr_overhead_ms=qr_ohm,
+            qr_overhead_pct=qr_ohp,
+            qr_categories=self.qr_cats,
+            barcode_categories=self.bc_cats,
+            barcode_baseline_ms=bc_base,
+            barcode_all_ms=bc_all,
+            barcode_overhead_ms=bc_ohm,
+            barcode_overhead_pct=bc_ohp,
+            passed=passed,
+            details=self.details,
+        )
+
+    def _parse_categories(self, output: str):
+        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
+            matches = re.findall(rf"{cat}\s+: Avg ([\d.]+)ms, p95 ([\d.]+)ms", output)
+            if len(matches) >= 2:
+                self.qr_cats[cat] = (
+                    float(matches[0][0]),
+                    float(matches[0][1]),
+                    float(matches[1][0]),
+                    float(matches[1][1]),
+                )
+            if len(matches) >= 4:
+                self.bc_cats[cat] = (
+                    float(matches[2][0]),
+                    float(matches[2][1]),
+                    float(matches[3][0]),
+                    float(matches[3][1]),
+                )
+
+    def _parse_details(self, output: str):
+        details = re.findall(r"DETAILS:(.+)\|(.+)\|(.+)\|(.+)", output)
+        for d in details:
+            image = d[0].strip()
+            time_a = float(d[1].strip())
+            time_b = float(d[2].strip())
+            diff_str = d[3].strip()
+            self.details.append((image, time_a, time_b, diff_str))
+
+
 def _parse_comparative(output: str) -> Optional[ComparativeBenchmarkResult]:
-    # Parse overheads
-    overheads = re.findall(r"Overhead: ([+\-]?[\d.]+)ms \(([+\-]?[\d.]+)%\)", output)
-
-    # Parse absolute times (Global Avg)
-    # Yomu.qrOnly          | Avg: 1.454ms | p95: 5.4ms
-    avgs = re.findall(r"Avg: ([\d.]+)ms", output)
-
-    # Parse details
-    details = re.findall(r"DETAILS:(.+)\|(.+)\|(.+)\|(.+)", output)
-    detail_rows = []
-    for d in details:
-        image = d[0].strip()
-        time_a = float(d[1].strip())
-        time_b = float(d[2].strip())
-        diff_str = d[3].strip()
-        detail_rows.append((image, time_a, time_b, diff_str))
-
-    # Parse Categories
-    # Expected occurrences in order: QR-A, QR-B, Barcode-A, Barcode-B
-    qr_cats = {}
-    bc_cats = {}
-
-    for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
-        matches = re.findall(rf"{cat}\s+: Avg ([\d.]+)ms, p95 ([\d.]+)ms", output)
-
-        # QR Section (indices 0 and 1)
-        if len(matches) >= 2:
-            qr_cats[cat] = (
-                float(matches[0][0]),
-                float(matches[0][1]),
-                float(matches[1][0]),
-                float(matches[1][1]),
-            )
-
-        # Barcode Section (indices 2 and 3)
-        if len(matches) >= 4:
-            bc_cats[cat] = (
-                float(matches[2][0]),
-                float(matches[2][1]),
-                float(matches[3][0]),
-                float(matches[3][1]),
-            )
-
-    if len(overheads) < 2 or len(avgs) < 4:
-        return None
-
-    # QR Metrics (Section 1: Standard)
-    qr_base = float(avgs[0])
-    qr_all = float(avgs[1])
-    qr_ohm = float(overheads[0][0])
-    qr_ohp = float(overheads[0][1])
-
-    # Stress Metrics (Section 2: Stress) - currently unused in summary but parsed
-    # stress_base = float(avgs[2])
-    # stress_all = float(avgs[3])
-
-    # Barcode Metrics (Section 3: Barcode)
-    # We expect 6 avgs and 3 overheads if all sections run.
-    # If stress run is empty, we might revert to old indices.
-    # But usually Benchmark scripts print sections even if empty?
-    # Actually bench_compare prints "No Stress images found" but doesn't runComparison if empty.
-    # For CI consistency, we assume images exist.
-
-    if len(avgs) >= 6 and len(overheads) >= 3:
-        bc_base = float(avgs[4])
-        bc_all = float(avgs[5])
-        bc_ohm = float(overheads[2][0])
-        bc_ohp = float(overheads[2][1])
-    else:
-        # Fallback for when Stress images are missing (partial run)
-        # This handles the 2-section case (Standard + Barcode)
-        bc_base = float(avgs[2])
-        bc_all = float(avgs[3])
-        bc_ohm = float(overheads[1][0])
-        bc_ohp = float(overheads[1][1])
-
-    # Pass logic
-    passed = qr_ohp < 15.0
-
-    return ComparativeBenchmarkResult(
-        mode="",
-        qr_baseline_ms=qr_base,
-        qr_all_ms=qr_all,
-        qr_overhead_ms=qr_ohm,
-        qr_overhead_pct=qr_ohp,
-        qr_categories=qr_cats,
-        barcode_categories=bc_cats,
-        barcode_baseline_ms=bc_base,
-        barcode_all_ms=bc_all,
-        barcode_overhead_ms=bc_ohm,
-        barcode_overhead_pct=bc_ohp,
-        passed=passed,
-        details=detail_rows,
-    )
+    return BenchmarkParser().parse(output)
 
 
 def run_jit_benchmark(

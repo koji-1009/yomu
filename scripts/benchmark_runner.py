@@ -155,8 +155,13 @@ class BenchmarkParser:
         # Section headers
         sec_match = re.search(r"^---\s+(.+)\s+---", line)
         if sec_match:
+            header = sec_match.group(1)
+            # Ignore sub-headers for categories
+            if "Metrics" in header:
+                return
+
             self._commit_section()
-            self.current_section = sec_match.group(1)
+            self.current_section = header
             return
 
         # Stats
@@ -725,7 +730,14 @@ def main():
     if jit_result and aot_result:
         print_comparison(jit_result, aot_result)
     elif jit_result:
-        print(f"JIT Result: Avg {jit_result.avg_time_ms:.3f}ms")
+        if isinstance(jit_result, ComparativeBenchmarkResult):
+            print(f"JIT Result (QR): Avg {jit_result.qr_all_ms:.3f}ms")
+            if jit_result.qr_categories:
+                print("\n📈 QR Performance (JIT):")
+                for cat, val in jit_result.qr_categories.items():
+                    print(f"  {cat:<10}: Avg {val[2]:.3f}ms | p95 {val[3]:.3f}ms")
+        else:
+            print(f"JIT Result: Avg {jit_result.avg_time_ms:.3f}ms")
     elif aot_result:
         if isinstance(aot_result, ComparativeBenchmarkResult):
             print(f"AOT Result (QR): Avg {aot_result.qr_all_ms:.3f}ms")

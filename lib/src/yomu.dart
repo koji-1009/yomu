@@ -35,13 +35,26 @@ class Yomu {
   /// Parameters:
   /// - [enableQRCode]: Whether to scan for QR codes (default: true)
   /// - [barcodeScanner]: Configuration for 1D barcode scanning (default: none)
-  const Yomu({required this.enableQRCode, required this.barcodeScanner});
+  /// - [binarizerThreshold]: Threshold factor for binarization (default: 0.875)
+  /// - [alignmentAreaAllowance]: Allowance for alignment pattern search (default: 15)
+  const Yomu({
+    required this.enableQRCode,
+    required this.barcodeScanner,
+    this.binarizerThreshold = 0.875,
+    this.alignmentAreaAllowance = 15,
+  });
 
   /// Whether to scan for QR codes.
   final bool enableQRCode;
 
   /// Configuration for 1D barcode scanning.
   final BarcodeScanner barcodeScanner;
+
+  /// Threshold factor for binarization.
+  final double binarizerThreshold;
+
+  /// Allowance for alignment pattern search.
+  final int alignmentAreaAllowance;
 
   /// Shared decoder instance for QR code decoding.
   static const _decoder = QRCodeDecoder();
@@ -148,8 +161,31 @@ class Yomu {
       height: height,
       luminances: pixels,
     );
-    final blackMatrix = Binarizer(source).getBlackMatrix();
-    final detector = Detector(blackMatrix);
+    final blackMatrix = Binarizer(
+      source,
+      thresholdFactor: binarizerThreshold,
+    ).getBlackMatrix();
+
+    // Detection Strategy:
+    // 1. Try with standard/tight alignment allowance (5) first.
+    //    This avoids false positives in standard/clean images where noise might exist far away.
+    //    If successful, return result.
+    if (alignmentAreaAllowance > 5) {
+      try {
+        final detector = Detector(blackMatrix, alignmentAreaAllowance: 5);
+        final detectorResult = detector.detect();
+        return _decoder.decode(detectorResult.bits);
+      } catch (_) {
+        // If detection fails or decoding (RS error) fails, fall through to expanded search.
+        // We ignore exceptions here to allow retry.
+      }
+    }
+
+    // 2. Expanded Search (User allowed)
+    final detector = Detector(
+      blackMatrix,
+      alignmentAreaAllowance: alignmentAreaAllowance,
+    );
     final detectorResult = detector.detect();
 
     return _decoder.decode(detectorResult.bits);
@@ -180,8 +216,31 @@ class Yomu {
       height: height,
       luminances: pixels,
     );
-    final blackMatrix = Binarizer(source).getBlackMatrix();
-    final detector = Detector(blackMatrix);
+    final binarizer = Binarizer(source, thresholdFactor: binarizerThreshold);
+    final blackMatrix = binarizer.getBlackMatrix();
+
+    // Strategy: Try standard (5) first.
+    if (alignmentAreaAllowance > 5) {
+      final detector = Detector(blackMatrix, alignmentAreaAllowance: 5);
+      final detectorResults = detector.detectMulti();
+      final results = <DecoderResult>[];
+      for (final detectorResult in detectorResults) {
+        try {
+          results.add(_decoder.decode(detectorResult.bits));
+        } catch (_) {
+          continue;
+        }
+      }
+      if (results.isNotEmpty) {
+        return results;
+      }
+    }
+
+    // Fallback: Expanded search
+    final detector = Detector(
+      blackMatrix,
+      alignmentAreaAllowance: alignmentAreaAllowance,
+    );
     final detectorResults = detector.detectMulti();
 
     final results = <DecoderResult>[];

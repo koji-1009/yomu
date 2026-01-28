@@ -17,10 +17,15 @@ class DetectorResult {
 }
 
 class Detector {
-  const Detector(this.image, {this.gridSampler = const GridSampler()});
+  const Detector(
+    this.image, {
+    this.gridSampler = const GridSampler(),
+    this.alignmentAreaAllowance = 15,
+  });
 
   final BitMatrix image;
   final GridSampler gridSampler;
+  final int alignmentAreaAllowance;
 
   DetectorResult detect() {
     final finder = FinderPatternFinder(image);
@@ -66,7 +71,6 @@ class Detector {
         // 5 was too tight for some tilts. 10 is safe enough (~100px).
         // Reduce allowance now that we have better estimation
         // 5 is tight but necessary to avoid false positives in noisy images (e.g. uneven lighting).
-        const alignmentAreaAllowance = 5;
 
         // Estimate where the bottom-right alignment should be
         // We know the AP is at (dim-7, dim-7) in module space.
@@ -86,17 +90,12 @@ class Detector {
         // Validate estimated coordinates are finite
         if (estAlignmentX.isFinite && estAlignmentY.isFinite) {
           // Search for alignment pattern
-          for (var i = alignmentAreaAllowance; i >= 4; i--) {
-            alignmentPattern = _findAlignmentInRegion(
-              moduleSize,
-              estAlignmentX.toInt(),
-              estAlignmentY.toInt(),
-              i.toDouble(),
-            );
-            if (alignmentPattern != null) {
-              break;
-            }
-          }
+          alignmentPattern = _findAlignmentInRegion(
+            moduleSize,
+            estAlignmentX.toInt(),
+            estAlignmentY.toInt(),
+            alignmentAreaAllowance.toDouble(),
+          );
         }
       }
     }

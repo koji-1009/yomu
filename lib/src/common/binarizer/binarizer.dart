@@ -9,9 +9,10 @@ import 'luminance_source.dart';
 /// significantly faster than traditional local thresholding while being
 /// robust to lighting gradients and shadows.
 class Binarizer {
-  const Binarizer(this.source);
+  const Binarizer(this.source, {this.thresholdFactor = 0.875});
 
   final LuminanceSource source;
+  final double thresholdFactor;
 
   // Block size for the window.
   // 1/8th of the image width is a reasonable heuristic for QR codes.
@@ -58,6 +59,11 @@ class Binarizer {
 
     // Boundary helpers
     final rightClamp = width - 1;
+
+    // Pre-calculate integer threshold factor (scaled by 256)
+    // Legacy 7/8 (0.875) becomes 224.
+    // This allows using integer math for performance and keeping exact behavior for default.
+    final scaledThreshold = (thresholdFactor * 256).round();
 
     // Loop controls
     final processLimit = height + halfWindow;
@@ -135,6 +141,7 @@ class Binarizer {
             rowY2,
             bits,
             bitsRowOffset,
+            scaledThreshold,
           );
         }
 
@@ -162,7 +169,9 @@ class Binarizer {
             final h = (y2 - yStart + 1);
             final area = (2 * halfWindow + 1) * h;
 
-            if ((val * area) << 3 <= sumWindow * 7) {
+            // (val * area) * 256 <= sumWindow * scaledThreshold
+            // Shift left 8 is * 256
+            if ((val * area) << 8 <= sumWindow * scaledThreshold) {
               bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
             }
           }
@@ -182,6 +191,7 @@ class Binarizer {
             rowY2,
             bits,
             bitsRowOffset,
+            scaledThreshold,
           );
         }
       }
@@ -204,6 +214,7 @@ class Binarizer {
     Int32List rowY2,
     Uint32List bits,
     int bitsRowOffset,
+    int scaledThreshold,
   ) {
     final x1 = (x - halfWindow < 0) ? 0 : x - halfWindow;
     final x2 = (x + halfWindow > rightClamp) ? rightClamp : x + halfWindow;
@@ -217,7 +228,7 @@ class Binarizer {
     final sumWindow = br - bl - tr + tl;
     final area = (x2 - x1 + 1) * (y2 - ((y1 < 0) ? 0 : y1) + 1);
 
-    if ((lumTarget[x] * area) << 3 <= sumWindow * 7) {
+    if ((lumTarget[x] * area) << 8 <= sumWindow * scaledThreshold) {
       bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
     }
   }

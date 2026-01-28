@@ -43,10 +43,16 @@ class ComparativeBenchmarkResult:
 
     mode: str
     # QR Section
-    qr_baseline_ms: float  # Yomu.qrOnly
-    qr_all_ms: float  # Yomu.all
+    qr_baseline_ms: float  # Yomu.qrOnly (Standard)
+    qr_all_ms: float  # Yomu.all (Standard)
     qr_overhead_ms: float
     qr_overhead_pct: float
+
+    # QR Stress Section
+    qr_stress_baseline_ms: float  # Yomu.qrOnly (Complex/Stress)
+    qr_stress_all_ms: float  # Yomu.all (Complex/Stress)
+    qr_stress_overhead_ms: float
+    qr_stress_overhead_pct: float
 
     # Barcode Section
     barcode_baseline_ms: float  # Yomu.barcodeOnly
@@ -222,6 +228,11 @@ class BenchmarkParser:
         qr_ohm = get_stat(self.qr_standard_stats, "overhead", 0)
         qr_ohp = get_stat(self.qr_standard_stats, "overhead", 1)
 
+        qr_stress_base = get_stat(self.qr_stress_stats, "baseline", 0)
+        qr_stress_all = get_stat(self.qr_stress_stats, "all", 0)
+        qr_stress_ohm = get_stat(self.qr_stress_stats, "overhead", 0)
+        qr_stress_ohp = get_stat(self.qr_stress_stats, "overhead", 1)
+
         bc_base = get_stat(self.barcode_stats, "baseline", 0)
         bc_all = get_stat(self.barcode_stats, "all", 0)
         bc_ohm = get_stat(self.barcode_stats, "overhead", 0)
@@ -242,6 +253,10 @@ class BenchmarkParser:
             qr_all_ms=qr_all,
             qr_overhead_ms=qr_ohm,
             qr_overhead_pct=qr_ohp,
+            qr_stress_baseline_ms=qr_stress_base,
+            qr_stress_all_ms=qr_stress_all,
+            qr_stress_overhead_ms=qr_stress_ohm,
+            qr_stress_overhead_pct=qr_stress_ohp,
             qr_categories=self.qr_cats,
             barcode_categories=self.bc_cats,
             barcode_baseline_ms=bc_base,
@@ -352,7 +367,11 @@ def generate_markdown_report(
 
     jit_qr = f"{jit.qr_baseline_ms:.2f}ms -> {jit.qr_all_ms:.2f}ms ({jit.qr_overhead_pct:+.1f}%)"
     aot_qr = f"{aot.qr_baseline_ms:.2f}ms -> {aot.qr_all_ms:.2f}ms ({aot.qr_overhead_pct:+.1f}%)"
-    md.append(f"| **QR Code** | `qr -> all` | {jit_qr} | {aot_qr} |")
+    md.append(f"| **QR Standard** | `qr -> all` | {jit_qr} | {aot_qr} |")
+
+    jit_stress = f"{jit.qr_stress_baseline_ms:.2f}ms -> {jit.qr_stress_all_ms:.2f}ms ({jit.qr_stress_overhead_pct:+.1f}%)"
+    aot_stress = f"{aot.qr_stress_baseline_ms:.2f}ms -> {aot.qr_stress_all_ms:.2f}ms ({aot.qr_stress_overhead_pct:+.1f}%)"
+    md.append(f"| **QR Stress** | `qr -> all` | {jit_stress} | {aot_stress} |")
 
     jit_bc = f"{jit.barcode_baseline_ms:.2f}ms -> {jit.barcode_all_ms:.2f}ms ({jit.barcode_overhead_pct:+.1f}%)"
     aot_bc = f"{aot.barcode_baseline_ms:.2f}ms -> {aot.barcode_all_ms:.2f}ms ({aot.barcode_overhead_pct:+.1f}%)"
@@ -489,7 +508,18 @@ def _print_comparative_comparison(
     aot_qr_str = _format_time_cell(
         aot.qr_baseline_ms, aot.qr_all_ms, aot.qr_overhead_pct
     )
-    print(f"{'QR Code':<20} | {'qr -> all':<12} | {jit_qr_str:<30} | {aot_qr_str:<30}")
+    print(f"{'QR Standard':<20} | {'qr -> all':<12} | {jit_qr_str:<30} | {aot_qr_str:<30}")
+
+    # QR Stress Row
+    jit_stress_str = _format_time_cell(
+        jit.qr_stress_baseline_ms, jit.qr_stress_all_ms, jit.qr_stress_overhead_pct
+    )
+    aot_stress_str = _format_time_cell(
+        aot.qr_stress_baseline_ms, aot.qr_stress_all_ms, aot.qr_stress_overhead_pct
+    )
+    print(
+        f"{'QR Stress':<20} | {'qr -> all':<12} | {jit_stress_str:<30} | {aot_stress_str:<30}"
+    )
 
     # Barcode Row
     jit_bc_str = _format_time_cell(
@@ -730,23 +760,9 @@ def main():
     if jit_result and aot_result:
         print_comparison(jit_result, aot_result)
     elif jit_result:
-        if isinstance(jit_result, ComparativeBenchmarkResult):
-            print(f"JIT Result (QR): Avg {jit_result.qr_all_ms:.3f}ms")
-            if jit_result.qr_categories:
-                print("\n📈 QR Performance (JIT):")
-                for cat, val in jit_result.qr_categories.items():
-                    print(f"  {cat:<10}: Avg {val[2]:.3f}ms | p95 {val[3]:.3f}ms")
-        else:
-            print(f"JIT Result: Avg {jit_result.avg_time_ms:.3f}ms")
+        print_single_result(jit_result, "JIT")
     elif aot_result:
-        if isinstance(aot_result, ComparativeBenchmarkResult):
-            print(f"AOT Result (QR): Avg {aot_result.qr_all_ms:.3f}ms")
-            if aot_result.qr_categories:
-                print("\n📈 QR Performance (AOT):")
-                for cat, val in aot_result.qr_categories.items():
-                    print(f"  {cat:<10}: Avg {val[2]:.3f}ms | p95 {val[3]:.3f}ms")
-        else:
-            print(f"AOT Result: Avg {aot_result.avg_time_ms:.3f}ms")
+        print_single_result(aot_result, "AOT")
 
     # Save Results if requested
     if args.save:
@@ -768,6 +784,27 @@ def main():
     else:
         print("\n⚠️ BENCHMARKS FAILED OR WARNED")
         sys.exit(0)
+
+
+def print_single_result(result: BenchmarkResult, label: str):
+    """Print results for a single mode (JIT or AOT)."""
+    if isinstance(result, ComparativeBenchmarkResult):
+        print(f"{label} Result (QR Standard): Avg {result.qr_all_ms:.3f}ms")
+        print(f"{label} Result (QR Stress):   Avg {result.qr_stress_all_ms:.3f}ms")
+        print(f"{label} Result (Barcode):     Avg {result.barcode_all_ms:.3f}ms")
+
+        if result.qr_categories:
+            print(f"\n📈 QR Performance ({label}):")
+            for cat, val in sorted(result.qr_categories.items()):
+                print(f"  {cat:<10}: Avg {val[2]:.3f}ms | p95 {val[3]:.3f}ms")
+
+        if result.barcode_categories:
+            print(f"\n📈 Barcode Performance ({label}):")
+            for cat, val in sorted(result.barcode_categories.items()):
+                print(f"  {cat:<10}: Avg {val[2]:.3f}ms | p95 {val[3]:.3f}ms")
+    else:
+        print(f"{label} Result: Avg {result.avg_time_ms:.3f}ms")
+
 
 
 if __name__ == "__main__":

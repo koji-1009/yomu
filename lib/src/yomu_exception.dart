@@ -61,3 +61,13 @@ class ArgumentException extends YomuException {
   /// Creates an argument exception with the given message.
   const ArgumentException(super.message);
 }
+
+/// Thrown when image processing fails.
+///
+/// This happens when:
+/// - Image processing downsampling fails
+/// - Image format conversion fails
+class ImageProcessingException extends YomuException {
+  /// Creates an image processing exception with the given message.
+  const ImageProcessingException(super.message);
+}

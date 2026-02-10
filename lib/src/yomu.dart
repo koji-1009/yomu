@@ -1,11 +1,10 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'barcode/barcode_result.dart';
 import 'barcode/barcode_scanner.dart';
 import 'common/binarizer/binarizer.dart';
 import 'common/binarizer/luminance_source.dart';
-import 'common/image_conversion.dart';
+import 'common/image_processor.dart';
 import 'image_data.dart';
 import 'qr/decoder/decoded_bit_stream_parser.dart';
 import 'qr/decoder/qrcode_decoder.dart';
@@ -82,24 +81,7 @@ class Yomu {
   /// This is the preferred method for decoding as it handles different image formats
   /// and row strides correctly.
   DecoderResult decode(YomuImage image) {
-    final Uint8List pixels;
-    final int processWidth;
-    final int processHeight;
-
-    if (image.format == YomuImageFormat.grayscale) {
-      // Grayscale processing
-      (pixels, processWidth, processHeight) = _processLuminance(
-        image.bytes,
-        image.width,
-        image.height,
-        image.rowStride,
-      );
-    } else {
-      // RGBA/BGRA processing
-      (pixels, processWidth, processHeight) = _convertAndMaybeDownsample(
-        image: image,
-      );
-    }
+    final (pixels, processWidth, processHeight) = _processImage(image);
 
     // Try QR code first
     if (enableQRCode) {
@@ -135,22 +117,7 @@ class Yomu {
       return const [];
     }
 
-    final Uint8List pixels;
-    final int processWidth;
-    final int processHeight;
-
-    if (image.format == YomuImageFormat.grayscale) {
-      (pixels, processWidth, processHeight) = _processLuminance(
-        image.bytes,
-        image.width,
-        image.height,
-        image.rowStride,
-      );
-    } else {
-      (pixels, processWidth, processHeight) = _convertAndMaybeDownsample(
-        image: image,
-      );
-    }
+    final (pixels, processWidth, processHeight) = _processImage(image);
     return _decodeAllQRFromPixels(pixels, processWidth, processHeight);
   }
 
@@ -254,123 +221,13 @@ class Yomu {
     return results;
   }
 
-  /// Converts RGBA/BGRA bytes to grayscale luminance, downsampling if necessary.
-  (Uint8List, int, int) _convertAndMaybeDownsample({required YomuImage image}) {
-    final bytes = image.bytes;
-    final width = image.width;
-    final height = image.height;
-    final stride = image.rowStride;
-    final isBgra = image.format == YomuImageFormat.bgra;
-
-    const targetPixels = 1000000;
-    final totalPixels = width * height;
-
-    if (totalPixels <= targetPixels && stride == width * 4) {
-      // Small enough and no stride: direct conversion
-      if (isBgra) {
-        return (bgraToGrayscale(bytes, width, height), width, height);
-      } else {
-        return (rgbaToGrayscale(bytes, width, height), width, height);
-      }
+  /// Internal: Wraps image processing to catch errors.
+  (Uint8List, int, int) _processImage(YomuImage image) {
+    try {
+      return ImageProcessor.process(image);
+    } catch (e) {
+      if (e is YomuException) rethrow;
+      throw ImageProcessingException('Failed to process image: $e');
     }
-
-    // Compute scale factor (1 for small images with stride, >1 for large images)
-    final scaleFactor = totalPixels / targetPixels;
-    final scale = scaleFactor <= 1.0 ? 1 : math.sqrt(scaleFactor).ceil();
-
-    final dstWidth = width ~/ scale;
-    final dstHeight = height ~/ scale;
-    final result = Uint8List(dstWidth * dstHeight);
-    final halfScale = scale ~/ 2;
-    final pixelStride = scale * 4;
-
-    for (var dstY = 0; dstY < dstHeight; dstY++) {
-      final srcY = dstY * scale + halfScale;
-      final rowOffset = srcY * stride; // Correct stride usage
-      final dstRowOffset = dstY * dstWidth;
-
-      var currentByteOffset = rowOffset + (halfScale * 4);
-
-      for (var dstX = 0; dstX < dstWidth; dstX++) {
-        final rIndex = isBgra ? currentByteOffset + 2 : currentByteOffset;
-        final gIndex = currentByteOffset + 1;
-        final bIndex = isBgra ? currentByteOffset : currentByteOffset + 2;
-
-        final r = bytes[rIndex];
-        final g = bytes[gIndex];
-        final b = bytes[bIndex];
-
-        // Integer approximation: (306 * r + 601 * g + 117 * b) >> 10
-        result[dstRowOffset + dstX] = (306 * r + 601 * g + 117 * b) >> 10;
-        currentByteOffset += pixelStride;
-      }
-    }
-
-    return (result, dstWidth, dstHeight);
-  }
-
-  /// Processes grayscale luminance bytes, downsampling and/or removing stride if necessary.
-  (Uint8List, int, int) _processLuminance(
-    Uint8List luminance,
-    int width,
-    int height,
-    int rowStride,
-  ) {
-    const targetPixels = 1000000;
-    final totalPixels = width * height;
-
-    if (totalPixels <= targetPixels) {
-      if (rowStride == width) {
-        return (
-          luminance,
-          width,
-          height,
-        ); // Zero copy if already packed and small
-      }
-      // Just remove stride
-      return (
-        _removeStride(luminance, width, height, rowStride),
-        width,
-        height,
-      );
-    }
-
-    // Downsample
-    final scaleFactor = totalPixels / targetPixels;
-    final scale = math.sqrt(scaleFactor).ceil();
-
-    final dstWidth = width ~/ scale;
-    final dstHeight = height ~/ scale;
-    final result = Uint8List(dstWidth * dstHeight);
-    final halfScale = scale ~/ 2;
-
-    for (var dstY = 0; dstY < dstHeight; dstY++) {
-      final srcY = dstY * scale + halfScale;
-      final rowOffset = srcY * rowStride;
-      final dstRowOffset = dstY * dstWidth;
-
-      var currentByteOffset = rowOffset + halfScale;
-
-      for (var dstX = 0; dstX < dstWidth; dstX++) {
-        result[dstRowOffset + dstX] = luminance[currentByteOffset];
-        currentByteOffset += scale;
-      }
-    }
-
-    return (result, dstWidth, dstHeight);
-  }
-
-  /// Helper to remove stride from grayscale image.
-  Uint8List _removeStride(
-    Uint8List bytes,
-    int width,
-    int height,
-    int rowStride,
-  ) {
-    final result = Uint8List(width * height);
-    for (var y = 0; y < height; y++) {
-      result.setRange(y * width, (y + 1) * width, bytes, y * rowStride);
-    }
-    return result;
   }
 }

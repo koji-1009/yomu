@@ -129,4 +129,32 @@ void main() {
       expect(yomu.alignmentAreaAllowance, 20);
     });
   });
+
+  group('Error Handling', () {
+    test('wraps unexpected exceptions in ImageProcessingException', () {
+      final brokenImage = BrokenYomuImage();
+      expect(
+        () => Yomu.all.decode(brokenImage),
+        throwsA(isA<ImageProcessingException>()),
+      );
+    });
+  });
+}
+
+class BrokenYomuImage implements YomuImage {
+  @override
+  Uint8List get bytes => Uint8List(0); // Dummy
+
+  @override
+  int get width => 100;
+
+  @override
+  int get height => 100;
+
+  @override
+  int get rowStride => 100;
+
+  @override
+  YomuImageFormat get format =>
+      throw Exception('Unexpected error accessing format');
 }

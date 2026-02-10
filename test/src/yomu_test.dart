@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:test/test.dart';
+import 'package:yomu/src/barcode/barcode_scanner.dart';
 import 'package:yomu/src/image_data.dart';
 import 'package:yomu/src/yomu.dart';
 import 'package:yomu/src/yomu_exception.dart';
@@ -114,4 +115,46 @@ void main() {
       expect(results, isEmpty);
     });
   });
+
+  group('Yomu Configuration', () {
+    test('Yomu accepts custom parameters', () {
+      const yomu = Yomu(
+        enableQRCode: true,
+        barcodeScanner: BarcodeScanner.none,
+        binarizerThreshold: 0.5,
+        alignmentAreaAllowance: 20,
+      );
+
+      expect(yomu.binarizerThreshold, 0.5);
+      expect(yomu.alignmentAreaAllowance, 20);
+    });
+  });
+
+  group('Error Handling', () {
+    test('wraps unexpected exceptions in ImageProcessingException', () {
+      final brokenImage = BrokenYomuImage();
+      expect(
+        () => Yomu.all.decode(brokenImage),
+        throwsA(isA<ImageProcessingException>()),
+      );
+    });
+  });
+}
+
+class BrokenYomuImage implements YomuImage {
+  @override
+  Uint8List get bytes => Uint8List(0); // Dummy
+
+  @override
+  int get width => 100;
+
+  @override
+  int get height => 100;
+
+  @override
+  int get rowStride => 100;
+
+  @override
+  YomuImageFormat get format =>
+      throw Exception('Unexpected error accessing format');
 }

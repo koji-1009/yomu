@@ -551,7 +551,8 @@ class GenericGF {
   /// a * b in GF(256)
   int multiply(int a, int b) {
     if (a == 0 || b == 0) return 0;
-    return _expTable[(_logTable[a] + _logTable[b]) % (size - 1)];
+    final sum = _logTable[a] + _logTable[b];
+    return _expTable[sum >= 255 ? sum - 255 : sum];
   }
 
   /// Helper to build a monomial polynomial.

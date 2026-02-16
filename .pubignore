@@ -8,6 +8,9 @@ coverage/
 # AI agent design guidelines
 AGENTS.md
 
+# Python metadata
+.python-version
+
 # Benchmarks
 benchmark/
 

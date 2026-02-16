@@ -1,8 +1,14 @@
 name: yomu
 description: Pure Dart QR code and barcode reader library with zero dependencies.
-version: 0.1.0
+version: 1.0.0
 repository: https://github.com/koji-1009/yomu
 issue_tracker: https://github.com/koji-1009/yomu/issues
+
+topics:
+  - qr-code
+  - barcode
+  - scanner
+  - reader
 
 environment:
   sdk: ^3.9.0

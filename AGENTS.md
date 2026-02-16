@@ -31,12 +31,14 @@ These directives are **NON-NEGOTIABLE**.
 
 ### 2.3 Performance First
 
-* **Target**: < 1ms decode time for standard QR codes on AOT.
-* **Allocations**: **ZERO** allocations in hot loops (decoding loop, binarization). Reuse `Int32List` buffers.
+* **Target**: < 15ms decode time for Full HD images on AOT (~60fps).
+* **Allocations**: Minimize allocations in hot loops. Reuse `Uint8List` and `Int32List` buffers where possible.
 * **Verification**:
   ```bash
   # Run benchmark suite
   python3 scripts/benchmark_runner.py
+  # Detailed profiling
+  dart run benchmark/tool_profiling.dart
   ```
 
 ## 3. Agent Persona & Working Agreements
@@ -46,7 +48,7 @@ You are a **Principal Engineer** partnering with the user.
 * **Critical Thinking**: Do not blindly implement. Challenge assumptions if technically unsound.
 * **Defensive Coding**: Assume inputs are malformed. Handle nulls, empty states, and OOB access explicitly.
 * **Test-Driven (TDD)**: **TEST FIRST**. Red -> Green -> Refactor. No logic without a failing test.
-* **Language**: Think in English, Respond/Document in Japanese.
+* **Language**: Think in English, Respond in Japanese (Japanese artifacts/docs).
 
 ## 4. Technical Stack & Constraints
 
@@ -56,32 +58,31 @@ You are a **Principal Engineer** partnering with the user.
 
 ## 5. Architecture
 
-The codebase is structured to allow future expansion (e.g., 1D barcodes).
+The codebase is structured to allow future expansion (e.g., 2D barcodes like DataMatrix).
 
 ### Directory Structure
 
 * **`lib/src/common/`**: Generic image processing & math.
-  * `binarizer/`: `Binarizer`, `LuminanceSource`.
-  * `BitMatrix`, `BitSource`, `GridSampler`: Reusable data structures.
+  * `binarizer/`: Adaptive `Binarizer`, `LuminanceSource`.
+  * `BitMatrix`, `BitSource`, `GridSampler`: High-performance data structures.
 * **`lib/src/qr/`**: QR Code specific logic.
-  * `decoder/`: `QRCodeDecoder`, `ReedSolomonDecoder`, `Version`, `Mode`.
-  * `detector/`: `FinderPatternFinder`, `AlignmentPatternFinder`.
+  * `decoder/`: `QRCodeDecoder`, `ReedSolomonDecoder`, `Version`.
+  * `detector/`: `FinderPatternFinder`, `AlignmentPatternFinder`, `Detector`.
 * **`lib/src/barcode/`**: 1D Barcode decoders.
+  * `BarcodeScanner`: Main entry point for 1D scanning.
   * `EAN13Decoder`, `EAN8Decoder`, `UPCADecoder`: Retail barcodes.
   * `Code128Decoder`, `Code39Decoder`: Industrial barcodes.
-  * `ITFDecoder`, `CodabarDecoder`: Logistics/specialty barcodes.
-  * `OneDScanner`: Unified scanner for all 1D formats.
 
 ### Key Design patterns
 
 * **Pure Logic Separation (CRITICAL)**:
   * **Core Principle**: Complex logic (math, state machines, bit manipulation) MUST be extracted into **static, pure functions**.
   * **Goal**: Enable thorough unit testing of edge cases without mocking complex state or generating full images.
-  * **Examples**: `Detector.adjustDimension`, `ITFDecoder.validateITF14Checksum`, `Code128Decoder.findCodeSetSwitch`.
-* **Binarization**: Abstract `Binarizer` converts `LuminanceSource` -> `BitMatrix`.
-* **Fused Downsampling**: Large images (>1MP) are converted/downsampled in a single pass (`_convertAndDownsample`) to strictly meet 120fps (O(Target) vs O(N)).
-* **Fallbacks**: `QRCodeDecoder` handles format info parsing errors robustly (e.g., trying mirrored patterns).
-* **Math**: Use lookup tables (Galois Field) for Reed-Solomon. Use `^` (XOR) directly for polynomial math.
+* **Metadata Caching**: `QRCodeDecoder` caches function pattern masks per version to speed up bit parsing.
+* **Galois Field Optimization**: `GenericGF.multiply` avoids expensive modulo operations.
+* **Binarization**: Locally adaptive thresholding using integral images (O(1) window sum).
+* **Fused Downsampling**: Large images (>1MP) are converted/downsampled in a single pass to maintain high frame rates.
+* **Math**: Use precomputed lookup tables for Reed-Solomon.
 
 ## 6. Development Workflow
 

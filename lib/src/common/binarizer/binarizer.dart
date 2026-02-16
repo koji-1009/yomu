@@ -151,6 +151,11 @@ class Binarizer {
           final offBR = halfWindow;
           final offBL = -halfWindow - 1;
 
+          final yStart = (y1 < 0) ? 0 : y1;
+          final h = (y2 - yStart + 1);
+          final area = (2 * halfWindow + 1) * h;
+          final areaShifted = area << 8;
+
           for (; x < safeEnd; x++) {
             final val = lumTarget[x];
             final br = rowY2[x + offBR];
@@ -163,15 +168,8 @@ class Binarizer {
               sumWindow -= (tr - tl);
             }
 
-            // Area is theoretically constant here if not strictly at top/bottom edge
-            // But calculating area is cheap: 2 muls.
-            final yStart = (y1 < 0) ? 0 : y1;
-            final h = (y2 - yStart + 1);
-            final area = (2 * halfWindow + 1) * h;
-
             // (val * area) * 256 <= sumWindow * scaledThreshold
-            // Shift left 8 is * 256
-            if ((val * area) << 8 <= sumWindow * scaledThreshold) {
+            if (val * areaShifted <= sumWindow * scaledThreshold) {
               bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
             }
           }

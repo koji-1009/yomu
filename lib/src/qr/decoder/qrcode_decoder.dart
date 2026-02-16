@@ -14,6 +14,66 @@ class QRCodeDecoder {
 
   static const _rsDecoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
 
+  static final Map<int, BitMatrix> _maskCache = {};
+
+  static BitMatrix _getFunctionPatternMask(Version version) {
+    final dimension = version.dimensionForVersion;
+    final cached = _maskCache[dimension];
+    if (cached != null) return cached;
+
+    final mask = BitMatrix(width: dimension);
+
+    for (var y = 0; y < dimension; y++) {
+      for (var x = 0; x < dimension; x++) {
+        var isFunction = false;
+
+        // Finder Patterns + Format Info
+        if ((x < 9 && y < 9) ||
+            (x > dimension - 9 && y < 9) ||
+            (x < 9 && y > dimension - 9)) {
+          isFunction = true;
+        }
+        // Timing Patterns
+        else if (x == 6 || y == 6) {
+          isFunction = true;
+        }
+        // Version Info (V7+)
+        else if (version.versionNumber >= 7 &&
+            ((x >= dimension - 11 && x <= dimension - 9 && y <= 5) ||
+                (x <= 5 && y >= dimension - 11 && y <= dimension - 9))) {
+          isFunction = true;
+        }
+        // Alignment Patterns (V2+)
+        else {
+          final centers = version.alignmentPatternCenters;
+          if (centers.length >= 2) {
+            for (final cx in centers) {
+              for (final cy in centers) {
+                if ((cx <= 8 && cy <= 8) ||
+                    (cx <= 8 && cy >= dimension - 9) ||
+                    (cx >= dimension - 9 && cy <= 8)) {
+                  continue;
+                }
+                if ((x - cx).abs() <= 2 && (y - cy).abs() <= 2) {
+                  isFunction = true;
+                  break;
+                }
+              }
+              if (isFunction) break;
+            }
+          }
+        }
+
+        if (isFunction) {
+          mask.set(x, y);
+        }
+      }
+    }
+
+    _maskCache[dimension] = mask;
+    return mask;
+  }
+
   DecoderResult decode(BitMatrix bits) {
     try {
       return _decodeBody(bits);
@@ -245,7 +305,9 @@ class BitMatrixParser {
     required Version version,
   }) {
     final source = unmasked;
-    final result = <int>[];
+    final mask = QRCodeDecoder._getFunctionPatternMask(version);
+    final result = Uint8List(3706); // Max for V40 is 3706
+    var resultOffset = 0;
 
     var col = dimension - 1;
     var upward = true;
@@ -261,11 +323,11 @@ class BitMatrixParser {
 
         for (var c = 0; c < 2; c++) {
           final xx = col - c;
-          if (!_isFunctionPattern(xx, r, version)) {
+          if (!mask.get(xx, r)) {
             bitsRead++;
             currentByte = (currentByte << 1) | (source.get(xx, r) ? 1 : 0);
             if (bitsRead == 8) {
-              result.add(currentByte);
+              result[resultOffset++] = currentByte;
               currentByte = 0;
               bitsRead = 0;
             }
@@ -275,52 +337,11 @@ class BitMatrixParser {
       upward = !upward;
       col -= 2;
     }
-    return Uint8List.fromList(result);
+    return result.sublist(0, resultOffset);
   }
 
   int _copyBit(int x, int y, int versionBits) {
     final bit = bits.get(x, y);
     return (versionBits << 1) | (bit ? 1 : 0);
-  }
-
-  bool _isFunctionPattern(int x, int y, Version version) {
-    // Top-left finder pattern + format info (9x9 area)
-    if (x < 9 && y < 9) return true;
-    // Top-right finder pattern + format info (9x9 area)
-    if (x > dimension - 9 && y < 9) return true;
-    // Bottom-left finder pattern + format info (9x9 area)
-    if (x < 9 && y > dimension - 9) return true;
-    // Timing patterns
-    if (x == 6 || y == 6) return true;
-
-    // Version information for V7+ (two 6x3 blocks)
-    if (version.versionNumber >= 7) {
-      // Block 1: Bottom-left of top-right finder (cols dim-11 to dim-9, rows 0-5)
-      if (x >= dimension - 11 && x <= dimension - 9 && y <= 5) return true;
-      // Block 2: Top-right of bottom-left finder (cols 0-5, rows dim-11 to dim-9)
-      if (x <= 5 && y >= dimension - 11 && y <= dimension - 9) return true;
-    }
-
-    // Check alignment patterns for V2+
-    final alignmentCenters = version.alignmentPatternCenters;
-    if (alignmentCenters.length >= 2) {
-      // Alignment patterns are 5x5 centered at each intersection of centers
-      for (final cx in alignmentCenters) {
-        for (final cy in alignmentCenters) {
-          // Skip if this would overlap with finder patterns
-          if ((cx <= 8 && cy <= 8) ||
-              (cx <= 8 && cy >= dimension - 9) ||
-              (cx >= dimension - 9 && cy <= 8)) {
-            continue;
-          }
-          // Check if (x, y) is within 2 modules of alignment center
-          if ((x - cx).abs() <= 2 && (y - cy).abs() <= 2) {
-            return true;
-          }
-        }
-      }
-    }
-
-    return false;
   }
 }

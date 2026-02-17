@@ -22,7 +22,10 @@ void main() {
       for (var i = 0; i < ecBytes; i++) {
         // (x + alpha^i) in GF2^n
         // coeffs: [1, alpha^i]
-        final term = GenericGFPoly(field, Uint8List.fromList([1, field.exp(i)]));
+        final term = GenericGFPoly(
+          field,
+          Uint8List.fromList([1, field.exp(i)]),
+        );
         g = g.multiply(term);
       }
       return g;
@@ -134,7 +137,9 @@ void main() {
 
     test('decoder throws on uncorrectable errors', () {
       const decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
-      final received = Uint8List.fromList(List<int>.generate(20, (i) => i * 17 % 256));
+      final received = Uint8List.fromList(
+        List<int>.generate(20, (i) => i * 17 % 256),
+      );
 
       expect(
         () => decoder.decode(received: received, twoS: 4),
@@ -144,7 +149,9 @@ void main() {
 
     test('decoder throws bad error location on invalid position', () {
       const decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
-      final received = Uint8List.fromList(List<int>.generate(5, (i) => (i + 1) * 50 % 256));
+      final received = Uint8List.fromList(
+        List<int>.generate(5, (i) => (i + 1) * 50 % 256),
+      );
 
       try {
         decoder.decode(received: received, twoS: 2);

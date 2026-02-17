@@ -208,7 +208,11 @@ class BarcodeScanner {
 
   /// Locally adaptive binarization for a single row.
   /// Uses a moving average window to determine the threshold.
-  static void _binarizeRow(Uint8List luminance, Uint8List result, Int32List integral) {
+  static void _binarizeRow(
+    Uint8List luminance,
+    Uint8List result,
+    Int32List integral,
+  ) {
     final width = luminance.length;
 
     // Adaptive window size: ~1/32 of width, clamped to sane bounds.

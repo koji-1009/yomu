@@ -16,7 +16,6 @@ Usage:
 import subprocess
 import sys
 import time
-from pathlib import Path
 
 SCRIPTS = [
     "scripts/generate_test_qr.py",  # Standard QR codes
@@ -46,7 +45,7 @@ def run_script(script_path: str):
         print(f"✅ Done: {script_path}")
         return True
     except FileNotFoundError:
-        print(f"❌ Error: 'uv' command not found or script missing.")
+        print("❌ Error: 'uv' command not found or script missing.")
         return False
 
 

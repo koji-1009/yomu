@@ -41,8 +41,20 @@ void main() {
     print('\n📐 Resolution: $res (${files.length} images)');
     print('-' * 50);
 
-    // Sample first 5 images
-    final samples = files.take(5).toList();
+    // Group files by background type for representative sampling
+    final groups = <String, List<File>>{};
+    for (final file in files) {
+      final name = file.path.split('/').last;
+      final type = name.contains('white')
+          ? 'white'
+          : (name.contains('noise') ? 'noise' : 'gradient');
+      groups.putIfAbsent(type, () => []).add(file);
+    }
+
+    final samples = <File>[];
+    for (final groupFiles in groups.values) {
+      if (groupFiles.isNotEmpty) samples.add(groupFiles.first);
+    }
 
     final times = <String, List<int>>{
       'load': [],

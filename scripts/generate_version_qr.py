@@ -24,7 +24,6 @@ import os
 
 import random
 import qrcode
-from PIL import Image
 
 
 def generate_versioned_qr(version: int, filename: str, data: str | None = None):
@@ -110,19 +109,6 @@ def generate_distorted_qr(version: int, filename: str):
 
     # 2. Apply Perspective Transform
     width, height = img.size
-
-    # Define source points (corners)
-    src_points = [(0, 0), (width, 0), (width, height), (0, height)]
-
-    # Define destination points (squeeze top, wide bottom = trapezoid)
-    # This simulates looking at the QR code from the bottom up
-    distortion = width * 0.2  # 20% distortion
-    dst_points = [
-        (distortion, distortion),  # Top-left (moved in)
-        (width - distortion, distortion),  # Top-right (moved in)
-        (width, height),  # Bottom-right (fixed)
-        (0, height),  # Bottom-left (fixed)
-    ]
 
     # Perspective coefficients calculation not needed if using transform with finding coeffs
     # But PIL's transform method with PERSPECTIVE expects 8-tuple coefficients.

@@ -144,7 +144,8 @@ void _printCategoryReport(String name, Map<String, Metric> metrics) {
   for (final category in [
     'Standard',
     'Complex',
-    'HiRes',
+    '4K',
+    'FullHD',
     'Distorted',
     'Noise',
     'Edge',
@@ -161,7 +162,10 @@ void _printCategoryReport(String name, Map<String, Metric> metrics) {
 
 String _categorize(String filename) {
   if (filename.contains('4k_')) {
-    return 'HiRes';
+    return '4K';
+  }
+  if (filename.contains('fullhd_')) {
+    return 'FullHD';
   }
   if (filename.contains('rotation') ||
       filename.contains('tilt') ||
@@ -245,7 +249,8 @@ Future<(Map<String, Metric>, Map<String, double>)> _bench(
     'All': [],
     'Standard': [],
     'Complex': [],
-    'HiRes': [],
+    '4K': [],
+    'FullHD': [],
     'Distorted': [],
     'Noise': [],
     'Edge': [],

@@ -13,6 +13,7 @@ Usage:
     uv run scripts/generate_barcodes.py
 """
 
+import json
 import os
 from typing import Optional
 
@@ -48,9 +49,6 @@ def generate_barcode(barcode_type: str, data: str, filename: str) -> Optional[st
     except Exception as e:
         print(f"Error generating {barcode_type.upper()} ({filename}): {e}")
         return None
-
-
-import json
 
 
 def get_barcode_metadata_filename(output_dir):

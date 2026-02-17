@@ -49,17 +49,15 @@ class EAN8Decoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required Uint8List row,
     required int rowNumber,
     required int width,
-    Uint16List? runs,
+    required Uint16List runs,
+    Uint8List? row,
   }) {
-    // Convert to run-length encoding
-    final runData = runs ?? BarcodeScanner.getRunLengths(row);
-    if (runData.length < 44) return null; // Need at least 44 runs for EAN-8
+    if (runs.length < 44) return null; // Need at least 44 runs for EAN-8
 
     // Find start guard (1:1:1 pattern)
-    final startInfo = _findStartGuard(runData);
+    final startInfo = _findStartGuard(runs);
     if (startInfo == null) return null;
 
     final startIndex = startInfo.$1;
@@ -72,10 +70,9 @@ class EAN8Decoder extends BarcodeDecoder {
     final digits = <int>[];
 
     for (var i = 0; i < 4; i++) {
-      if (runIndex + 4 > runData.length) return null;
+      if (runIndex + 4 > runs.length) return null;
 
-      final digitRuns = runData.sublist(runIndex, runIndex + 4);
-      final digit = _decodeLeftDigit(digitRuns, moduleWidth);
+      final digit = _decodeLeftDigit(runs, runIndex, moduleWidth);
       if (digit == null) return null;
 
       digits.add(digit);
@@ -87,10 +84,9 @@ class EAN8Decoder extends BarcodeDecoder {
 
     // Decode right 4 digits (R pattern only)
     for (var i = 0; i < 4; i++) {
-      if (runIndex + 4 > runData.length) return null;
+      if (runIndex + 4 > runs.length) return null;
 
-      final digitRuns = runData.sublist(runIndex, runIndex + 4);
-      final digit = _decodeRightDigit(digitRuns, moduleWidth);
+      final digit = _decodeRightDigit(runs, runIndex, moduleWidth);
       if (digit == null) return null;
 
       digits.add(digit);
@@ -147,16 +143,22 @@ class EAN8Decoder extends BarcodeDecoder {
     return null;
   }
 
-  int? _decodeLeftDigit(Uint16List digitRuns, double moduleWidth) {
-    final modules = Uint16List.fromList(
-      digitRuns.map((r) => (r / moduleWidth).round()).toList(),
-    );
+  int? _decodeLeftDigit(Uint16List runs, int offset, double moduleWidth) {
+    final m0 = (runs[offset] / moduleWidth).round();
+    final m1 = (runs[offset + 1] / moduleWidth).round();
+    final m2 = (runs[offset + 2] / moduleWidth).round();
+    final m3 = (runs[offset + 3] / moduleWidth).round();
 
     var bestDigit = -1;
     var bestError = 999;
 
     for (var d = 0; d < 10; d++) {
-      final error = _patternError(modules, _lPatternRuns[d]);
+      final p = _lPatternRuns[d];
+      final error =
+          (m0 - p[0]).abs() +
+          (m1 - p[1]).abs() +
+          (m2 - p[2]).abs() +
+          (m3 - p[3]).abs();
       if (error < bestError) {
         bestError = error;
         bestDigit = d;
@@ -170,16 +172,22 @@ class EAN8Decoder extends BarcodeDecoder {
     return null;
   }
 
-  int? _decodeRightDigit(Uint16List digitRuns, double moduleWidth) {
-    final modules = Uint16List.fromList(
-      digitRuns.map((r) => (r / moduleWidth).round()).toList(),
-    );
+  int? _decodeRightDigit(Uint16List runs, int offset, double moduleWidth) {
+    final m0 = (runs[offset] / moduleWidth).round();
+    final m1 = (runs[offset + 1] / moduleWidth).round();
+    final m2 = (runs[offset + 2] / moduleWidth).round();
+    final m3 = (runs[offset + 3] / moduleWidth).round();
 
     var bestDigit = -1;
     var bestError = 999;
 
     for (var d = 0; d < 10; d++) {
-      final error = _patternError(modules, _rPatternRuns[d]);
+      final p = _rPatternRuns[d];
+      final error =
+          (m0 - p[0]).abs() +
+          (m1 - p[1]).abs() +
+          (m2 - p[2]).abs() +
+          (m3 - p[3]).abs();
       if (error < bestError) {
         bestError = error;
         bestDigit = d;
@@ -191,16 +199,6 @@ class EAN8Decoder extends BarcodeDecoder {
     }
 
     return null;
-  }
-
-  int _patternError(Uint16List actual, List<int> expected) {
-    if (actual.length != expected.length) return 999;
-
-    var error = 0;
-    for (var i = 0; i < actual.length; i++) {
-      error += (actual[i] - expected[i]).abs();
-    }
-    return error;
   }
 
   bool _validateChecksum(String barcode) {

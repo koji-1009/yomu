@@ -77,17 +77,15 @@ class Code39Decoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required Uint8List row,
     required int rowNumber,
     required int width,
-    Uint16List? runs,
+    required Uint16List runs,
+    Uint8List? row,
   }) {
-    // Convert to run-length encoding
-    final runData = runs ?? BarcodeScanner.getRunLengths(row);
-    if (runData.length < 10) return null;
+    if (runs.length < 10) return null;
 
     // Find start pattern (*)
-    final startInfo = _findStartPattern(runData);
+    final startInfo = _findStartPattern(runs);
     if (startInfo == null) return null;
 
     var runIndex = startInfo.$1;
@@ -100,24 +98,23 @@ class Code39Decoder extends BarcodeDecoder {
     runIndex += 9;
 
     // Check first gap
-    if (runIndex < runData.length) {
+    if (runIndex < runs.length) {
       // Validate gap width
-      if (runData[runIndex] > narrowWidth * 2.0) return null;
+      if (runs[runIndex] > narrowWidth * 2.0) return null;
       runIndex++; // Skip valid gap
     }
 
     // Decode characters
-    while (runIndex + 9 <= runData.length) {
-      final charRuns = runData.sublist(runIndex, runIndex + 9);
-      final char = _decodeCharacter(charRuns, narrowWidth);
+    while (runIndex + 9 <= runs.length) {
+      final char = _decodeCharacter(runs, runIndex, narrowWidth);
 
       if (char == null) break;
 
       // Check for stop pattern
       if (char == '*') {
         // Validate Quiet Zone after Stop Pattern (at least 10 * narrowWidth)
-        if (runIndex + 9 < runData.length) {
-          final quietZone = runData[runIndex + 9];
+        if (runIndex + 9 < runs.length) {
+          final quietZone = runs[runIndex + 9];
           if (quietZone < narrowWidth * 10) {
             // Invalid Quiet Zone at end
             return null;
@@ -127,8 +124,8 @@ class Code39Decoder extends BarcodeDecoder {
       }
 
       // Validate inter-character gap (should be narrow space) after this char
-      if (runIndex + 9 < runData.length) {
-        final gapFn = runData[runIndex + 9];
+      if (runIndex + 9 < runs.length) {
+        final gapFn = runs[runIndex + 9];
         if (gapFn > narrowWidth * 2.0) {
           break; // Invalid gap, stop decoding
         }
@@ -189,16 +186,14 @@ class Code39Decoder extends BarcodeDecoder {
     for (var i = 0; i < runs.length - 10; i++) {
       if (i % 2 == 0 && runs[i] > 5) {
         // Potential quiet zone
-        final patternRuns = runs.sublist(i + 1, i + 10);
-
         // Calculate narrow and wide widths
-        final widths = _analyzeWidths(patternRuns);
+        final widths = _analyzeWidths(runs, i + 1);
         if (widths == null) continue;
 
         final (narrowWidth, wideWidth) = widths;
 
         // Check if this matches start pattern (*)
-        final pattern = _runsToPattern(patternRuns, narrowWidth, wideWidth);
+        final pattern = _runsToPattern(runs, i + 1, narrowWidth, wideWidth);
         if (pattern == _patterns[43]) {
           // * is at index 43
 
@@ -217,16 +212,19 @@ class Code39Decoder extends BarcodeDecoder {
   }
 
   /// Analyze runs to determine narrow and wide widths.
-  (double, double)? _analyzeWidths(Uint16List runs) {
-    if (runs.length != 9) return null;
-
+  (double, double)? _analyzeWidths(Uint16List runs, int offset) {
     // Sort to find narrow and wide groups
-    final sorted = Uint16List.fromList(runs)..sort();
+    final sorted = Uint16List(9);
+    for (var i = 0; i < 9; i++) {
+      sorted[i] = runs[offset + i];
+    }
+    sorted.sort();
 
     // In Code 39, 3 elements are wide, 6 are narrow
     // Wide should be ~2-3x narrow
-    final narrowSum = sorted.take(6).reduce((a, b) => a + b);
-    final wideSum = sorted.skip(6).take(3).reduce((a, b) => a + b);
+    final narrowSum =
+        sorted[0] + sorted[1] + sorted[2] + sorted[3] + sorted[4] + sorted[5];
+    final wideSum = sorted[6] + sorted[7] + sorted[8];
 
     final narrowAvg = narrowSum / 6.0;
     final wideAvg = wideSum / 3.0;
@@ -239,12 +237,17 @@ class Code39Decoder extends BarcodeDecoder {
   }
 
   /// Convert runs to pattern bits.
-  int _runsToPattern(Uint16List runs, double narrowWidth, double wideWidth) {
+  int _runsToPattern(
+    Uint16List runs,
+    int offset,
+    double narrowWidth,
+    double wideWidth,
+  ) {
     var pattern = 0;
     final threshold = (narrowWidth + wideWidth) / 2.0;
 
     for (var i = 0; i < 9; i++) {
-      if (runs[i] > threshold) {
+      if (runs[offset + i] > threshold) {
         pattern |= (1 << (8 - i));
       }
     }
@@ -252,12 +255,12 @@ class Code39Decoder extends BarcodeDecoder {
     return pattern;
   }
 
-  String? _decodeCharacter(Uint16List runs, double narrowWidth) {
-    final widths = _analyzeWidths(runs);
+  String? _decodeCharacter(Uint16List runs, int offset, double narrowWidth) {
+    final widths = _analyzeWidths(runs, offset);
     if (widths == null) return null;
 
     final (narrow, wide) = widths;
-    final pattern = _runsToPattern(runs, narrow, wide);
+    final pattern = _runsToPattern(runs, offset, narrow, wide);
 
     // Find matching pattern
     for (var i = 0; i < _patterns.length; i++) {

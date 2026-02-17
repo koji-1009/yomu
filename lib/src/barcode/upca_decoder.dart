@@ -18,17 +18,17 @@ class UPCADecoder extends EAN13Decoder {
 
   @override
   BarcodeResult? decodeRow({
-    required Uint8List row,
     required int rowNumber,
     required int width,
-    Uint16List? runs,
+    required Uint16List runs,
+    Uint8List? row,
   }) {
     // UPC-A is EAN-13 with first digit = 0
     final ean13Result = super.decodeRow(
-      row: row,
       rowNumber: rowNumber,
       width: width,
       runs: runs,
+      row: row,
     );
 
     if (ean13Result == null) return null;

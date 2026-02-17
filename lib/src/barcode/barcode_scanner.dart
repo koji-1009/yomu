@@ -104,10 +104,10 @@ class BarcodeScanner {
 
       for (final decoder in decoders) {
         final result = decoder.decodeRow(
-          row: rowBuffer,
           rowNumber: y,
           width: width,
           runs: runs,
+          row: rowBuffer,
         );
         if (result != null) {
           return result;
@@ -152,10 +152,10 @@ class BarcodeScanner {
 
       for (final decoder in decoders) {
         final result = decoder.decodeRow(
-          row: rowBuffer,
           rowNumber: y,
           width: width,
           runs: runs,
+          row: rowBuffer,
         );
         if (result != null) {
           results.add(result);

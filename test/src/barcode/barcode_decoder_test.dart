@@ -13,13 +13,13 @@ class MockBarcodeDecoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required Uint8List row,
     required int rowNumber,
     required int width,
-    Uint16List? runs,
+    required Uint16List runs,
+    Uint8List? row,
   }) {
     // Return result if middle pixel is black (1)
-    if (width > 0 && row[width ~/ 2] == 1) {
+    if (width > 0 && row != null && row[width ~/ 2] == 1) {
       return BarcodeResult(
         text: 'FOUND at $rowNumber',
         format: format,

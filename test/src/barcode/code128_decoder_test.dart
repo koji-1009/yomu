@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:test/test.dart';
+import 'package:yomu/src/barcode/barcode_scanner.dart';
 import 'package:yomu/src/barcode/code128_decoder.dart';
 
 void main() {
@@ -18,9 +19,9 @@ void main() {
     test('returns null for invalid row data', () {
       final row = Uint8List(20);
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
       expect(result, isNull);
     });
@@ -66,9 +67,9 @@ void main() {
       final row = generateRow(rowData);
 
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
 
       expect(result, isNotNull);
@@ -89,9 +90,9 @@ void main() {
       final row = generateRow(rowData);
 
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
 
       expect(result, isNull);
@@ -104,9 +105,9 @@ void main() {
       final row = generateRow(rowData);
 
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
       expect(result, isNull);
     });
@@ -140,9 +141,9 @@ void main() {
       final row = generateRow(rowData);
 
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
 
       expect(result, isNotNull);
@@ -167,9 +168,9 @@ void main() {
       final row = generateRow(rowData);
 
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
 
       expect(result, isNotNull);
@@ -189,9 +190,9 @@ void main() {
       final row = generateRow(rowData);
 
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
 
       expect(result, isNotNull);
@@ -216,9 +217,9 @@ void main() {
       final row = generateRow(rowData);
 
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
 
       expect(result, isNotNull);
@@ -239,9 +240,9 @@ void main() {
       final rowData = [...startB, ...switchA, ...char64, ...check24, ...stop];
       final row = generateRow(rowData);
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
       expect(result, isNotNull);
       expect(result!.text.codeUnitAt(0), 0); // NUL
@@ -253,9 +254,9 @@ void main() {
       final row = generateRow(startB);
       // generateRow adds 20px padding * 2 = 40. + 6 = 46.
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
       expect(result, isNull);
     });

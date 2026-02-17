@@ -131,17 +131,15 @@ class Code128Decoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required Uint8List row,
     required int rowNumber,
     required int width,
-    Uint16List? runs,
+    required Uint16List runs,
+    Uint8List? row,
   }) {
-    // Convert to run-length encoding
-    final runData = runs ?? BarcodeScanner.getRunLengths(row);
-    if (runData.length < 10) return null; // Need at least start + stop
+    if (runs.length < 10) return null; // Need at least start + stop
 
     // Find start pattern
-    final startInfo = _findStartPattern(runData);
+    final startInfo = _findStartPattern(runs);
     if (startInfo == null) return null;
 
     var runIndex = startInfo.$1;
@@ -171,18 +169,16 @@ class Code128Decoder extends BarcodeDecoder {
     runIndex += 6;
 
     // Decode data characters
-    while (runIndex + 6 <= runData.length) {
+    while (runIndex + 6 <= runs.length) {
       // Check for stop pattern (7 runs)
-      if (runIndex + 7 <= runData.length) {
-        final stopRuns = runData.sublist(runIndex, runIndex + 7);
-        if (_matchStop(stopRuns, moduleWidth)) {
+      if (runIndex + 7 <= runs.length) {
+        if (_matchStop(runs, runIndex)) {
           break;
         }
       }
 
       // Decode character (6 runs)
-      final charRuns = runData.sublist(runIndex, runIndex + 6);
-      final code = _decodeCharacter(charRuns, moduleWidth);
+      final code = _decodeCharacter(runs, runIndex);
       if (code == null) break;
 
       codes.add(code);
@@ -208,22 +204,11 @@ class Code128Decoder extends BarcodeDecoder {
     // Last code is checksum
     final checksumCode = codes.last;
     codes.removeLast();
-    // Checksum matches everything except the checksum itself and stop pattern
-    // checksum is updated during the loop
-    // But we need to subtract the last code contribution to checksum
-    // Since checksum logic in loop adds (code * weight), and weight increments
-    // We need to verify correctness.
-    // Loop sums all codes including checksum code.
-    // Standard validation: sum(codes) % 103 == checksumCode
-    // But verify implementation logic:
-    // checksum variable holds running sum.
-    // last added was checksumCode * (weight-1).
     checksum -= checksumCode * (checksumWeight - 1);
 
     if (checksum % 103 != checksumCode) return null;
 
     // Remove the last decoded character if checksum was a printable character
-    // (checksum code < 96 means it was added to decodedChars)
     if (decodedChars.isNotEmpty && checksumCode < 96) {
       decodedChars.removeLast();
     }
@@ -251,8 +236,13 @@ class Code128Decoder extends BarcodeDecoder {
         // At white run (quiet zone)
         if (i + 6 >= runs.length) continue;
 
-        final startRuns = runs.sublist(i + 1, i + 7);
-        final total = startRuns.reduce((a, b) => a + b);
+        final total =
+            runs[i + 1] +
+            runs[i + 2] +
+            runs[i + 3] +
+            runs[i + 4] +
+            runs[i + 5] +
+            runs[i + 6];
         final moduleWidth = total / 11.0;
 
         // Strict Quiet Zone check (at least 10 * moduleWidth)
@@ -260,7 +250,12 @@ class Code128Decoder extends BarcodeDecoder {
 
         // Try each start pattern
         for (var code = 103; code <= 105; code++) {
-          if (_matchPatternWithError(startRuns, _patterns[code], moduleWidth) <=
+          if (_matchPatternWithError(
+                runs,
+                i + 1,
+                _patterns[code],
+                moduleWidth,
+              ) <=
               2) {
             // Calculate startX
             var startX = 0;
@@ -275,21 +270,36 @@ class Code128Decoder extends BarcodeDecoder {
     return null;
   }
 
-  int? _decodeCharacter(Uint16List charRuns, double globalModuleWidth) {
-    // Calculate local module width from this character's runs
+  int? _decodeCharacter(Uint16List runs, int offset) {
     // Each Code128 character is 11 modules
-    final total = charRuns.reduce((a, b) => a + b);
+    final total =
+        runs[offset] +
+        runs[offset + 1] +
+        runs[offset + 2] +
+        runs[offset + 3] +
+        runs[offset + 4] +
+        runs[offset + 5];
     final localModuleWidth = total / 11.0;
 
-    final modules = Uint16List.fromList(
-      charRuns.map((r) => (r / localModuleWidth).round()).toList(),
-    );
+    final m0 = (runs[offset] / localModuleWidth).round();
+    final m1 = (runs[offset + 1] / localModuleWidth).round();
+    final m2 = (runs[offset + 2] / localModuleWidth).round();
+    final m3 = (runs[offset + 3] / localModuleWidth).round();
+    final m4 = (runs[offset + 4] / localModuleWidth).round();
+    final m5 = (runs[offset + 5] / localModuleWidth).round();
 
     var bestCode = -1;
     var bestError = 999;
 
     for (var code = 0; code < _patterns.length; code++) {
-      final error = _patternError(modules, _patterns[code]);
+      final p = _patterns[code];
+      final error =
+          (m0 - p[0]).abs() +
+          (m1 - p[1]).abs() +
+          (m2 - p[2]).abs() +
+          (m3 - p[3]).abs() +
+          (m4 - p[4]).abs() +
+          (m5 - p[5]).abs();
       if (error < bestError) {
         bestError = error;
         bestCode = code;
@@ -303,40 +313,37 @@ class Code128Decoder extends BarcodeDecoder {
     return null;
   }
 
-  int _patternError(Uint16List actual, List<int> expected) {
-    if (actual.length != expected.length) return 999;
-
+  int _matchPatternWithError(
+    Uint16List runs,
+    int offset,
+    List<int> pattern,
+    double moduleWidth,
+  ) {
     var error = 0;
-    for (var i = 0; i < actual.length; i++) {
-      error += (actual[i] - expected[i]).abs();
+    for (var i = 0; i < 6; i++) {
+      final m = (runs[offset + i] / moduleWidth).round();
+      error += (m - pattern[i]).abs();
     }
     return error;
   }
 
-  int _matchPatternWithError(
-    Uint16List runs,
-    List<int> pattern,
-    double moduleWidth,
-  ) {
-    if (runs.length != pattern.length) return 999;
-
-    final modules = Uint16List.fromList(
-      runs.map((r) => (r / moduleWidth).round()).toList(),
-    );
-    return _patternError(modules, pattern);
-  }
-
-  bool _matchStop(Uint16List runs, double globalModuleWidth) {
-    if (runs.length != 7) return false;
-
-    // Stop pattern is 13 modules, calculate local module width
-    final total = runs.reduce((a, b) => a + b);
+  bool _matchStop(Uint16List runs, int offset) {
+    // Stop pattern is 13 modules
+    final total =
+        runs[offset] +
+        runs[offset + 1] +
+        runs[offset + 2] +
+        runs[offset + 3] +
+        runs[offset + 4] +
+        runs[offset + 5] +
+        runs[offset + 6];
     final localModuleWidth = total / 13.0;
 
-    final modules = Uint16List.fromList(
-      runs.map((r) => (r / localModuleWidth).round()).toList(),
-    );
-    return _patternError(modules, _stopPattern) == 0; // Exact match only
+    for (var i = 0; i < 7; i++) {
+      final m = (runs[offset + i] / localModuleWidth).round();
+      if ((m - _stopPattern[i]).abs() > 0) return false;
+    }
+    return true;
   }
 
   String _decodeValue(int code, int codeSet) {

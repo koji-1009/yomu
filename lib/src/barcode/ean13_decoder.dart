@@ -74,17 +74,15 @@ class EAN13Decoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required Uint8List row,
     required int rowNumber,
     required int width,
-    Uint16List? runs,
+    required Uint16List runs,
+    Uint8List? row,
   }) {
-    // Convert to run-length encoding
-    final runData = runs ?? BarcodeScanner.getRunLengths(row);
-    if (runData.length < 60) return null; // Need at least 60 runs for EAN-13
+    if (runs.length < 60) return null; // Need at least 60 runs for EAN-13
 
     // Find start guard (1:1:1 pattern starting after white quiet zone)
-    final startInfo = _findStartGuard(runData);
+    final startInfo = _findStartGuard(runs);
     if (startInfo == null) return null;
 
     final startIndex = startInfo.$1;
@@ -98,10 +96,9 @@ class EAN13Decoder extends BarcodeDecoder {
     final digits = <int>[];
 
     for (var i = 0; i < 6; i++) {
-      if (runIndex + 4 > runData.length) return null;
+      if (runIndex + 4 > runs.length) return null;
 
-      final digitRuns = runData.sublist(runIndex, runIndex + 4);
-      final digitInfo = _decodeLeftDigit(digitRuns, moduleWidth);
+      final digitInfo = _decodeLeftDigit(runs, runIndex, moduleWidth);
       if (digitInfo == null) return null;
 
       digits.add(digitInfo.$1);
@@ -114,10 +111,9 @@ class EAN13Decoder extends BarcodeDecoder {
 
     // Decode right 6 digits
     for (var i = 0; i < 6; i++) {
-      if (runIndex + 4 > runData.length) return null;
+      if (runIndex + 4 > runs.length) return null;
 
-      final digitRuns = runData.sublist(runIndex, runIndex + 4);
-      final digit = _decodeRightDigit(digitRuns, moduleWidth);
+      final digit = _decodeRightDigit(runs, runIndex, moduleWidth);
       if (digit == null) return null;
 
       digits.add(digit);
@@ -190,11 +186,16 @@ class EAN13Decoder extends BarcodeDecoder {
   }
 
   /// Decode a left-side digit, returns (digit, parity) where parity is 0=L, 1=G.
-  (int, int)? _decodeLeftDigit(Uint16List digitRuns, double moduleWidth) {
+  (int, int)? _decodeLeftDigit(
+    Uint16List runs,
+    int offset,
+    double moduleWidth,
+  ) {
     // Normalize runs to module counts
-    final modules = Uint16List.fromList(
-      digitRuns.map((r) => (r / moduleWidth).round()).toList(),
-    );
+    final m0 = (runs[offset] / moduleWidth).round();
+    final m1 = (runs[offset + 1] / moduleWidth).round();
+    final m2 = (runs[offset + 2] / moduleWidth).round();
+    final m3 = (runs[offset + 3] / moduleWidth).round();
 
     var bestDigit = -1;
     var bestParity = -1;
@@ -202,7 +203,12 @@ class EAN13Decoder extends BarcodeDecoder {
 
     // Try L patterns
     for (var d = 0; d < 10; d++) {
-      final error = _patternError(modules, _lPatternRuns[d]);
+      final p = _lPatternRuns[d];
+      final error =
+          (m0 - p[0]).abs() +
+          (m1 - p[1]).abs() +
+          (m2 - p[2]).abs() +
+          (m3 - p[3]).abs();
       if (error < bestError) {
         bestError = error;
         bestDigit = d;
@@ -212,7 +218,12 @@ class EAN13Decoder extends BarcodeDecoder {
 
     // Try G patterns
     for (var d = 0; d < 10; d++) {
-      final error = _patternError(modules, _gPatternRuns[d]);
+      final p = _gPatternRuns[d];
+      final error =
+          (m0 - p[0]).abs() +
+          (m1 - p[1]).abs() +
+          (m2 - p[2]).abs() +
+          (m3 - p[3]).abs();
       if (error < bestError) {
         bestError = error;
         bestDigit = d;
@@ -229,16 +240,22 @@ class EAN13Decoder extends BarcodeDecoder {
   }
 
   /// Decode a right-side digit (R pattern only).
-  int? _decodeRightDigit(Uint16List digitRuns, double moduleWidth) {
-    final modules = Uint16List.fromList(
-      digitRuns.map((r) => (r / moduleWidth).round()).toList(),
-    );
+  int? _decodeRightDigit(Uint16List runs, int offset, double moduleWidth) {
+    final m0 = (runs[offset] / moduleWidth).round();
+    final m1 = (runs[offset + 1] / moduleWidth).round();
+    final m2 = (runs[offset + 2] / moduleWidth).round();
+    final m3 = (runs[offset + 3] / moduleWidth).round();
 
     var bestDigit = -1;
     var bestError = 999;
 
     for (var d = 0; d < 10; d++) {
-      final error = _patternError(modules, _rPatternRuns[d]);
+      final p = _rPatternRuns[d];
+      final error =
+          (m0 - p[0]).abs() +
+          (m1 - p[1]).abs() +
+          (m2 - p[2]).abs() +
+          (m3 - p[3]).abs();
       if (error < bestError) {
         bestError = error;
         bestDigit = d;
@@ -250,17 +267,6 @@ class EAN13Decoder extends BarcodeDecoder {
     }
 
     return null;
-  }
-
-  /// Calculate total error between two patterns.
-  int _patternError(Uint16List actual, List<int> expected) {
-    if (actual.length != expected.length) return 999;
-
-    var error = 0;
-    for (var i = 0; i < actual.length; i++) {
-      error += (actual[i] - expected[i]).abs();
-    }
-    return error;
   }
 
   bool _validateChecksum(String barcode) {

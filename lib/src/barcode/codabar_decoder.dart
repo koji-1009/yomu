@@ -50,23 +50,20 @@ class CodabarDecoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required List<bool> row,
     required int rowNumber,
     required int width,
-    Uint16List? runs,
+    required Uint16List runs,
+    Uint8List? row,
   }) {
-    // Convert to run-length encoding
-    final runData = runs ?? _getRunLengths(row);
-    if (runData.length < 10) return null;
+    if (runs.length < 10) return null;
 
     // Find start pattern (A, B, C, or D)
-    final startInfo = _findStartPattern(runData);
+    final startInfo = _findStartPattern(runs);
     if (startInfo == null) return null;
 
     var runIndex = startInfo.$1;
     final narrowWidth = startInfo.$2;
     final startX = startInfo.$3;
-    // startInfo.$4 contains startChar (A, B, C, or D) if needed
 
     final result = StringBuffer();
 
@@ -74,9 +71,8 @@ class CodabarDecoder extends BarcodeDecoder {
     runIndex += 8;
 
     // Decode characters
-    while (runIndex + 7 <= runData.length) {
-      final charRuns = runData.sublist(runIndex, runIndex + 7);
-      final charInfo = _decodeCharacter(charRuns, narrowWidth);
+    while (runIndex + 7 <= runs.length) {
+      final charInfo = _decodeCharacter(runs, runIndex, narrowWidth);
 
       if (charInfo == null) break;
 
@@ -87,8 +83,8 @@ class CodabarDecoder extends BarcodeDecoder {
         // Run index currently points to start of this character.
         // Stop character is 7 runs.
         // Check Quiet Zone after stop character.
-        if (runIndex + 7 < runData.length) {
-          final quietZone = runData[runIndex + 7];
+        if (runIndex + 7 < runs.length) {
+          final quietZone = runs[runIndex + 7];
           // Use narrowWidth * 10 as standard quiet zone requirement
           if (quietZone < narrowWidth * 10) {
             return null;
@@ -115,43 +111,20 @@ class CodabarDecoder extends BarcodeDecoder {
     );
   }
 
-  Uint16List _getRunLengths(List<bool> row) {
-    final runs = <int>[];
-    var currentPos = 0;
-    var currentColor = row[0];
-
-    while (currentPos < row.length) {
-      var runLength = 0;
-      while (currentPos < row.length && row[currentPos] == currentColor) {
-        runLength++;
-        currentPos++;
-      }
-      runs.add(runLength);
-      currentColor = !currentColor;
-    }
-
-    return Uint16List.fromList(runs);
-  }
-
   /// Find start pattern and return (runIndex, narrowWidth, startX, startChar).
   (int, double, int, String)? _findStartPattern(Uint16List runs) {
     for (var i = 0; i < runs.length - 10; i++) {
       if (i % 2 == 0) {
         if (i + 7 >= runs.length) continue;
 
-        // Verify quiet zone first (must be >= 10 * width)
-        // Calculated later, but pre-check helps performance if we approximate or defer?
-        // Actually, we need to calculate widths from start pattern to verify quiet zone properly.
-
-        final charRuns = runs.sublist(i + 1, i + 8);
-        final widths = _analyzeWidths(charRuns);
+        final widths = _analyzeWidths(runs, i + 1);
         if (widths == null) continue;
 
         final (narrowWidth, wideWidth) = widths;
 
         // Validate quiet zone based on calculated narrow width
         if (runs[i] < narrowWidth * 10) continue;
-        final pattern = _runsToPattern(charRuns, narrowWidth, wideWidth);
+        final pattern = _runsToPattern(runs, i + 1, narrowWidth, wideWidth);
 
         // Check if this is a start character (A, B, C, D)
         for (final idx in _startStopIndices) {
@@ -168,15 +141,16 @@ class CodabarDecoder extends BarcodeDecoder {
     return null;
   }
 
-  (double, double)? _analyzeWidths(Uint16List runs) {
-    if (runs.length != 7) return null;
-
-    final sorted = List<int>.from(runs)..sort();
+  (double, double)? _analyzeWidths(Uint16List runs, int offset) {
+    final sorted = Uint16List(7);
+    for (var i = 0; i < 7; i++) {
+      sorted[i] = runs[offset + i];
+    }
+    sorted.sort();
 
     // Codabar has 2-3 wide elements, rest are narrow
-    // Find the threshold between narrow and wide
-    final narrowSum = sorted.take(4).reduce((a, b) => a + b);
-    final wideSum = sorted.skip(4).take(3).reduce((a, b) => a + b);
+    final narrowSum = sorted[0] + sorted[1] + sorted[2] + sorted[3];
+    final wideSum = sorted[4] + sorted[5] + sorted[6];
 
     final narrowAvg = narrowSum / 4.0;
     final wideAvg = wideSum / 3.0;
@@ -187,12 +161,17 @@ class CodabarDecoder extends BarcodeDecoder {
     return (narrowAvg, wideAvg);
   }
 
-  int _runsToPattern(Uint16List runs, double narrowWidth, double wideWidth) {
+  int _runsToPattern(
+    Uint16List runs,
+    int offset,
+    double narrowWidth,
+    double wideWidth,
+  ) {
     var pattern = 0;
     final threshold = (narrowWidth + wideWidth) / 2.0;
 
     for (var i = 0; i < 7; i++) {
-      if (runs[i] > threshold) {
+      if (runs[offset + i] > threshold) {
         pattern |= (1 << (6 - i));
       }
     }
@@ -200,12 +179,16 @@ class CodabarDecoder extends BarcodeDecoder {
     return pattern;
   }
 
-  (int, String)? _decodeCharacter(Uint16List runs, double narrowWidth) {
-    final widths = _analyzeWidths(runs);
+  (int, String)? _decodeCharacter(
+    Uint16List runs,
+    int offset,
+    double narrowWidth,
+  ) {
+    final widths = _analyzeWidths(runs, offset);
     if (widths == null) return null;
 
     final (narrow, wide) = widths;
-    final pattern = _runsToPattern(runs, narrow, wide);
+    final pattern = _runsToPattern(runs, offset, narrow, wide);
 
     for (var i = 0; i < _patterns.length; i++) {
       if (_patterns[i] == pattern) {

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:test/test.dart';
+import 'package:yomu/src/barcode/barcode_scanner.dart';
 import 'package:yomu/src/barcode/codabar_decoder.dart';
 
 void main() {
@@ -12,31 +13,31 @@ void main() {
     });
 
     test('returns null for invalid row data', () {
-      final row = List<bool>.filled(20, false);
+      final row = Uint8List(20);
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
       expect(result, isNull);
     });
 
     test('returns null for all-white row', () {
-      final row = List<bool>.filled(200, false);
+      final row = Uint8List(200);
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
       expect(result, isNull);
     });
 
     test('returns null for all-black row', () {
-      final row = List<bool>.filled(200, true);
+      final row = Uint8List.fromList(List<int>.filled(200, 1));
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
       expect(result, isNull);
     });
@@ -58,12 +59,7 @@ void main() {
           10,
         ]);
 
-        final result = decoder.decodeRow(
-          row: [],
-          rowNumber: 0,
-          width: 1000,
-          runs: runs,
-        );
+        final result = decoder.decodeRow(rowNumber: 0, width: 1000, runs: runs);
         expect(result, isNull, reason: 'Start Quiet Zone 5 should be rejected');
       });
 
@@ -76,12 +72,7 @@ void main() {
           5, // INVALID Stop QZ
         ]);
 
-        final result = decoder.decodeRow(
-          row: [],
-          rowNumber: 0,
-          width: 1000,
-          runs: runs,
-        );
+        final result = decoder.decodeRow(rowNumber: 0, width: 1000, runs: runs);
         expect(result, isNull, reason: 'Stop Quiet Zone 5 should be rejected');
       });
 
@@ -93,12 +84,7 @@ void main() {
           10,
         ]);
 
-        final result = decoder.decodeRow(
-          row: [],
-          rowNumber: 0,
-          width: 1000,
-          runs: runs,
-        );
+        final result = decoder.decodeRow(rowNumber: 0, width: 1000, runs: runs);
         expect(result, isNull, reason: 'Start/Stop only should be rejected');
       });
 
@@ -113,12 +99,7 @@ void main() {
           10,
         ]);
 
-        final result = decoder.decodeRow(
-          row: [],
-          rowNumber: 0,
-          width: 1000,
-          runs: runs,
-        );
+        final result = decoder.decodeRow(rowNumber: 0, width: 1000, runs: runs);
         expect(result, isNotNull);
         expect(result!.text, '0');
       });

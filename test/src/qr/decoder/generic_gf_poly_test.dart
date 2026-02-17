@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:test/test.dart';
 import 'package:yomu/src/qr/decoder/generic_gf.dart';
 import 'package:yomu/src/qr/decoder/generic_gf_poly.dart';
@@ -7,7 +9,8 @@ void main() {
     const field = GenericGF.qrCodeField256;
 
     // Helper to create poly from coefficients (highest degree first)
-    GenericGFPoly poly(List<int> coeffs) => GenericGFPoly(field, coeffs);
+    GenericGFPoly poly(List<int> coeffs) =>
+        GenericGFPoly(field, Uint8List.fromList(coeffs));
 
     test('addOrSubtract adds coefficients', () {
       // 3x^2 + 5x + 1
@@ -80,7 +83,7 @@ void main() {
   group('GenericGFPoly Exception Paths', () {
     test('divide by zero throws', () {
       const field = GenericGF.qrCodeField256;
-      final poly1 = GenericGFPoly(field, [1, 2, 3]);
+      final poly1 = GenericGFPoly(field, Uint8List.fromList([1, 2, 3]));
       final zero = field.zero;
 
       expect(() => poly1.divide(zero), throwsA(isA<ArgumentError>()));
@@ -88,7 +91,7 @@ void main() {
 
     test('multiplyByMonomial with negative degree throws', () {
       const field = GenericGF.qrCodeField256;
-      final poly = GenericGFPoly(field, [1, 2]);
+      final poly = GenericGFPoly(field, Uint8List.fromList([1, 2]));
 
       expect(
         () => poly.multiplyByMonomial(-1, 3),
@@ -98,35 +101,35 @@ void main() {
 
     test('evaluateAt with zero returns constant term', () {
       const field = GenericGF.qrCodeField256;
-      final poly = GenericGFPoly(field, [5, 10, 15]);
+      final poly = GenericGFPoly(field, Uint8List.fromList([5, 10, 15]));
       expect(poly.evaluateAt(0), 15);
     });
 
     test('multiply by scalar zero returns zero poly', () {
       const field = GenericGF.qrCodeField256;
-      final poly = GenericGFPoly(field, [1, 2, 3]);
+      final poly = GenericGFPoly(field, Uint8List.fromList([1, 2, 3]));
       final result = poly.multiplyByScalar(0);
       expect(result.isZero, isTrue);
     });
 
     test('add/subtract identical polys returns zero', () {
       const field = GenericGF.qrCodeField256;
-      final poly = GenericGFPoly(field, [1, 2, 3]);
+      final poly = GenericGFPoly(field, Uint8List.fromList([1, 2, 3]));
       final result = poly.addOrSubtract(poly);
       expect(result.isZero, isTrue);
     });
 
     test('multiply by monomial', () {
       const field = GenericGF.qrCodeField256;
-      final poly = GenericGFPoly(field, [1, 2]);
+      final poly = GenericGFPoly(field, Uint8List.fromList([1, 2]));
       final result = poly.multiplyByMonomial(2, 3);
       expect(result.degree, poly.degree + 2);
     });
 
     test('divide returns quotient and remainder', () {
       const field = GenericGF.qrCodeField256;
-      final dividend = GenericGFPoly(field, [1, 2, 3, 4]);
-      final divisor = GenericGFPoly(field, [1, 1]);
+      final dividend = GenericGFPoly(field, Uint8List.fromList([1, 2, 3, 4]));
+      final divisor = GenericGFPoly(field, Uint8List.fromList([1, 1]));
       final result = dividend.divide(divisor);
       expect(result.length, 2); // [quotient, remainder]
     });

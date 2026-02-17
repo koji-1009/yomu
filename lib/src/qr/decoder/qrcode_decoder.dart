@@ -184,16 +184,15 @@ class QRCodeDecoder {
       codewordBytes.setRange(0, block.data.length, block.data);
       codewordBytes.setRange(block.data.length, codewordBytes.length, block.ec);
 
-      final ints = Int32List.fromList(codewordBytes); // Make generic list
       try {
-        _rsDecoder.decode(received: ints, twoS: block.ec.length);
+        _rsDecoder.decode(received: codewordBytes, twoS: block.ec.length);
       } catch (e) {
         throw DecodeException('RS error: $e');
       }
 
       // Copy back data
       for (var i = 0; i < block.data.length; i++) {
-        resultBytes[outOffset++] = ints[i];
+        resultBytes[outOffset++] = codewordBytes[i];
       }
     }
 

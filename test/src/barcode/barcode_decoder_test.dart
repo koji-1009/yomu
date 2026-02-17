@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:test/test.dart';
 import 'package:yomu/src/barcode/barcode_decoder.dart';
 import 'package:yomu/src/barcode/barcode_result.dart';
@@ -11,13 +13,13 @@ class MockBarcodeDecoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required List<bool> row,
     required int rowNumber,
     required int width,
-    List<int>? runs,
+    required Uint16List runs,
+    Uint8List? row,
   }) {
-    // Return result if middle pixel is black
-    if (width > 0 && row[width ~/ 2]) {
+    // Return result if middle pixel is black (1)
+    if (width > 0 && row != null && row[width ~/ 2] == 1) {
       return BarcodeResult(
         text: 'FOUND at $rowNumber',
         format: format,

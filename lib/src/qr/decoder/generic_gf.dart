@@ -564,8 +564,8 @@ class GenericGF {
   }
 
   /// Zero polynomial.
-  GenericGFPoly get zero => GenericGFPoly(this, const [0]);
+  GenericGFPoly get zero => GenericGFPoly(this, Uint8List.fromList(const [0]));
 
   /// One polynomial.
-  GenericGFPoly get one => GenericGFPoly(this, const [1]);
+  GenericGFPoly get one => GenericGFPoly(this, Uint8List.fromList(const [1]));
 }

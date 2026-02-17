@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../common/bit_matrix.dart';
 import 'barcode_result.dart';
+import 'barcode_scanner.dart';
 
 /// Abstract base class for 1D barcode decoders.
 ///
@@ -17,15 +18,15 @@ abstract class BarcodeDecoder {
   /// Returns [BarcodeResult] if successful, null if not found.
   ///
   /// Parameters:
-  /// - [row]: The row data as a list of booleans (true = black, false = white)
   /// - [rowNumber]: The Y coordinate of this row in the image
   /// - [width]: The width of the row
-  /// - [runs]: Optional pre-calculated run-length encoded data for this row.
+  /// - [runs]: Pre-calculated run-length encoded data for this row.
+  /// - [row]: Optional raw row data as a Uint8List (1 = black, 0 = white)
   BarcodeResult? decodeRow({
-    required List<bool> row,
     required int rowNumber,
     required int width,
-    Uint16List? runs,
+    required Uint16List runs,
+    Uint8List? row,
   });
 
   /// Scans the bit matrix to find and decode a barcode.
@@ -44,15 +45,21 @@ abstract class BarcodeDecoder {
       height * 9 ~/ 10,
     ];
 
-    final row = List<bool>.filled(width, false);
+    final row = Uint8List(width);
 
     for (final y in rowPositions) {
       // Extract row data
       for (var x = 0; x < width; x++) {
-        row[x] = matrix.get(x, y);
+        row[x] = matrix.get(x, y) ? 1 : 0;
       }
 
-      final result = decodeRow(row: row, rowNumber: y, width: width);
+      final runs = BarcodeScanner.getRunLengths(row);
+      final result = decodeRow(
+        rowNumber: y,
+        width: width,
+        runs: runs,
+        row: row,
+      );
       if (result != null) {
         return result;
       }

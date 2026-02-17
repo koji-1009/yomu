@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:test/test.dart';
+import 'package:yomu/src/barcode/barcode_scanner.dart';
 import 'package:yomu/src/barcode/ean8_decoder.dart';
 
 void main() {
@@ -12,21 +13,19 @@ void main() {
     });
 
     test('returns null for invalid row data', () {
-      final row = List<bool>.filled(20, false);
+      final row = Uint8List(20);
       final result = decoder.decodeRow(
-        row: row,
         rowNumber: 0,
         width: row.length,
+        runs: BarcodeScanner.getRunLengths(row),
       );
       expect(result, isNull);
     });
 
     group('Logic Validation (runs)', () {
-      // Start Pattern runs: 1, 1, 1 (Module width 1.0)
       final startRuns = [1, 1, 1];
 
       test('should reject invalid Start Quiet Zone (too small)', () {
-        // Quiet Zone: Should be >= 10. Test with 9.
         final runs = Uint16List.fromList([
           9, // Invalid Quiet Zone
           ...startRuns,
@@ -34,12 +33,7 @@ void main() {
           10,
         ]);
 
-        final result = decoder.decodeRow(
-          row: [],
-          rowNumber: 0,
-          width: 1000,
-          runs: runs,
-        );
+        final result = decoder.decodeRow(rowNumber: 0, width: 1000, runs: runs);
         expect(result, isNull);
       });
     });

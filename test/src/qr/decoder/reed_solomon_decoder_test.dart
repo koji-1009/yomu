@@ -18,18 +18,21 @@ void main() {
 
     // Helper to build generator poly
     GenericGFPoly buildGenerator(GenericGF field, int ecBytes) {
-      var g = GenericGFPoly(field, [1]);
+      var g = GenericGFPoly(field, Uint8List.fromList([1]));
       for (var i = 0; i < ecBytes; i++) {
         // (x + alpha^i) in GF2^n
         // coeffs: [1, alpha^i]
-        final term = GenericGFPoly(field, [1, field.exp(i)]);
+        final term = GenericGFPoly(
+          field,
+          Uint8List.fromList([1, field.exp(i)]),
+        );
         g = g.multiply(term);
       }
       return g;
     }
 
     // Helper to generate a valid RS codeword
-    List<int> encode(List<int> data, int ecBytes) {
+    Uint8List encode(Uint8List data, int ecBytes) {
       final generator = buildGenerator(field, ecBytes);
       final dataPoly = GenericGFPoly(field, data);
 
@@ -42,12 +45,12 @@ void main() {
 
       // Result = shifted + remainder (effectively [data] + [ec])
       final resultPoly = shifted.addOrSubtract(remainder);
-      final coeffs = resultPoly.coefficients.toList();
+      final coeffs = resultPoly.coefficients;
 
       // Pad leading zeros if necessary to match expected length
       final expectedLength = data.length + ecBytes;
       if (coeffs.length < expectedLength) {
-        final padded = List<int>.filled(expectedLength, 0);
+        final padded = Uint8List(expectedLength);
         final offset = expectedLength - coeffs.length;
         for (var i = 0; i < coeffs.length; i++) {
           padded[offset + i] = coeffs[i];
@@ -65,8 +68,8 @@ void main() {
 
     test('decodes single error', () {
       // 5 * (x^2 + 3x + 2) = 5x^2 + 15x + 10
-      final valid = [5, 15, 10]; // Data=5, EC=15, 10
-      final corrupted = Int32List.fromList(valid);
+      final valid = Uint8List.fromList([5, 15, 10]); // Data=5, EC=15, 10
+      final corrupted = Uint8List.fromList(valid);
       corrupted[1] = 0; // Error!
 
       decoder.decode(received: corrupted, twoS: 2);
@@ -76,14 +79,14 @@ void main() {
 
     test('decodes two errors if capacity allows (e.g. 4 EC bytes)', () {
       // 4 EC bytes can correct 2 errors.
-      final data = [10, 20, 30];
+      final data = Uint8List.fromList([10, 20, 30]);
       const ecBytes = 4;
 
       final valid = encode(data, ecBytes);
       // Verify length: 3 data + 4 EC = 7 bytes
       expect(valid.length, 7);
 
-      final corrupted = Int32List.fromList(valid);
+      final corrupted = Uint8List.fromList(valid);
 
       // Corrupt 2 positions
       corrupted[1] ^= 0xFF; // Corrupt data
@@ -98,7 +101,7 @@ void main() {
     test('throws ReedSolomonException when too many errors', () {
       // [5, 15, 10] with 2 EC bytes can correct 1 error.
       // Corrupt 2 bytes.
-      final corrupted = Int32List.fromList([5, 15, 10]);
+      final corrupted = Uint8List.fromList([5, 15, 10]);
       corrupted[0] = 99;
       corrupted[1] = 99;
 
@@ -112,7 +115,7 @@ void main() {
   group('ReedSolomonDecoder Exception Paths', () {
     test('decoder handles no errors correctly (all zeros)', () {
       const decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
-      final received = List<int>.filled(10, 0);
+      final received = Uint8List(10);
 
       expect(
         () => decoder.decode(received: received, twoS: 4),
@@ -122,7 +125,7 @@ void main() {
 
     test('decoder attempts to correct errors', () {
       const decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
-      final received = List<int>.filled(10, 0);
+      final received = Uint8List(10);
       received[0] = 1;
 
       try {
@@ -134,7 +137,9 @@ void main() {
 
     test('decoder throws on uncorrectable errors', () {
       const decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
-      final received = List<int>.generate(20, (i) => i * 17 % 256);
+      final received = Uint8List.fromList(
+        List<int>.generate(20, (i) => i * 17 % 256),
+      );
 
       expect(
         () => decoder.decode(received: received, twoS: 4),
@@ -144,7 +149,9 @@ void main() {
 
     test('decoder throws bad error location on invalid position', () {
       const decoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
-      final received = List<int>.generate(5, (i) => (i + 1) * 50 % 256);
+      final received = Uint8List.fromList(
+        List<int>.generate(5, (i) => (i + 1) * 50 % 256),
+      );
 
       try {
         decoder.decode(received: received, twoS: 2);

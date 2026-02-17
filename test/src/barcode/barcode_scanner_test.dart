@@ -95,10 +95,10 @@ class MockBarcodeDecoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required List<bool> row,
     required int rowNumber,
     required int width,
-    List<int>? runs,
+    required Uint16List runs,
+    Uint8List? row,
   }) {
     final currentIndex = decodeRowCount++;
 

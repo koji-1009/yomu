@@ -45,15 +45,39 @@ void main() {
     final groups = <String, List<File>>{};
     for (final file in files) {
       final name = file.path.split('/').last;
-      final type = name.contains('white')
-          ? 'white'
-          : (name.contains('noise') ? 'noise' : 'gradient');
+      String type;
+      if (name.contains('white')) {
+        type = 'white';
+      } else if (name.contains('noise')) {
+        type = 'noise';
+      } else {
+        type = 'gradient';
+      }
       groups.putIfAbsent(type, () => []).add(file);
     }
 
+    print('  Found background groups: ${groups.keys.toList()}');
+
     final samples = <File>[];
-    for (final groupFiles in groups.values) {
-      if (groupFiles.isNotEmpty) samples.add(groupFiles.first);
+    // Take at least one from each type
+    for (final type in groups.keys) {
+      final groupFiles = groups[type]!;
+      if (groupFiles.isNotEmpty) {
+        samples.add(groupFiles.first);
+        print(
+          '  Adding sample from $type: ${groupFiles.first.path.split('/').last}',
+        );
+      }
+    }
+
+    // If we still have few samples, take some more
+    if (samples.length < 3 && files.length > samples.length) {
+      for (final file in files) {
+        if (!samples.contains(file)) {
+          samples.add(file);
+          if (samples.length >= 3) break;
+        }
+      }
     }
 
     final times = <String, List<int>>{
@@ -67,11 +91,19 @@ void main() {
     };
 
     for (final file in samples) {
-      final profile = _profileDecode(file);
-      if (profile != null) {
-        for (final key in times.keys) {
-          times[key]!.add(profile[key]!);
+      try {
+        final profile = _profileDecode(file);
+        if (profile != null) {
+          for (final key in times.keys) {
+            times[key]!.add(profile[key]!);
+          }
+        } else {
+          print(
+            '  Skipping ${file.path.split('/').last} (profile returned null)',
+          );
         }
+      } catch (e) {
+        print('  Failed to profile ${file.path.split('/').last}: $e');
       }
     }
 
@@ -194,24 +226,27 @@ Map<String, int>? _profileDecode(File file) {
   sw.reset();
   sw.start();
   final detector = Detector(blackMatrix);
-  late final DetectorResult detectorResult;
+  DetectorResult? detectorResult;
   try {
     detectorResult = detector.detect();
   } catch (_) {
-    return null;
+    // Continue anyway to record detect time
   }
   final detectTime = sw.elapsedMicroseconds;
 
   // Decode
-  sw.reset();
-  sw.start();
-  const decoder = QRCodeDecoder();
-  try {
-    decoder.decode(detectorResult.bits);
-  } catch (_) {
-    return null;
+  var decodeTime = 0;
+  if (detectorResult != null) {
+    sw.reset();
+    sw.start();
+    const decoder = QRCodeDecoder();
+    try {
+      decoder.decode(detectorResult.bits);
+    } catch (_) {
+      // Ignore
+    }
+    decodeTime = sw.elapsedMicroseconds;
   }
-  final decodeTime = sw.elapsedMicroseconds;
 
   return {
     'load': loadTime ~/ 1000,

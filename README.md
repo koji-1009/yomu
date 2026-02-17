@@ -110,8 +110,8 @@ uv run scripts/benchmark_runner.py
 
 | Mode | Avg Decode Time |
 | ---- | --------------- |
-| AOT  | ~1.12ms         |
-| JIT  | ~2.15ms         |
+| AOT  | ~0.92ms         |
+| JIT  | ~1.30ms         |
 
 ### Large Images (Fused Downsampling)
 
@@ -120,7 +120,7 @@ Images >1MP are automatically processed with a fused conversion step for optimal
 | Resolution          | Avg Decode Time | Frame Rate (est.) |
 | ------------------- | --------------- | ----------------- |
 | 4K (3840×2160)      | ~9.0ms          | ~110 fps          |
-| Full HD (1920×1080) | ~5.3ms          | ~188 fps          |
+| Full HD (1920×1080) | ~4.4ms          | ~227 fps          |
 
 ## License
 

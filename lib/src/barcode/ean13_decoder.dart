@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
+import 'barcode_scanner.dart';
 
 /// EAN-13 barcode decoder.
 ///
@@ -73,13 +74,13 @@ class EAN13Decoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required List<bool> row,
+    required Uint8List row,
     required int rowNumber,
     required int width,
     Uint16List? runs,
   }) {
     // Convert to run-length encoding
-    final runData = runs ?? _getRunLengths(row);
+    final runData = runs ?? BarcodeScanner.getRunLengths(row);
     if (runData.length < 60) return null; // Need at least 60 runs for EAN-13
 
     // Find start guard (1:1:1 pattern starting after white quiet zone)
@@ -151,24 +152,6 @@ class EAN13Decoder extends BarcodeDecoder {
       endX: endX,
       rowY: rowNumber,
     );
-  }
-
-  Uint16List _getRunLengths(List<bool> row) {
-    final runs = <int>[];
-    var currentPos = 0;
-    var currentColor = row[0];
-
-    while (currentPos < row.length) {
-      var runLength = 0;
-      while (currentPos < row.length && row[currentPos] == currentColor) {
-        runLength++;
-        currentPos++;
-      }
-      runs.add(runLength);
-      currentColor = !currentColor;
-    }
-
-    return Uint16List.fromList(runs);
   }
 
   /// Find start guard and return (runIndex, moduleWidth, startX).

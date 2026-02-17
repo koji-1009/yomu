@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'bit_matrix.dart';
 import 'perspective_transform.dart';
 
@@ -15,7 +17,7 @@ class GridSampler {
     }
 
     final bits = BitMatrix(width: dimensionX, height: dimensionY);
-    final points = List<double>.filled(2 * dimensionX, 0.0);
+    final points = Float64List(2 * dimensionX);
 
     for (var y = 0; y < dimensionY; y++) {
       final max = points.length;

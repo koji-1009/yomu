@@ -7,7 +7,7 @@ class GenericGFPoly {
   /// Creates a polynomial with the given [coefficients].
   /// [coefficients] are ordered from highest degree to lowest degree.
   /// e.g. [3, 2, 1] means 3x^2 + 2x + 1.
-  GenericGFPoly(this.field, List<int> coefficients)
+  GenericGFPoly(this.field, Uint8List coefficients)
     : coefficients = _normalizeCoefficients(field, coefficients);
 
   final GenericGF field;
@@ -15,7 +15,7 @@ class GenericGFPoly {
 
   static Uint8List _normalizeCoefficients(
     GenericGF field,
-    List<int> coefficients,
+    Uint8List coefficients,
   ) {
     if (coefficients.length > 1 && coefficients[0] == 0) {
       // Strip leading zeros
@@ -27,12 +27,10 @@ class GenericGFPoly {
       if (firstNonZero == coefficients.length) {
         return Uint8List(1); // [0]
       }
-      return Uint8List.fromList(coefficients.sublist(firstNonZero));
+      // Use sublist to create a normalized copy
+      return coefficients.sublist(firstNonZero);
     }
-    // Check if it's already a Uint8List to avoid copy if possible,
-    // though we usually crave a copy for safety if input is mutable.
-    // Here we enforce copy to Uint8List.
-    return Uint8List.fromList(coefficients);
+    return coefficients;
   }
 
   @pragma('dart2js:prefer-inline')

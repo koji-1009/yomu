@@ -91,18 +91,20 @@ class BarcodeScanner {
 
     // Reusable buffer for luminance data
     final lumBuffer = Uint8List(width);
+    final rowBuffer = Uint8List(width);
+    final integralBuffer = Int32List(width + 1);
 
     for (final y in rowPositions) {
       // Extract row luminance data
       final lumRow = source.getRow(y, lumBuffer);
 
       // Binarize row directly (1D)
-      final row = _binarizeRow(lumRow);
-      final runs = getRunLengths(row);
+      _binarizeRow(lumRow, rowBuffer, integralBuffer);
+      final runs = getRunLengths(rowBuffer);
 
       for (final decoder in decoders) {
         final result = decoder.decodeRow(
-          row: row,
+          row: rowBuffer,
           rowNumber: y,
           width: width,
           runs: runs,
@@ -137,18 +139,20 @@ class BarcodeScanner {
 
     // Reusable buffer for luminance data
     final lumBuffer = Uint8List(width);
+    final rowBuffer = Uint8List(width);
+    final integralBuffer = Int32List(width + 1);
 
     for (final y in rowPositions) {
       // Extract row luminance data
       final lumRow = source.getRow(y, lumBuffer);
 
       // Binarize row directly (1D)
-      final row = _binarizeRow(lumRow);
-      final runs = getRunLengths(row);
+      _binarizeRow(lumRow, rowBuffer, integralBuffer);
+      final runs = getRunLengths(rowBuffer);
 
       for (final decoder in decoders) {
         final result = decoder.decodeRow(
-          row: row,
+          row: rowBuffer,
           rowNumber: y,
           width: width,
           runs: runs,
@@ -163,7 +167,7 @@ class BarcodeScanner {
   }
 
   /// Converts a row of booleans to run-length encoded data.
-  static Uint16List getRunLengths(List<bool> row) {
+  static Uint16List getRunLengths(Uint8List row) {
     if (row.isEmpty) return Uint16List(0);
 
     // First pass: count runs to allocate exact size
@@ -176,7 +180,9 @@ class BarcodeScanner {
         currentPos++;
       }
       runCount++;
-      currentColor = !currentColor;
+      if (currentPos < row.length) {
+        currentColor = row[currentPos];
+      }
     }
 
     // Second pass: populate Uint16List
@@ -192,7 +198,9 @@ class BarcodeScanner {
         currentPos++;
       }
       runs[index++] = runLength;
-      currentColor = !currentColor;
+      if (currentPos < row.length) {
+        currentColor = row[currentPos];
+      }
     }
 
     return runs;
@@ -200,9 +208,8 @@ class BarcodeScanner {
 
   /// Locally adaptive binarization for a single row.
   /// Uses a moving average window to determine the threshold.
-  static List<bool> _binarizeRow(Uint8List luminance) {
+  static void _binarizeRow(Uint8List luminance, Uint8List result, Int32List integral) {
     final width = luminance.length;
-    final result = List<bool>.filled(width, false);
 
     // Adaptive window size: ~1/32 of width, clamped to sane bounds.
     // Minimum 16px to avoid noise, maximum 64px to capture local gradients.
@@ -217,8 +224,8 @@ class BarcodeScanner {
 
     // Build integral array (prefix sums) for O(1) window sum calculation
     // Size is width + 1. integral[i] = sum(0..i-1)
-    final integral = Int32List(width + 1);
     var runningSum = 0;
+    integral[0] = 0;
     for (var i = 0; i < width; i++) {
       runningSum += luminance[i];
       integral[i + 1] = runningSum;
@@ -237,10 +244,10 @@ class BarcodeScanner {
       // Pixel is black if pixel * count * 8 <= sum * 7
       // Using shifts for *8.
       if ((luminance[x] * count) << 3 <= sum * 7) {
-        result[x] = true; // Black
+        result[x] = 1; // Black
+      } else {
+        result[x] = 0; // White
       }
     }
-
-    return result;
   }
 }

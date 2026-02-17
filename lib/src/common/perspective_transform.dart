@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 /// Represents a perspective transform (homography) between two planes.
 /// Matrix M:
 /// a11 a12 a13
@@ -252,7 +254,7 @@ class PerspectiveTransform {
     );
   }
 
-  void transformPoints(List<double> points) {
+  void transformPoints(Float64List points) {
     final max = points.length;
     // Optimization: Check for Affine transform (a31=0, a32=0, a33=1)
     // This avoids expensive division per point

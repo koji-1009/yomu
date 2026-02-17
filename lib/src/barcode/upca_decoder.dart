@@ -18,7 +18,7 @@ class UPCADecoder extends EAN13Decoder {
 
   @override
   BarcodeResult? decodeRow({
-    required List<bool> row,
+    required Uint8List row,
     required int rowNumber,
     required int width,
     Uint16List? runs,

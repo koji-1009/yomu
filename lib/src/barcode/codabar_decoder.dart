@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
+import 'barcode_scanner.dart';
 
 /// Codabar barcode decoder.
 ///
@@ -50,13 +51,13 @@ class CodabarDecoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required List<bool> row,
+    required Uint8List row,
     required int rowNumber,
     required int width,
     Uint16List? runs,
   }) {
     // Convert to run-length encoding
-    final runData = runs ?? _getRunLengths(row);
+    final runData = runs ?? BarcodeScanner.getRunLengths(row);
     if (runData.length < 10) return null;
 
     // Find start pattern (A, B, C, or D)
@@ -115,24 +116,6 @@ class CodabarDecoder extends BarcodeDecoder {
     );
   }
 
-  Uint16List _getRunLengths(List<bool> row) {
-    final runs = <int>[];
-    var currentPos = 0;
-    var currentColor = row[0];
-
-    while (currentPos < row.length) {
-      var runLength = 0;
-      while (currentPos < row.length && row[currentPos] == currentColor) {
-        runLength++;
-        currentPos++;
-      }
-      runs.add(runLength);
-      currentColor = !currentColor;
-    }
-
-    return Uint16List.fromList(runs);
-  }
-
   /// Find start pattern and return (runIndex, narrowWidth, startX, startChar).
   (int, double, int, String)? _findStartPattern(Uint16List runs) {
     for (var i = 0; i < runs.length - 10; i++) {
@@ -171,7 +154,7 @@ class CodabarDecoder extends BarcodeDecoder {
   (double, double)? _analyzeWidths(Uint16List runs) {
     if (runs.length != 7) return null;
 
-    final sorted = List<int>.from(runs)..sort();
+    final sorted = Uint16List.fromList(runs)..sort();
 
     // Codabar has 2-3 wide elements, rest are narrow
     // Find the threshold between narrow and wide

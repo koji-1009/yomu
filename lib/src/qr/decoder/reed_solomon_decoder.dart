@@ -11,8 +11,8 @@ class ReedSolomonDecoder {
 
   /// Decodes [received] codeword in-place.
   /// [twoS] is the number of error correction bytes (symbols).
-  void decode({required List<int> received, required int twoS}) {
-    final poly = GenericGFPoly(field, received.toList()); // Copy input to poly
+  void decode({required Uint8List received, required int twoS}) {
+    final poly = GenericGFPoly(field, received); // Copy input to poly
     final syndromeCoefficients = Uint8List(twoS);
     var noError = true;
 
@@ -33,7 +33,6 @@ class ReedSolomonDecoder {
     final syndrome = GenericGFPoly(field, syndromeCoefficients);
 
     // Find error locator and evaluator polynomials using Euclidean Algorithm
-    // sigma/omega = runEuclideanAlgorithm(field.buildMonomial(twoS, 1), syndrome, twoS)
     final sigmaOmega = _runEuclideanAlgorithm(
       a: field.buildMonomial(twoS, 1),
       b: syndrome,
@@ -83,17 +82,10 @@ class ReedSolomonDecoder {
       rLast = r;
       tLast = t;
 
-      // However, GenericGFPoly.divide returns [q, rem].
-      if (rLast.degree < r.degree) {
-        // Should not happen loop constraint
-        throw const ReedSolomonException('Division failed deg');
-      }
-
       final divisionResult = rLastLast.divide(rLast);
       final q = divisionResult[0];
       r = divisionResult[1]; // Remainder
 
-      // t = tLastLast - q * tLast (subtraction is XOR in GF2^n)
       // t = tLastLast + q * tLast
       t = q.multiply(tLast).addOrSubtract(tLastLast);
     }
@@ -114,21 +106,22 @@ class ReedSolomonDecoder {
     return [sigma, omega];
   }
 
-  List<int> _findErrorLocations(GenericGFPoly errorLocator) {
+  Uint8List _findErrorLocations(GenericGFPoly errorLocator) {
     // Chien search
     final numErrors = errorLocator.degree;
     if (numErrors == 1) {
-      return [errorLocator.getCoefficient(1)];
+      return Uint8List.fromList([errorLocator.getCoefficient(1)]);
     }
 
-    final result = <int>[];
-    for (var i = 1; i < GenericGF.size; i++) {
+    final result = Uint8List(numErrors);
+    var count = 0;
+    for (var i = 1; i < GenericGF.size && count < numErrors; i++) {
       if (errorLocator.evaluateAt(i) == 0) {
-        result.add(field.inverse(i));
+        result[count++] = field.inverse(i);
       }
     }
 
-    if (result.length != numErrors) {
+    if (count != numErrors) {
       throw const ReedSolomonException(
         'Error locator degree does not match number of roots',
       );
@@ -136,9 +129,9 @@ class ReedSolomonDecoder {
     return result;
   }
 
-  List<int> _findErrorMagnitudes(
+  Uint8List _findErrorMagnitudes(
     GenericGFPoly errorEvaluator,
-    List<int> errorLocations,
+    Uint8List errorLocations,
   ) {
     // Forney algorithm
     final s = errorLocations.length;

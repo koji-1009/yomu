@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
+import 'barcode_scanner.dart';
 
 /// ITF (Interleaved 2 of 5) barcode decoder.
 ///
@@ -36,13 +37,13 @@ class ITFDecoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required List<bool> row,
+    required Uint8List row,
     required int rowNumber,
     required int width,
     Uint16List? runs,
   }) {
     // Convert to run-length encoding
-    final runData = runs ?? _getRunLengths(row);
+    final runData = runs ?? BarcodeScanner.getRunLengths(row);
     if (runData.length < 10) return null;
 
     // Find start pattern (4 narrow elements: NNNN)
@@ -105,24 +106,6 @@ class ITFDecoder extends BarcodeDecoder {
       endX: endX,
       rowY: rowNumber,
     );
-  }
-
-  Uint16List _getRunLengths(List<bool> row) {
-    final runs = <int>[];
-    var currentPos = 0;
-    var currentColor = row[0];
-
-    while (currentPos < row.length) {
-      var runLength = 0;
-      while (currentPos < row.length && row[currentPos] == currentColor) {
-        runLength++;
-        currentPos++;
-      }
-      runs.add(runLength);
-      currentColor = !currentColor;
-    }
-
-    return Uint16List.fromList(runs);
   }
 
   /// Find start pattern (NNNN) and return (runIndex, narrowWidth, startX).

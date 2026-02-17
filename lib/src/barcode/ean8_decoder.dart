@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
+import 'barcode_scanner.dart';
 
 /// EAN-8 barcode decoder.
 ///
@@ -48,13 +49,13 @@ class EAN8Decoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required List<bool> row,
+    required Uint8List row,
     required int rowNumber,
     required int width,
     Uint16List? runs,
   }) {
     // Convert to run-length encoding
-    final runData = runs ?? _getRunLengths(row);
+    final runData = runs ?? BarcodeScanner.getRunLengths(row);
     if (runData.length < 44) return null; // Need at least 44 runs for EAN-8
 
     // Find start guard (1:1:1 pattern)
@@ -116,26 +117,8 @@ class EAN8Decoder extends BarcodeDecoder {
     );
   }
 
-  Uint16List _getRunLengths(List<bool> row) {
-    final runs = <int>[];
-    var currentPos = 0;
-    var currentColor = row[0];
-
-    while (currentPos < row.length) {
-      var runLength = 0;
-      while (currentPos < row.length && row[currentPos] == currentColor) {
-        runLength++;
-        currentPos++;
-      }
-      runs.add(runLength);
-      currentColor = !currentColor;
-    }
-
-    return Uint16List.fromList(runs);
-  }
-
   /// Find start guard and return (runIndex, moduleWidth, startX).
-  (int, double, int)? _findStartGuard(List<int> runs) {
+  (int, double, int)? _findStartGuard(Uint16List runs) {
     for (var i = 0; i < runs.length - 44; i++) {
       if (i % 2 == 0) {
         final b1 = runs[i + 1];
@@ -164,8 +147,10 @@ class EAN8Decoder extends BarcodeDecoder {
     return null;
   }
 
-  int? _decodeLeftDigit(List<int> digitRuns, double moduleWidth) {
-    final modules = digitRuns.map((r) => (r / moduleWidth).round()).toList();
+  int? _decodeLeftDigit(Uint16List digitRuns, double moduleWidth) {
+    final modules = Uint16List.fromList(
+      digitRuns.map((r) => (r / moduleWidth).round()).toList(),
+    );
 
     var bestDigit = -1;
     var bestError = 999;
@@ -185,8 +170,10 @@ class EAN8Decoder extends BarcodeDecoder {
     return null;
   }
 
-  int? _decodeRightDigit(List<int> digitRuns, double moduleWidth) {
-    final modules = digitRuns.map((r) => (r / moduleWidth).round()).toList();
+  int? _decodeRightDigit(Uint16List digitRuns, double moduleWidth) {
+    final modules = Uint16List.fromList(
+      digitRuns.map((r) => (r / moduleWidth).round()).toList(),
+    );
 
     var bestDigit = -1;
     var bestError = 999;
@@ -206,7 +193,7 @@ class EAN8Decoder extends BarcodeDecoder {
     return null;
   }
 
-  int _patternError(List<int> actual, List<int> expected) {
+  int _patternError(Uint16List actual, List<int> expected) {
     if (actual.length != expected.length) return 999;
 
     var error = 0;

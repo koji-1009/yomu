@@ -12,7 +12,7 @@ void main() {
     });
 
     test('returns null for invalid row data', () {
-      final row = List<bool>.filled(20, false);
+      final row = Uint8List(20);
       final result = decoder.decodeRow(
         row: row,
         rowNumber: 0,
@@ -40,7 +40,7 @@ void main() {
         ]);
 
         final result = decoder.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,
@@ -61,7 +61,7 @@ void main() {
         ]);
 
         final result = decoder.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,
@@ -81,7 +81,7 @@ void main() {
         ]);
 
         final result = decoder.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,
@@ -101,7 +101,7 @@ void main() {
         ]);
 
         final result = decoder.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,
@@ -123,7 +123,7 @@ void main() {
         ]);
 
         final result = decoder.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,
@@ -160,7 +160,7 @@ void main() {
 
         // 1. With Check Digit Validation Enabled
         final resultWithCheck = decoder.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,
@@ -175,7 +175,7 @@ void main() {
         // 2. With Check Digit Validation Disabled (Default)
         const decoderNoCheck = Code39Decoder(checkDigit: false);
         final resultNoCheck = decoderNoCheck.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,

@@ -12,7 +12,7 @@ void main() {
     });
 
     test('returns null for invalid row data', () {
-      final row = List<bool>.filled(20, false);
+      final row = Uint8List(20);
       final result = decoder.decodeRow(
         row: row,
         rowNumber: 0,
@@ -22,7 +22,7 @@ void main() {
     });
 
     test('returns null for all-white row', () {
-      final row = List<bool>.filled(200, false);
+      final row = Uint8List(200);
       final result = decoder.decodeRow(
         row: row,
         rowNumber: 0,
@@ -32,7 +32,7 @@ void main() {
     });
 
     test('returns null for all-black row', () {
-      final row = List<bool>.filled(200, true);
+      final row = Uint8List.fromList(List<int>.filled(200, 1));
       final result = decoder.decodeRow(
         row: row,
         rowNumber: 0,
@@ -59,7 +59,7 @@ void main() {
         ]);
 
         final result = decoder.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,
@@ -77,7 +77,7 @@ void main() {
         ]);
 
         final result = decoder.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,
@@ -94,7 +94,7 @@ void main() {
         ]);
 
         final result = decoder.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,
@@ -114,7 +114,7 @@ void main() {
         ]);
 
         final result = decoder.decodeRow(
-          row: [],
+          row: Uint8List(0),
           rowNumber: 0,
           width: 1000,
           runs: runs,

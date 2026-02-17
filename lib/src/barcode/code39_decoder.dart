@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
+import 'barcode_scanner.dart';
 
 /// Code 39 barcode decoder.
 ///
@@ -76,13 +77,13 @@ class Code39Decoder extends BarcodeDecoder {
 
   @override
   BarcodeResult? decodeRow({
-    required List<bool> row,
+    required Uint8List row,
     required int rowNumber,
     required int width,
     Uint16List? runs,
   }) {
     // Convert to run-length encoding
-    final runData = runs ?? _getRunLengths(row);
+    final runData = runs ?? BarcodeScanner.getRunLengths(row);
     if (runData.length < 10) return null;
 
     // Find start pattern (*)
@@ -115,9 +116,6 @@ class Code39Decoder extends BarcodeDecoder {
       // Check for stop pattern
       if (char == '*') {
         // Validate Quiet Zone after Stop Pattern (at least 10 * narrowWidth)
-        // If we are at the end of runs, it's considered end of image (valid quiet zone? or assume margin?)
-        // Standard usually requires margin. But if image ends, it is white by default?
-        // Let's enforce it if runs exist.
         if (runIndex + 9 < runData.length) {
           final quietZone = runData[runIndex + 9];
           if (quietZone < narrowWidth * 10) {
@@ -185,24 +183,6 @@ class Code39Decoder extends BarcodeDecoder {
     return computed == expected;
   }
 
-  Uint16List _getRunLengths(List<bool> row) {
-    final runs = <int>[];
-    var currentPos = 0;
-    var currentColor = row[0];
-
-    while (currentPos < row.length) {
-      var runLength = 0;
-      while (currentPos < row.length && row[currentPos] == currentColor) {
-        runLength++;
-        currentPos++;
-      }
-      runs.add(runLength);
-      currentColor = !currentColor;
-    }
-
-    return Uint16List.fromList(runs);
-  }
-
   /// Find start pattern (*) and return (runIndex, narrowWidth, startX).
   (int, double, int)? _findStartPattern(Uint16List runs) {
     // Look for quiet zone followed by start pattern
@@ -241,7 +221,7 @@ class Code39Decoder extends BarcodeDecoder {
     if (runs.length != 9) return null;
 
     // Sort to find narrow and wide groups
-    final sorted = List<int>.from(runs)..sort();
+    final sorted = Uint16List.fromList(runs)..sort();
 
     // In Code 39, 3 elements are wide, 6 are narrow
     // Wide should be ~2-3x narrow

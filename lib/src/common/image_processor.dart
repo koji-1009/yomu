@@ -6,7 +6,7 @@ import 'image_conversion.dart';
 
 /// Utilities for processing and preparing images for decoding.
 class ImageProcessor {
-  static const int _targetPixels = 1000000;
+  static const int _targetPixels = 800000;
 
   /// Processes a [YomuImage] to produce a grayscale luminance image,
   /// downsampling if necessary to improve performance.
@@ -46,9 +46,9 @@ class ImageProcessor {
       }
     }
 
-    // Compute scale factor (1 for small images with stride, >1 for large images)
-    final scaleFactor = totalPixels / _targetPixels;
-    final scale = scaleFactor <= 1.0 ? 1 : math.sqrt(scaleFactor).ceil();
+    // Compute scale factor
+    // We use a slightly more aggressive scaling for very large images
+    final scale = math.sqrt(totalPixels / _targetPixels).round().clamp(1, 8);
 
     final dstWidth = width ~/ scale;
     final dstHeight = height ~/ scale;

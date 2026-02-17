@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
-import 'barcode_scanner.dart';
 
 /// Code 128 barcode decoder.
 ///

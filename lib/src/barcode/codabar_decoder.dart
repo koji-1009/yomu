@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'barcode_decoder.dart';
 import 'barcode_result.dart';
-import 'barcode_scanner.dart';
 
 /// Codabar barcode decoder.
 ///

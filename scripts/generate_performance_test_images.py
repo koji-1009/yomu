@@ -26,7 +26,7 @@ CONFIGS = [
     # (width, height, name, qr_sizes, backgrounds)
     (1920, 1080, "fullhd", [200, 300], ["white", "gradient", "noise"]),
     (1600, 1600, "square", [250, 400], ["white", "gray"]),
-    (3840, 2160, "4k", [300, 500], ["white"]),
+    (3840, 2160, "4k", [300, 500], ["white", "gradient", "noise"]),
 ]
 
 # QR positions relative to image

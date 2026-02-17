@@ -13,7 +13,7 @@ Yomu is a **zero-dependency** pure Dart implementation of a QR code and barcode 
 
 * **📦 Zero Dependencies**: No external package dependencies. Keep your app's dependency graph clean.
 * **🎯 Pure Dart**: No C++/Native code. Works instantly on Web (Wasm/JS), Desktop, and Mobile without build issues.
-* **🚀 High Performance**: 4K in < 5ms, Full HD in < 15ms. **Capable of 60fps+ real-time scanning** on modern devices.
+* **🚀 High Performance**: Full HD in < 6ms, 4K in < 10ms. **Capable of 60fps+ real-time scanning** on modern devices.
 * **🛡️ Robust & Tested**: 99.9% test coverage. Tested against thousands of distorted, noisy, and unevenly lit images.
 
 ## 🚀 Quick Start
@@ -110,7 +110,7 @@ uv run scripts/benchmark_runner.py
 
 | Mode | Avg Decode Time |
 | ---- | --------------- |
-| AOT  | ~1.29ms         |
+| AOT  | ~1.12ms         |
 | JIT  | ~2.15ms         |
 
 ### Large Images (Fused Downsampling)
@@ -119,8 +119,8 @@ Images >1MP are automatically processed with a fused conversion step for optimal
 
 | Resolution          | Avg Decode Time | Frame Rate (est.) |
 | ------------------- | --------------- | ----------------- |
-| 4K (3840×2160)      | ~5.1ms          | ~190 fps          |
-| Full HD (1920×1080) | ~14.6ms         | ~68 fps           |
+| 4K (3840×2160)      | ~9.0ms          | ~110 fps          |
+| Full HD (1920×1080) | ~5.3ms          | ~188 fps          |
 
 ## License
 

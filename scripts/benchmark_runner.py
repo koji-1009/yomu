@@ -16,11 +16,13 @@ Usage:
     uv run scripts/benchmark_runner.py benchmark/bench_compare.dart
 """
 
+import argparse
+import json
 import re
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Optional, Union
 
@@ -389,7 +391,15 @@ def generate_markdown_report(
         md.append("| :--- | :--- | :--- | :--- |")
 
         cats = aot.qr_categories
-        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
+        for cat in [
+            "Standard",
+            "Complex",
+            "4K",
+            "FullHD",
+            "Distorted",
+            "Noise",
+            "Edge",
+        ]:
             if cat in cats:
                 c = cats[cat]
                 note = ""
@@ -397,8 +407,10 @@ def generate_markdown_report(
                     note = "Version 1-4, Alphanumeric"
                 elif cat == "Complex":
                     note = "High Versions (V5+)"
-                elif cat == "HiRes":
-                    note = "4K / Large images"
+                elif cat == "4K":
+                    note = "3840×2160 images"
+                elif cat == "FullHD":
+                    note = "1920×1080 images"
                 elif cat == "Distorted":
                     note = "Rotated / Tilted / Skewed"
                 elif cat == "Noise":
@@ -508,7 +520,9 @@ def _print_comparative_comparison(
     aot_qr_str = _format_time_cell(
         aot.qr_baseline_ms, aot.qr_all_ms, aot.qr_overhead_pct
     )
-    print(f"{'QR Standard':<20} | {'qr -> all':<12} | {jit_qr_str:<30} | {aot_qr_str:<30}")
+    print(
+        f"{'QR Standard':<20} | {'qr -> all':<12} | {jit_qr_str:<30} | {aot_qr_str:<30}"
+    )
 
     # QR Stress Row
     jit_stress_str = _format_time_cell(
@@ -541,7 +555,15 @@ def _print_comparative_comparison(
         print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
         print("-" * 50)
         cats = aot.qr_categories
-        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
+        for cat in [
+            "Standard",
+            "Complex",
+            "4K",
+            "FullHD",
+            "Distorted",
+            "Noise",
+            "Edge",
+        ]:
             if cat in cats:
                 c = cats[cat]
                 print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")
@@ -551,19 +573,20 @@ def _print_comparative_comparison(
         print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
         print("-" * 50)
         cats = aot.barcode_categories
-        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
+        for cat in [
+            "Standard",
+            "Complex",
+            "4K",
+            "FullHD",
+            "Distorted",
+            "Noise",
+            "Edge",
+        ]:
             if cat in cats:
                 c = cats[cat]
                 print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")
 
     print("=" * 100)
-
-
-import argparse
-import json
-from dataclasses import asdict, is_dataclass
-
-# ... (Existing imports)
 
 
 def save_results(
@@ -644,7 +667,15 @@ def generate_comparison_report(base_data: dict, target_data: dict) -> str:
 
         all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
         # Define sort order
-        cat_order = ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]
+        cat_order = [
+            "Standard",
+            "Complex",
+            "4K",
+            "FullHD",
+            "Distorted",
+            "Noise",
+            "Edge",
+        ]
 
         all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
 
@@ -804,7 +835,6 @@ def print_single_result(result: BenchmarkResult, label: str):
                 print(f"  {cat:<10}: Avg {val[2]:.3f}ms | p95 {val[3]:.3f}ms")
     else:
         print(f"{label} Result: Avg {result.avg_time_ms:.3f}ms")
-
 
 
 if __name__ == "__main__":

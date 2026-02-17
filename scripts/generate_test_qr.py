@@ -15,6 +15,7 @@ Usage:
     uv run scripts/generate_test_qr.py
 """
 
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -86,9 +87,6 @@ def generate_qr(
 
     img = qr.make_image(fill_color="black", back_color="white")
     img.save(output_path)
-
-
-import json
 
 
 def get_ec_label(ec_int: int) -> str:

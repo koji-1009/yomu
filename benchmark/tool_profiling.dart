@@ -55,7 +55,7 @@ void main() {
       }
       groups.putIfAbsent(type, () => []).add(file);
     }
-    
+
     print('  Found background groups: ${groups.keys.toList()}');
 
     final samples = <File>[];
@@ -64,10 +64,12 @@ void main() {
       final groupFiles = groups[type]!;
       if (groupFiles.isNotEmpty) {
         samples.add(groupFiles.first);
-        print('  Adding sample from $type: ${groupFiles.first.path.split('/').last}');
+        print(
+          '  Adding sample from $type: ${groupFiles.first.path.split('/').last}',
+        );
       }
     }
-    
+
     // If we still have few samples, take some more
     if (samples.length < 3 && files.length > samples.length) {
       for (final file in files) {
@@ -96,7 +98,9 @@ void main() {
             times[key]!.add(profile[key]!);
           }
         } else {
-          print('  Skipping ${file.path.split('/').last} (profile returned null)');
+          print(
+            '  Skipping ${file.path.split('/').last} (profile returned null)',
+          );
         }
       } catch (e) {
         print('  Failed to profile ${file.path.split('/').last}: $e');

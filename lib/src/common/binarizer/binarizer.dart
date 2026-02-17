@@ -61,15 +61,16 @@ class Binarizer {
         // Calculate integral for row 'i'
         final lumRowOffset = bufferOffset;
         source.getRow(i, lumBuffer.buffer.asUint8List(lumRowOffset, width));
-        
+
         final integralRowOffset = bufferOffset;
-        final prevIntegralRowOffset = ((i > 0) ? (i - 1) % bufferHeight : -1) * width;
+        final prevIntegralRowOffset =
+            ((i > 0) ? (i - 1) % bufferHeight : -1) * width;
 
         var sum = 0;
         if (prevIntegralRowOffset >= 0) {
           for (var x = 0; x < width; x++) {
             sum += lumBuffer[lumRowOffset + x];
-            integralBuffer[integralRowOffset + x] = 
+            integralBuffer[integralRowOffset + x] =
                 integralBuffer[prevIntegralRowOffset + x] + sum;
           }
         } else {
@@ -132,12 +133,14 @@ class Binarizer {
 
           for (; x < safeEnd; x++) {
             final val = lumBuffer[lumTargetOffset + x];
-            var sumWindow = integralBuffer[rowY2Offset + x + offBR] - 
-                           integralBuffer[rowY2Offset + x + offBL];
-            
+            var sumWindow =
+                integralBuffer[rowY2Offset + x + offBR] -
+                integralBuffer[rowY2Offset + x + offBL];
+
             if (rowY1Offset >= 0) {
-              sumWindow -= (integralBuffer[rowY1Offset + x + offBR] - 
-                           integralBuffer[rowY1Offset + x + offBL]);
+              sumWindow -=
+                  (integralBuffer[rowY1Offset + x + offBR] -
+                  integralBuffer[rowY1Offset + x + offBL]);
             }
 
             if (val * areaShifted <= sumWindow * scaledThreshold) {
@@ -196,12 +199,15 @@ class Binarizer {
     final bl = (x1 > 0) ? integralBuffer[rowY2Offset + x1 - 1] : 0;
 
     final tr = (rowY1Offset >= 0) ? integralBuffer[rowY1Offset + x2] : 0;
-    final tl = (rowY1Offset >= 0 && x1 > 0) ? integralBuffer[rowY1Offset + x1 - 1] : 0;
+    final tl = (rowY1Offset >= 0 && x1 > 0)
+        ? integralBuffer[rowY1Offset + x1 - 1]
+        : 0;
 
     final sumWindow = br - bl - tr + tl;
     final area = (x2 - x1 + 1) * (y2 - ((y1 < 0) ? 0 : y1) + 1);
 
-    if ((lumBuffer[lumTargetOffset + x] * area) << 8 <= sumWindow * scaledThreshold) {
+    if ((lumBuffer[lumTargetOffset + x] * area) << 8 <=
+        sumWindow * scaledThreshold) {
       bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
     }
   }

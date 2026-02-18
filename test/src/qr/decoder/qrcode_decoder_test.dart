@@ -66,10 +66,7 @@ void main() {
       final version = Version.getVersionForNumber(1);
       // Unmasked shouldn't matter for pure extraction if we just want to see it run
       // But wait, it uses isFunctionPattern which calls version.
-      final codewords = parser.readCodewords(
-        unmasked: matrix,
-        version: version,
-      );
+      final codewords = parser.readCodewords(version: version);
       // V1 has 26 codewords
       expect(codewords.length, 26);
     });

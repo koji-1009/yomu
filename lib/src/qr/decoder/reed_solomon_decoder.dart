@@ -110,7 +110,9 @@ class ReedSolomonDecoder {
     // Chien search
     final numErrors = errorLocator.degree;
     if (numErrors == 1) {
-      return Uint8List.fromList([errorLocator.getCoefficient(1)]);
+      final res = Uint8List(1);
+      res[0] = errorLocator.getCoefficient(1);
+      return res;
     }
 
     final result = Uint8List(numErrors);

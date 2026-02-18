@@ -97,114 +97,118 @@ class QRCodeDecoder {
     // Read Version
     final version = parser.readVersion();
 
-    // Unmask
+    // Unmask in-place to avoid clone allocation
     final dataMask = DataMask.values[formatInfo.dataMask];
-    final unmaskedBits = bits.clone();
-    dataMask.unmaskBitMatrix(unmaskedBits, version.dimensionForVersion);
+    dataMask.unmaskBitMatrix(bits, version.dimensionForVersion);
 
-    // Read Codewords (pass version for alignment pattern checking)
-    final codewords = parser.readCodewords(
-      unmasked: unmaskedBits,
-      version: version,
-    );
+    try {
+      // Read Codewords
+      final codewords = parser.readCodewords(version: version);
 
-    // De-interleave and Error Correct
-    // Map codewords to error correction blocks based on Version and EC Level.
-    final ecBlocks = version.getECBlocksForLevel(
-      formatInfo.errorCorrectionLevel,
-    );
-    if (ecBlocks == null) {
-      throw const DecodeException('Invalid version/ec-level combination');
-    }
-
-    // Calculate total blocks and data bytes
-    var totalBlocks = 0;
-    for (final ecb in ecBlocks.ecBlocks) {
-      totalBlocks += ecb.count;
-    }
-
-    var totalDataBytes = 0;
-    for (final ecb in ecBlocks.ecBlocks) {
-      totalDataBytes += ecb.count * ecb.dataCodewords;
-    }
-
-    final resultBytes = Uint8List(totalDataBytes);
-
-    // Prepare blocks
-    final blocks = List<_DataBlock>.generate(
-      totalBlocks,
-      (_) => _DataBlock(total: 0, data: Uint8List(0), ec: Uint8List(0)),
-    );
-
-    // Assign block sizes
-    var blockIdx = 0;
-    for (final ecb in ecBlocks.ecBlocks) {
-      for (var i = 0; i < ecb.count; i++) {
-        final numData = ecb.dataCodewords;
-        final numEc = ecBlocks.ecCodewordsPerBlock;
-        blocks[blockIdx] = _DataBlock(
-          total: numData + numEc,
-          data: Uint8List(numData),
-          ec: Uint8List(numEc),
-        );
-        blockIdx++;
+      // De-interleave and Error Correct
+      final ecBlocks = version.getECBlocksForLevel(
+        formatInfo.errorCorrectionLevel,
+      );
+      if (ecBlocks == null) {
+        throw const DecodeException('Invalid version/ec-level combination');
       }
-    }
 
-    // De-interleave Data Codewords
-    var rawOffset = 0;
-    var maxDataLength = 0;
-    for (final b in blocks) {
-      if (b.data.length > maxDataLength) maxDataLength = b.data.length;
-    }
+      // Calculate total blocks and data bytes
+      var totalBlocks = 0;
+      for (final ecb in ecBlocks.ecBlocks) {
+        totalBlocks += ecb.count;
+      }
 
-    for (var i = 0; i < maxDataLength; i++) {
-      for (final block in blocks) {
-        if (i < block.data.length) {
-          if (rawOffset < codewords.length) {
-            block.data[i] = codewords[rawOffset++];
+      var totalDataBytes = 0;
+      for (final ecb in ecBlocks.ecBlocks) {
+        totalDataBytes += ecb.count * ecb.dataCodewords;
+      }
+
+      final resultBytes = Uint8List(totalDataBytes);
+
+      // We use a flat buffer for block info to avoid _DataBlock object allocations
+      final blockDataLengths = Int32List(totalBlocks);
+      final blockEcLengths = Int32List(totalBlocks);
+
+      var blockIdx = 0;
+      for (final ecb in ecBlocks.ecBlocks) {
+        for (var i = 0; i < ecb.count; i++) {
+          blockDataLengths[blockIdx] = ecb.dataCodewords;
+          blockEcLengths[blockIdx] = ecBlocks.ecCodewordsPerBlock;
+          blockIdx++;
+        }
+      }
+
+      // De-interleave Data Codewords
+      final blocksData = List<Uint8List>.generate(
+        totalBlocks,
+        (i) => Uint8List(blockDataLengths[i]),
+      );
+      var rawOffset = 0;
+      var maxDataLength = 0;
+      for (final l in blockDataLengths) {
+        if (l > maxDataLength) maxDataLength = l;
+      }
+
+      for (var i = 0; i < maxDataLength; i++) {
+        for (var j = 0; j < totalBlocks; j++) {
+          if (i < blockDataLengths[j]) {
+            if (rawOffset < codewords.length) {
+              blocksData[j][i] = codewords[rawOffset++];
+            }
           }
         }
       }
-    }
 
-    // De-interleave EC Codewords
-    for (var i = 0; i < ecBlocks.ecCodewordsPerBlock; i++) {
-      for (final block in blocks) {
-        if (rawOffset < codewords.length) {
-          block.ec[i] = codewords[rawOffset++];
+      // De-interleave EC Codewords
+      final blocksEc = List<Uint8List>.generate(
+        totalBlocks,
+        (i) => Uint8List(blockEcLengths[i]),
+      );
+      for (var i = 0; i < ecBlocks.ecCodewordsPerBlock; i++) {
+        for (var j = 0; j < totalBlocks; j++) {
+          if (rawOffset < codewords.length) {
+            blocksEc[j][i] = codewords[rawOffset++];
+          }
         }
       }
-    }
 
-    // Correct Errors and collect resulting data bytes
-    var outOffset = 0;
-    for (final block in blocks) {
-      final codewordBytes = Uint8List(block.data.length + block.ec.length);
-      codewordBytes.setRange(0, block.data.length, block.data);
-      codewordBytes.setRange(block.data.length, codewordBytes.length, block.ec);
+      // Correct Errors and collect resulting data bytes
+      var outOffset = 0;
+      // Pre-allocate correction buffer for reuse
+      final codewordBuffer = Uint8List(
+        maxDataLength + ecBlocks.ecCodewordsPerBlock,
+      );
 
-      try {
-        _rsDecoder.decode(received: codewordBytes, twoS: block.ec.length);
-      } catch (e) {
-        throw DecodeException('RS error: $e');
+      for (var j = 0; j < totalBlocks; j++) {
+        final dataLen = blockDataLengths[j];
+        final ecLen = blockEcLengths[j];
+        final totalLen = dataLen + ecLen;
+
+        codewordBuffer.setRange(0, dataLen, blocksData[j]);
+        codewordBuffer.setRange(dataLen, totalLen, blocksEc[j]);
+
+        try {
+          _rsDecoder.decode(received: codewordBuffer, twoS: ecLen);
+        } catch (e) {
+          throw DecodeException('RS error: $e');
+        }
+
+        // Copy back corrected data
+        for (var i = 0; i < dataLen; i++) {
+          resultBytes[outOffset++] = codewordBuffer[i];
+        }
       }
 
-      // Copy back data
-      for (var i = 0; i < block.data.length; i++) {
-        resultBytes[outOffset++] = codewordBytes[i];
-      }
+      return DecodedBitStreamParser.decode(
+        bytes: resultBytes,
+        version: version,
+      );
+    } finally {
+      // Restore original bit matrix (unmasking is XOR, so unmasking again masks it back)
+      dataMask.unmaskBitMatrix(bits, version.dimensionForVersion);
     }
-
-    return DecodedBitStreamParser.decode(bytes: resultBytes, version: version);
   }
-}
-
-class _DataBlock {
-  _DataBlock({required this.total, required this.data, required this.ec});
-  final int total;
-  final Uint8List data;
-  final Uint8List ec;
 }
 
 class BitMatrixParser {
@@ -299,13 +303,11 @@ class BitMatrixParser {
     return Version.getVersionForNumber(provisional);
   }
 
-  Uint8List readCodewords({
-    required BitMatrix unmasked,
-    required Version version,
-  }) {
-    final source = unmasked;
+  static final Uint8List _codewordsBuffer = Uint8List(3706);
+
+  Uint8List readCodewords({required Version version}) {
     final mask = QRCodeDecoder._getFunctionPatternMask(version);
-    final result = Uint8List(3706); // Max for V40 is 3706
+    final result = _codewordsBuffer;
     var resultOffset = 0;
 
     var col = dimension - 1;
@@ -324,7 +326,7 @@ class BitMatrixParser {
           final xx = col - c;
           if (!mask.get(xx, r)) {
             bitsRead++;
-            currentByte = (currentByte << 1) | (source.get(xx, r) ? 1 : 0);
+            currentByte = (currentByte << 1) | (bits.get(xx, r) ? 1 : 0);
             if (bitsRead == 8) {
               result[resultOffset++] = currentByte;
               currentByte = 0;
@@ -336,6 +338,7 @@ class BitMatrixParser {
       upward = !upward;
       col -= 2;
     }
+    // Return a copy only once per QR code
     return result.sublist(0, resultOffset);
   }
 

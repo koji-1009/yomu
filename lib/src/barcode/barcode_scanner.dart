@@ -167,29 +167,18 @@ class BarcodeScanner {
   }
 
   /// Converts a row of booleans to run-length encoded data.
+  ///
+  /// Single-pass implementation: writes runs into a pre-allocated buffer
+  /// and returns a zero-copy view of the populated portion.
   static Uint16List getRunLengths(Uint8List row) {
     if (row.isEmpty) return Uint16List(0);
 
-    // First pass: count runs to allocate exact size
-    var runCount = 0;
+    // Maximum possible runs = row.length (alternating pixels).
+    // In practice, barcode rows have far fewer runs (tens to hundreds).
+    final buffer = Uint16List(row.length);
+    var index = 0;
     var currentPos = 0;
     var currentColor = row[0];
-
-    while (currentPos < row.length) {
-      while (currentPos < row.length && row[currentPos] == currentColor) {
-        currentPos++;
-      }
-      runCount++;
-      if (currentPos < row.length) {
-        currentColor = row[currentPos];
-      }
-    }
-
-    // Second pass: populate Uint16List
-    final runs = Uint16List(runCount);
-    currentPos = 0;
-    currentColor = row[0];
-    var index = 0;
 
     while (currentPos < row.length) {
       var runLength = 0;
@@ -197,13 +186,13 @@ class BarcodeScanner {
         runLength++;
         currentPos++;
       }
-      runs[index++] = runLength;
+      buffer[index++] = runLength;
       if (currentPos < row.length) {
         currentColor = row[currentPos];
       }
     }
 
-    return runs;
+    return Uint16List.sublistView(buffer, 0, index);
   }
 
   /// Locally adaptive binarization for a single row.

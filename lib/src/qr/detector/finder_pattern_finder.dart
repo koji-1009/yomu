@@ -26,9 +26,16 @@ class FinderPatternFinder {
     // Center-first scanning: scan from center outward
     // This finds QR codes faster when they're centered (common case)
     final centerRow = maxI ~/ 2;
-    final rowOrder = _generateCenterFirstRows(centerRow, maxI, iSkip);
+    final rowBuffer = Int32List(maxI);
+    final rowCount = _generateCenterFirstRows(
+      rowBuffer,
+      centerRow,
+      maxI,
+      iSkip,
+    );
 
-    for (final i in rowOrder) {
+    for (var rowIdx = 0; rowIdx < rowCount; rowIdx++) {
+      final i = rowBuffer[rowIdx];
       // Reset state
       stateCount.fillRange(0, 5, 0);
       var currentState = 0;
@@ -105,10 +112,16 @@ class FinderPatternFinder {
     return patternInfo;
   }
 
-  /// Generate row indices from center outward for center-first scanning.
-  /// This is more efficient for QR codes positioned in the center (common case).
-  List<int> _generateCenterFirstRows(int center, int maxRows, int skip) {
-    final rows = <int>[];
+  /// Fills [buffer] with row indices from center outward for center-first scanning.
+  /// Returns the number of rows written.
+  /// Using a pre-allocated Int32List avoids growable list overhead on Web/WASM.
+  int _generateCenterFirstRows(
+    Int32List buffer,
+    int center,
+    int maxRows,
+    int skip,
+  ) {
+    var count = 0;
     var offset = 0;
 
     while (true) {
@@ -116,19 +129,18 @@ class FinderPatternFinder {
       final below = center + offset;
 
       if (above >= 0 && above % skip == (skip - 1) % skip) {
-        // Ensure we hit proper skip alignment
-        rows.add(above);
+        buffer[count++] = above;
       }
       if (offset > 0 && below < maxRows && below % skip == (skip - 1) % skip) {
-        rows.add(below);
+        buffer[count++] = below;
       }
 
       offset++;
       if (above < 0 && below >= maxRows) break;
-      if (rows.length > maxRows) break; // Safety limit
+      if (count > maxRows) break; // Safety limit
     }
 
-    return rows;
+    return count;
   }
 
   void _shiftCounts2(List<int> stateCount) {
@@ -501,17 +513,17 @@ class FinderPatternFinder {
     _possibleCenters.sort((a, b) => b.count.compareTo(a.count));
 
     final results = <FinderPatternInfo>[];
-    final used = List<bool>.filled(count, false);
+    final used = Uint8List(count);
 
     // Try all combinations of 3 patterns
     for (var i = 0; i < count - 2; i++) {
-      if (used[i]) continue;
+      if (used[i] != 0) continue;
 
       for (var j = i + 1; j < count - 1; j++) {
-        if (used[j]) continue;
+        if (used[j] != 0) continue;
 
         for (var k = j + 1; k < count; k++) {
-          if (used[k]) continue;
+          if (used[k] != 0) continue;
 
           final p1 = _possibleCenters[i];
           final p2 = _possibleCenters[j];
@@ -523,16 +535,16 @@ class FinderPatternFinder {
             results.add(info);
 
             // Mark these patterns as used
-            used[i] = true;
-            used[j] = true;
-            used[k] = true;
+            used[i] = 1;
+            used[j] = 1;
+            used[k] = 1;
 
             // Break out of k loop to try next i,j combination
             break;
           }
         }
         // If we found a valid triplet starting with i,j, try next i
-        if (used[i]) break;
+        if (used[i] != 0) break;
       }
     }
 
@@ -554,7 +566,11 @@ class FinderPatternFinder {
     final d13 = _dist(p1, p3);
 
     // Sort distances to find the two shorter sides and the hypotenuse
-    final distances = [d12, d23, d13]..sort();
+    final distances = Float64List(3)
+      ..[0] = d12
+      ..[1] = d23
+      ..[2] = d13;
+    distances.sort();
     final shorter1 = distances[0];
     final shorter2 = distances[1];
     final hypotenuse = distances[2];

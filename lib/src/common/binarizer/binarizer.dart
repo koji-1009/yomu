@@ -21,6 +21,7 @@ class Binarizer {
   BitMatrix getBlackMatrix() {
     final width = source.width;
     final height = source.height;
+    final luminances = source.luminances;
 
     // 2. Adaptive Thresholding Setup
     // Calculate window size based on image dimensions
@@ -34,10 +35,9 @@ class Binarizer {
 
     final halfWindow = windowSize >> 1;
 
-    // Use flat buffers instead of List<Int32List> to reduce allocations
+    // Ring buffer for integral image only (luminance read directly from source)
     final bufferHeight = windowSize + 2;
     final integralBuffer = Int32List(bufferHeight * width);
-    final lumBuffer = Uint8List(bufferHeight * width);
 
     final matrix = BitMatrix(width: width, height: height);
     final bits = matrix.bits;
@@ -54,28 +54,24 @@ class Binarizer {
 
     for (var i = 0; i < processLimit; i++) {
       // 1. Ingest new row (if within image bounds)
-      final writeIdx = i % bufferHeight;
-      final bufferOffset = writeIdx * width;
-
       if (i < height) {
-        // Calculate integral for row 'i'
-        final lumRowOffset = bufferOffset;
-        source.getRow(i, lumBuffer.buffer.asUint8List(lumRowOffset, width));
-
-        final integralRowOffset = bufferOffset;
+        // Calculate integral for row 'i' reading directly from source
+        final writeIdx = i % bufferHeight;
+        final integralRowOffset = writeIdx * width;
+        final srcRowOffset = i * width;
         final prevIntegralRowOffset =
             ((i > 0) ? (i - 1) % bufferHeight : -1) * width;
 
         var sum = 0;
         if (prevIntegralRowOffset >= 0) {
           for (var x = 0; x < width; x++) {
-            sum += lumBuffer[lumRowOffset + x];
+            sum += luminances[srcRowOffset + x];
             integralBuffer[integralRowOffset + x] =
                 integralBuffer[prevIntegralRowOffset + x] + sum;
           }
         } else {
           for (var x = 0; x < width; x++) {
-            sum += lumBuffer[lumRowOffset + x];
+            sum += luminances[srcRowOffset + x];
             integralBuffer[integralRowOffset + x] = sum;
           }
         }
@@ -95,7 +91,8 @@ class Binarizer {
             ? ((y1 - 1) % bufferHeight) * width
             : -1;
 
-        final lumTargetOffset = (targetY % bufferHeight) * width;
+        // Read luminance directly from source (no ring buffer copy)
+        final lumTargetOffset = targetY * width;
         final bitsRowOffset = targetY * rowStride;
 
         final safeStart = halfWindow + 1;
@@ -111,7 +108,7 @@ class Binarizer {
             halfWindow,
             y1,
             y2,
-            lumBuffer,
+            luminances,
             lumTargetOffset,
             rowY1Offset,
             rowY2Offset,
@@ -131,20 +128,30 @@ class Binarizer {
           final area = (2 * halfWindow + 1) * (y2 - yStart + 1);
           final areaShifted = area << 8;
 
-          for (; x < safeEnd; x++) {
-            final val = lumBuffer[lumTargetOffset + x];
-            var sumWindow =
-                integralBuffer[rowY2Offset + x + offBR] -
-                integralBuffer[rowY2Offset + x + offBL];
+          // Split loop to eliminate per-pixel branch on rowY1Offset
+          if (rowY1Offset >= 0) {
+            for (; x < safeEnd; x++) {
+              final val = luminances[lumTargetOffset + x];
+              final sumWindow =
+                  integralBuffer[rowY2Offset + x + offBR] -
+                  integralBuffer[rowY2Offset + x + offBL] -
+                  integralBuffer[rowY1Offset + x + offBR] +
+                  integralBuffer[rowY1Offset + x + offBL];
 
-            if (rowY1Offset >= 0) {
-              sumWindow -=
-                  (integralBuffer[rowY1Offset + x + offBR] -
-                  integralBuffer[rowY1Offset + x + offBL]);
+              if (val * areaShifted <= sumWindow * scaledThreshold) {
+                bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
+              }
             }
+          } else {
+            for (; x < safeEnd; x++) {
+              final val = luminances[lumTargetOffset + x];
+              final sumWindow =
+                  integralBuffer[rowY2Offset + x + offBR] -
+                  integralBuffer[rowY2Offset + x + offBL];
 
-            if (val * areaShifted <= sumWindow * scaledThreshold) {
-              bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
+              if (val * areaShifted <= sumWindow * scaledThreshold) {
+                bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
+              }
             }
           }
         }
@@ -158,7 +165,7 @@ class Binarizer {
             halfWindow,
             y1,
             y2,
-            lumBuffer,
+            luminances,
             lumTargetOffset,
             rowY1Offset,
             rowY2Offset,
@@ -183,7 +190,7 @@ class Binarizer {
     int halfWindow,
     int y1,
     int y2,
-    Uint8List lumBuffer,
+    Uint8List luminances,
     int lumTargetOffset,
     int rowY1Offset,
     int rowY2Offset,
@@ -206,7 +213,7 @@ class Binarizer {
     final sumWindow = br - bl - tr + tl;
     final area = (x2 - x1 + 1) * (y2 - ((y1 < 0) ? 0 : y1) + 1);
 
-    if ((lumBuffer[lumTargetOffset + x] * area) << 8 <=
+    if ((luminances[lumTargetOffset + x] * area) << 8 <=
         sumWindow * scaledThreshold) {
       bits[bitsRowOffset + (x >> 5)] |= (1 << (x & 31));
     }

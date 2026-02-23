@@ -18,11 +18,10 @@ class LuminanceSource {
   ///
   /// If [row] is provided and large enough, it acts as a reusable buffer.
   Uint8List getRow(int y, Uint8List? row) {
+    RangeError.checkValidIndex(y, luminances, 'y', height);
     row ??= Uint8List(width);
     final offset = y * width;
-    for (var x = 0; x < width; x++) {
-      row[x] = luminances[offset + x];
-    }
+    row.setRange(0, width, luminances, offset);
     return row;
   }
 }

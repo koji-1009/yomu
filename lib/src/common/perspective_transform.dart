@@ -166,6 +166,7 @@ class PerspectiveTransform {
     return null;
   }
 
+  /// Computes the inverse of [squareToQuadrilateral] via the adjoint matrix.
   static PerspectiveTransform quadrilateralToSquare({
     required double x0,
     required double y0,
@@ -189,6 +190,7 @@ class PerspectiveTransform {
     ).buildAdjoint();
   }
 
+  /// Returns the adjoint (transpose of cofactor matrix) of this transform.
   PerspectiveTransform buildAdjoint() {
     // Adjoint = Transpose of Cofactor Matrix
     // B_ij = Cofactor(A_ji)
@@ -237,6 +239,7 @@ class PerspectiveTransform {
     );
   }
 
+  /// Returns the matrix product of this transform and [other].
   PerspectiveTransform times(PerspectiveTransform other) {
     // Matrix multiplication
     return PerspectiveTransform(
@@ -254,6 +257,9 @@ class PerspectiveTransform {
     );
   }
 
+  /// Transforms [points] in-place, where each consecutive pair is (x, y).
+  ///
+  /// Uses an optimized fast path when the transform is affine (no perspective).
   void transformPoints(Float64List points) {
     final max = points.length;
     // Optimization: Check for Affine transform (a31=0, a32=0, a33=1)

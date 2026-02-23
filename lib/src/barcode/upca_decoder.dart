@@ -9,7 +9,7 @@ import 'ean13_decoder.dart';
 /// It is essentially EAN-13 with a leading 0, so we can delegate to EAN-13
 /// and strip the leading zero from the result.
 ///
-/// Structure: [Start 3] + [Left 42] + [Center 5] + [Right 42] + [End 3] = 95 modules
+/// Structure: Start(3) + Left(42) + Center(5) + Right(42) + End(3) = 95 modules
 class UPCADecoder extends EAN13Decoder {
   const UPCADecoder();
 

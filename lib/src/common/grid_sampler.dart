@@ -3,9 +3,18 @@ import 'dart:typed_data';
 import 'bit_matrix.dart';
 import 'perspective_transform.dart';
 
+/// Samples a region of a [BitMatrix] through a [PerspectiveTransform].
+///
+/// Maps a grid of points from the destination coordinate space back to the
+/// source image, producing a corrected bit matrix for QR code decoding.
+/// Uses inlined bit access for performance.
 class GridSampler {
   const GridSampler();
 
+  /// Samples a [dimensionX] x [dimensionY] grid from [image] using [transform].
+  ///
+  /// Each destination pixel is mapped back through the perspective transform
+  /// to find the corresponding source pixel.
   BitMatrix sampleGrid(
     BitMatrix image,
     int dimensionX,

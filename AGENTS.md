@@ -72,6 +72,7 @@ The codebase is structured to allow future expansion (e.g., 2D barcodes like Dat
   * `BarcodeScanner`: Main entry point for 1D scanning.
   * `EAN13Decoder`, `EAN8Decoder`, `UPCADecoder`: Retail barcodes.
   * `Code128Decoder`, `Code39Decoder`: Industrial barcodes.
+  * `ITFDecoder`, `CodabarDecoder`: Additional industrial/legacy barcodes.
 
 ### Key Design patterns
 
@@ -83,6 +84,8 @@ The codebase is structured to allow future expansion (e.g., 2D barcodes like Dat
 * **Binarization**: Locally adaptive thresholding using integral images (O(1) window sum).
 * **Fused Downsampling**: Large images (>1MP) are converted/downsampled in a single pass to maintain high frame rates.
 * **Math**: Use precomputed lookup tables for Reed-Solomon.
+* **Word-Oriented Bit Processing**: `DataMask` builds 32-bit mask words and XORs entire `Int32List` entries, avoiding per-bit branching.
+* **In-Place Unmasking**: `unmaskBitMatrix()` XORs the `BitMatrix` data directly, then re-XORs to restore after decoding, avoiding clone allocation.
 
 ## 6. Development Workflow
 

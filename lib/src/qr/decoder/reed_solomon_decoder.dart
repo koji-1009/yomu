@@ -4,6 +4,11 @@ import '../../yomu_exception.dart';
 import 'generic_gf.dart';
 import 'generic_gf_poly.dart';
 
+/// Reed-Solomon error correction decoder over a [GenericGF].
+///
+/// Uses the Euclidean algorithm for error/erasure locator computation
+/// and the Forney algorithm for error magnitude calculation.
+/// Corrects codewords in-place.
 class ReedSolomonDecoder {
   const ReedSolomonDecoder(this.field);
 

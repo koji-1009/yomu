@@ -1,3 +1,4 @@
+/// A QR code finder pattern with its center coordinates and estimated module size.
 class FinderPattern {
   const FinderPattern({
     required this.x,
@@ -30,6 +31,7 @@ class FinderPattern {
   String toString() => '($x, $y) ~ $estimatedModuleSize';
 }
 
+/// Groups the three finder patterns of a QR code by their spatial roles.
 class FinderPatternInfo {
   const FinderPatternInfo({
     required this.bottomLeft,

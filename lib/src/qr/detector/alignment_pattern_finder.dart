@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../common/bit_matrix.dart';
 
 /// Represents an alignment pattern found in a QR code.
@@ -64,6 +66,11 @@ class AlignmentPatternFinder {
 
   final List<AlignmentPattern> _possibleCenters = [];
 
+  /// Reusable state count buffers to avoid repeated allocation of growable lists.
+  /// On Web/WASM, Int32List maps to Int32Array (typed array) instead of JS Array.
+  final Int32List _findStateCount = Int32List(3);
+  final Int32List _crossCheckStateCount = Int32List(3);
+
   /// Finds an alignment pattern near the expected position.
   ///
   /// [startX], [startY] define the top-left of the search area.
@@ -83,7 +90,10 @@ class AlignmentPatternFinder {
           middleI + ((iGen & 1) == 0 ? (iGen + 1) ~/ 2 : -((iGen + 1) ~/ 2));
       if (i < 0 || i >= _image.height) continue;
 
-      final stateCount = [0, 0, 0]; // white-black-white
+      final stateCount = _findStateCount;
+      stateCount[0] = 0;
+      stateCount[1] = 0;
+      stateCount[2] = 0;
       var j = startX;
 
       // Skip leading white modules
@@ -206,20 +216,32 @@ class AlignmentPatternFinder {
     int originalStateCountTotal,
   ) {
     final maxI = _image.height;
-    final stateCount = [0, 0, 0];
+    final bits = _image.bits;
+    final stride = _image.rowStride;
+    final stateCount = _crossCheckStateCount;
+    stateCount[0] = 0;
+    stateCount[1] = 0;
+    stateCount[2] = 0;
+
+    // Precompute column access
+    final xOffset = centerJ >> 5;
+    final xMask = 1 << (centerJ & 0x1f);
 
     // Check upward from center
     var i = startI;
-    while (i >= 0 && _image.get(centerJ, i) && stateCount[1] <= maxCount) {
+    var offset = i * stride + xOffset;
+    while (i >= 0 && (bits[offset] & xMask) != 0 && stateCount[1] <= maxCount) {
       stateCount[1]++;
       i--;
+      offset -= stride;
     }
     if (i < 0 || stateCount[1] > maxCount) {
       return null;
     }
-    while (i >= 0 && !_image.get(centerJ, i) && stateCount[0] <= maxCount) {
+    while (i >= 0 && (bits[offset] & xMask) == 0 && stateCount[0] <= maxCount) {
       stateCount[0]++;
       i--;
+      offset -= stride;
     }
     if (stateCount[0] > maxCount) {
       return null;
@@ -227,16 +249,23 @@ class AlignmentPatternFinder {
 
     // Check downward from center
     i = startI + 1;
-    while (i < maxI && _image.get(centerJ, i) && stateCount[1] <= maxCount) {
+    offset = i * stride + xOffset;
+    while (i < maxI &&
+        (bits[offset] & xMask) != 0 &&
+        stateCount[1] <= maxCount) {
       stateCount[1]++;
       i++;
+      offset += stride;
     }
     if (i == maxI || stateCount[1] > maxCount) {
       return null;
     }
-    while (i < maxI && !_image.get(centerJ, i) && stateCount[2] <= maxCount) {
+    while (i < maxI &&
+        (bits[offset] & xMask) == 0 &&
+        stateCount[2] <= maxCount) {
       stateCount[2]++;
       i++;
+      offset += stride;
     }
     if (stateCount[2] > maxCount) {
       return null;

@@ -16,8 +16,16 @@ class GridSampler {
       throw ArgumentError('Dimensions must be positive');
     }
 
-    final bits = BitMatrix(width: dimensionX, height: dimensionY);
+    final result = BitMatrix(width: dimensionX, height: dimensionY);
+    final resultBits = result.bits;
+    final resultStride = result.rowStride;
     final points = Float64List(2 * dimensionX);
+
+    // Direct access to source bit array
+    final srcBits = image.bits;
+    final srcStride = image.rowStride;
+    final srcWidth = image.width;
+    final srcHeight = image.height;
 
     for (var y = 0; y < dimensionY; y++) {
       final max = points.length;
@@ -29,17 +37,22 @@ class GridSampler {
 
       transform.transformPoints(points);
 
+      final resultRowOffset = y * resultStride;
       for (var x = 0; x < max; x += 2) {
         final px = points[x].toInt();
         final py = points[x + 1].toInt();
 
-        if (px >= 0 && px < image.width && py >= 0 && py < image.height) {
-          if (image.get(px, py)) {
-            bits.set(x >> 1, y);
+        if (px >= 0 && px < srcWidth && py >= 0 && py < srcHeight) {
+          // Inline image.get(px, py)
+          final srcOffset = py * srcStride + (px >> 5);
+          if ((srcBits[srcOffset] & (1 << (px & 0x1f))) != 0) {
+            // Inline bits.set(x >> 1, y)
+            final col = x >> 1;
+            resultBits[resultRowOffset + (col >> 5)] |= (1 << (col & 0x1f));
           }
         }
       }
     }
-    return bits;
+    return result;
   }
 }

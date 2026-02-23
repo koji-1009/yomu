@@ -14,13 +14,16 @@ class QRCodeDecoder {
 
   static const _rsDecoder = ReedSolomonDecoder(GenericGF.qrCodeField256);
 
-  static final Map<int, BitMatrix> _maskCache = {};
+  /// Fixed-size cache for function pattern masks, indexed by version number.
+  /// QR versions range from 1 to 40, so index 0 is unused.
+  static final List<BitMatrix?> _maskCache = List<BitMatrix?>.filled(41, null);
 
   static BitMatrix _getFunctionPatternMask(Version version) {
-    final dimension = version.dimensionForVersion;
-    final cached = _maskCache[dimension];
+    final versionNumber = version.versionNumber;
+    final cached = _maskCache[versionNumber];
     if (cached != null) return cached;
 
+    final dimension = version.dimensionForVersion;
     final mask = BitMatrix(width: dimension);
 
     for (var y = 0; y < dimension; y++) {
@@ -38,7 +41,7 @@ class QRCodeDecoder {
           isFunction = true;
         }
         // Version Info (V7+)
-        else if (version.versionNumber >= 7 &&
+        else if (versionNumber >= 7 &&
             ((x >= dimension - 11 && x <= dimension - 9 && y <= 5) ||
                 (x <= 5 && y >= dimension - 11 && y <= dimension - 9))) {
           isFunction = true;
@@ -70,7 +73,7 @@ class QRCodeDecoder {
       }
     }
 
-    _maskCache[dimension] = mask;
+    _maskCache[versionNumber] = mask;
     return mask;
   }
 
@@ -303,12 +306,19 @@ class BitMatrixParser {
     return Version.getVersionForNumber(provisional);
   }
 
-  static final Uint8List _codewordsBuffer = Uint8List(3706);
-
   Uint8List readCodewords({required Version version}) {
     final mask = QRCodeDecoder._getFunctionPatternMask(version);
-    final result = _codewordsBuffer;
+    // Allocate per-call to avoid shared mutable static state.
+    // Upper bound: dimension^2 / 8 (slightly over actual codewords; short-lived).
+    final dim = version.dimensionForVersion;
+    final result = Uint8List((dim * dim) >> 3);
     var resultOffset = 0;
+
+    // Direct bit array access for both mask and data matrices
+    final maskBits = mask.bits;
+    final maskStride = mask.rowStride;
+    final dataBits = bits.bits;
+    final dataStride = bits.rowStride;
 
     var col = dimension - 1;
     var upward = true;
@@ -321,12 +331,22 @@ class BitMatrixParser {
 
       for (var i = 0; i < dimension; i++) {
         final r = upward ? dimension - 1 - i : i;
+        final maskRowOffset = r * maskStride;
+        final dataRowOffset = r * dataStride;
 
         for (var c = 0; c < 2; c++) {
           final xx = col - c;
-          if (!mask.get(xx, r)) {
+          final wordIdx = xx >> 5;
+          final bitMask = 1 << (xx & 0x1f);
+
+          // Inline mask.get(xx, r)
+          if ((maskBits[maskRowOffset + wordIdx] & bitMask) == 0) {
             bitsRead++;
-            currentByte = (currentByte << 1) | (bits.get(xx, r) ? 1 : 0);
+            // Inline bits.get(xx, r)
+            final bitVal = (dataBits[dataRowOffset + wordIdx] & bitMask) != 0
+                ? 1
+                : 0;
+            currentByte = (currentByte << 1) | bitVal;
             if (bitsRead == 8) {
               result[resultOffset++] = currentByte;
               currentByte = 0;

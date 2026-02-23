@@ -61,10 +61,10 @@ The main entry point class.
 | `Yomu.barcodeOnly`                     | 1D barcodes only               |
 | `Yomu({enableQRCode, barcodeScanner})` | Custom configuration           |
 
-| Method         | Description                                     |
-| -------------- | ----------------------------------------------- |
-| `decode()`     | Decode the first QR code or barcode in an image |
-| `decodeAll()`  | Detect and decode all QR codes in an image      |
+| Method        | Description                                     |
+| ------------- | ----------------------------------------------- |
+| `decode()`    | Decode the first QR code or barcode in an image |
+| `decodeAll()` | Detect and decode all QR codes in an image      |
 
 ### `YomuImage` Class
 

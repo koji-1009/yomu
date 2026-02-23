@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 
-/// Helper to read bits from a byte array.
+/// Reads bits sequentially from a byte array, maintaining a cursor position.
+///
+/// Used by the QR code decoded bit stream parser to extract mode indicators,
+/// character counts, and data segments from the raw codeword bytes.
 class BitSource {
-  // 0 to 7
   BitSource(this._bytes) : _byteOffset = 0, _bitOffset = 0;
   final Uint8List _bytes;
   int _byteOffset;
@@ -11,13 +13,16 @@ class BitSource {
   int get byteOffset => _byteOffset;
   int get bitOffset => _bitOffset;
 
-  // Available bits
+  /// Returns the number of bits still available to read.
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
   int available() {
     return 8 * (_bytes.length - _byteOffset) - _bitOffset;
   }
 
+  /// Reads [numBits] bits from the source, advancing the cursor.
+  ///
+  /// Returns the bits as the least significant bits of the result.
   @pragma('dart2js:prefer-inline')
   @pragma('vm:prefer-inline')
   int readBits(int numBits) {

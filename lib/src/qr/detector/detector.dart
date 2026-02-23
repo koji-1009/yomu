@@ -9,6 +9,8 @@ import 'alignment_pattern_finder.dart';
 import 'finder_pattern.dart';
 import 'finder_pattern_finder.dart';
 
+/// The result of QR code detection: the sampled bit matrix and finder pattern
+/// locations used to produce it.
 class DetectorResult {
   const DetectorResult({required this.bits, required this.points});
 
@@ -16,6 +18,11 @@ class DetectorResult {
   final List<FinderPattern> points;
 }
 
+/// Detects QR code(s) in a binarized image.
+///
+/// Locates finder patterns, estimates module size and dimension,
+/// optionally finds the alignment pattern (V2+), computes the
+/// perspective transform, and samples the grid.
 class Detector {
   const Detector(
     this.image, {
@@ -27,6 +34,7 @@ class Detector {
   final GridSampler gridSampler;
   final int alignmentAreaAllowance;
 
+  /// Detects a single QR code in the image.
   DetectorResult detect() {
     final finder = FinderPatternFinder(image);
     final info = finder.find();

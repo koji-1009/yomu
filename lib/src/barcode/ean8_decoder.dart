@@ -6,7 +6,7 @@ import 'barcode_result.dart';
 /// EAN-8 barcode decoder.
 ///
 /// EAN-8 is an 8-digit barcode format used for small products.
-/// Structure: [Start 3] + [Left 28] + [Center 5] + [Right 28] + [End 3] = 67 modules
+/// Structure: Start(3) + Left(28) + Center(5) + Right(28) + End(3) = 67 modules
 ///
 /// Unlike EAN-13, EAN-8 has:
 /// - 4 digits on each side (no parity encoding)

@@ -1,5 +1,10 @@
 import '../../common/bit_matrix.dart';
 
+/// The eight QR code data mask patterns (ISO 18004 Table 10).
+///
+/// Each pattern defines a condition on module coordinates (i, j) that
+/// determines whether a data module is masked. Uses word-oriented
+/// 32-bit batch processing for efficient unmasking.
 enum DataMask {
   binary000,
   binary001,
@@ -10,6 +15,7 @@ enum DataMask {
   binary110,
   binary111;
 
+  /// Returns true if the module at row [i], column [j] is masked.
   bool isMasked(int i, int j) => switch (this) {
     binary000 => ((i + j) & 0x01) == 0,
     binary001 => (i & 0x01) == 0,
@@ -21,6 +27,10 @@ enum DataMask {
     binary111 => ((((i + j) & 0x01) + ((i * j) % 3)) & 0x01) == 0,
   };
 
+  /// Toggles masked data modules in [bits] in-place using XOR.
+  ///
+  /// Processes 32 columns at a time via [_buildMaskWord] for performance.
+  /// Calling this twice restores the original matrix.
   void unmaskBitMatrix(BitMatrix bits, int dimension) {
     final bitStorage = bits.bits;
     final rowStride = bits.rowStride;

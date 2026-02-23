@@ -6,7 +6,7 @@ import 'barcode_result.dart';
 /// EAN-13 barcode decoder.
 ///
 /// EAN-13 is a 13-digit barcode format used internationally for retail.
-/// Total: 95 modules = [Start 3] + [Left 42] + [Center 5] + [Right 42] + [End 3]
+/// Total: 95 modules = Start(3) + Left(42) + Center(5) + Right(42) + End(3)
 class EAN13Decoder extends BarcodeDecoder {
   const EAN13Decoder();
 

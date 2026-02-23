@@ -1,5 +1,7 @@
 import 'error_correction_level.dart';
 
+/// Holds the error correction level and data mask pattern decoded from
+/// a QR code's format information bits.
 class FormatInformation {
   const FormatInformation(this.errorCorrectionLevel, this.dataMask);
 
@@ -41,6 +43,10 @@ class FormatInformation {
   final ErrorCorrectionLevel errorCorrectionLevel;
   final int dataMask;
 
+  /// Decodes format information from two 15-bit readings.
+  ///
+  /// Tries both raw and XOR-unmasked values, returning the best match
+  /// within Hamming distance 3 of a known format info codeword.
   static FormatInformation? decodeFormatInformation(
     int maskedFormatInfo1,
     int maskedFormatInfo2,

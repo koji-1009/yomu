@@ -9,6 +9,11 @@ import 'format_information.dart';
 import 'generic_gf.dart';
 import 'reed_solomon_decoder.dart';
 
+/// Decodes a QR code from a [BitMatrix] of black/white modules.
+///
+/// Handles format information parsing, version detection, data unmasking,
+/// codeword extraction, Reed-Solomon error correction, and data stream decoding.
+/// Caches function pattern masks per version for efficiency.
 class QRCodeDecoder {
   const QRCodeDecoder();
 
@@ -77,6 +82,10 @@ class QRCodeDecoder {
     return mask;
   }
 
+  /// Decodes a QR code from the given [bits] matrix.
+  ///
+  /// Returns a [DecoderResult] containing the decoded text and raw bytes.
+  /// Throws [DecodeException] if the QR code cannot be decoded.
   DecoderResult decode(BitMatrix bits) {
     try {
       return _decodeBody(bits);
@@ -214,6 +223,12 @@ class QRCodeDecoder {
   }
 }
 
+/// Extracts format information, version, and data codewords from a QR code
+/// [BitMatrix].
+///
+/// Reads the two format information regions and two version information
+/// regions (for V7+), then traverses the matrix in the zigzag pattern
+/// defined by the QR specification to extract raw codewords.
 class BitMatrixParser {
   BitMatrixParser(this.bits) {
     dimension = bits.height;

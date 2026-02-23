@@ -1,5 +1,7 @@
 import 'decoder/error_correction_level.dart';
 
+/// A single error correction block specification: [count] blocks each
+/// containing [dataCodewords] data codewords.
 class ECB {
   const ECB(this.count, this.dataCodewords);
 
@@ -7,6 +9,7 @@ class ECB {
   final int dataCodewords;
 }
 
+/// Groups error correction block specifications for one EC level of a version.
 class ECBlocks {
   const ECBlocks(this.ecCodewordsPerBlock, this.ecBlocks);
 
@@ -14,6 +17,8 @@ class ECBlocks {
   final List<ECB> ecBlocks;
 }
 
+/// A QR code version (1-40), defining symbol size, alignment pattern
+/// positions, and error correction block layout per EC level.
 class Version {
   const Version(
     this.versionNumber,

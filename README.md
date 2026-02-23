@@ -13,8 +13,8 @@ Yomu is a **zero-dependency** pure Dart implementation of a QR code and barcode 
 
 * **📦 Zero Dependencies**: No external package dependencies. Keep your app's dependency graph clean.
 * **🎯 Pure Dart**: No C++/Native code. Works instantly on Web (Wasm/JS), Desktop, and Mobile without build issues.
-* **🚀 High Performance**: Full HD in < 6ms, 4K in < 10ms. **Capable of 60fps+ real-time scanning** on modern devices.
-* **🛡️ Robust & Tested**: 99.9% test coverage. Tested against thousands of distorted, noisy, and unevenly lit images.
+* **🚀 High Performance**: Full HD in ~4.4ms, 4K in ~9ms on M4 MacBook Air (AOT). Fast enough for real-time scanning.
+* **🛡️ Robust & Tested**: Comprehensive test coverage. Tested against hundreds of distorted, noisy, and unevenly lit images.
 
 ## 🚀 Quick Start
 
@@ -60,6 +60,11 @@ The main entry point class.
 | `Yomu.qrOnly`                          | QR codes only                  |
 | `Yomu.barcodeOnly`                     | 1D barcodes only               |
 | `Yomu({enableQRCode, barcodeScanner})` | Custom configuration           |
+
+| Method        | Description                                     |
+| ------------- | ----------------------------------------------- |
+| `decode()`    | Decode the first QR code or barcode in an image |
+| `decodeAll()` | Detect and decode all QR codes in an image      |
 
 ### `YomuImage` Class
 
@@ -117,10 +122,10 @@ uv run scripts/benchmark_runner.py
 
 Images >1MP are automatically processed with a fused conversion step for optimal performance.
 
-| Resolution          | Avg Decode Time | Frame Rate (est.) |
-| ------------------- | --------------- | ----------------- |
-| 4K (3840×2160)      | ~9.0ms          | ~110 fps          |
-| Full HD (1920×1080) | ~4.4ms          | ~227 fps          |
+| Resolution          | Avg Decode Time |
+| ------------------- | --------------- |
+| 4K (3840×2160)      | ~9.0ms          |
+| Full HD (1920×1080) | ~4.4ms          |
 
 ## License
 

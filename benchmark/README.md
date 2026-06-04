@@ -32,6 +32,16 @@ Targeted benchmarks for specific components.
 
 * **Binarizer**: `dart run benchmark/bench_binarizer.dart`
 
+### 3. Detection Rate (`tool_detection_rate.dart`)
+
+Measures the decode success rate across every fixture directory (including
+`fixtures/unsupported_images`). Use this to track detection capability
+alongside performance.
+
+```bash
+dart run benchmark/tool_detection_rate.dart [--verbose]
+```
+
 ## Profiling
 
 To identify performance bottlenecks, use the profiling tool which breaks down execution time by stage (Load, Convert, Binarize, Detect, Decode).

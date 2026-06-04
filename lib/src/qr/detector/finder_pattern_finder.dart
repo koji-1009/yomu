@@ -11,6 +11,10 @@ class FinderPatternFinder {
   final BitMatrix image;
   final List<FinderPattern> _possibleCenters = [];
 
+  /// Candidate centers accumulated during the last scan.
+  /// Exposed for diagnostics and testing.
+  List<FinderPattern> get possibleCenters => _possibleCenters;
+
   final Uint8List _crossCheckStateCount = Uint8List(5);
 
   FinderPatternInfo find() {

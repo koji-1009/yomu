@@ -3,18 +3,20 @@ import 'package:yomu/src/common/bit_matrix.dart';
 import 'package:yomu/src/qr/detector/finder_pattern.dart';
 import 'package:yomu/src/qr/detector/finder_pattern_finder.dart';
 
+import '../finder_pattern_helper.dart';
+
 void main() {
   group('FinderPatternFinder', () {
     test('finds finder patterns in perfect image', () {
       final matrix = BitMatrix(width: 21);
 
       // Top Left (0,0)
-      _drawFinderPattern(matrix, 0, 0);
+      drawFinderPattern(matrix, 0, 0);
       // Top Right (14, 0) -> pattern 7x7. starts at 14. 14+7=21.
-      _drawFinderPattern(matrix, 14, 0);
+      drawFinderPattern(matrix, 14, 0);
       // Bottom Left (0, 14)
 
-      _drawFinderPattern(matrix, 0, 14);
+      drawFinderPattern(matrix, 0, 14);
 
       final finder = FinderPatternFinder(matrix);
       final info = finder.find();
@@ -194,11 +196,11 @@ void main() {
 
         // Place a finder pattern at the right edge
         // x=14 to x=20 (width-1)
-        _drawFinderPattern(matrix, 14, 0);
+        drawFinderPattern(matrix, 14, 0);
 
         // Place other patterns to form a valid QR code
-        _drawFinderPattern(matrix, 0, 0);
-        _drawFinderPattern(matrix, 0, 14);
+        drawFinderPattern(matrix, 0, 0);
+        drawFinderPattern(matrix, 0, 14);
 
         final finder = FinderPatternFinder(matrix);
         // Use findMulti() to exercise the loop that hits line 405
@@ -210,21 +212,4 @@ void main() {
       });
     });
   });
-}
-
-void _drawFinderPattern(BitMatrix matrix, int xStart, int yStart) {
-  // 7x7 box
-  // Black fill
-  for (var y = 0; y < 7; y++) {
-    for (var x = 0; x < 7; x++) {
-      if (y == 0 || y == 6 || x == 0 || x == 6) {
-        matrix.set(xStart + x, yStart + y);
-      } else if (y == 1 || y == 5 || x == 1 || x == 5) {
-        // White
-      } else {
-        // Black 3x3
-        matrix.set(xStart + x, yStart + y);
-      }
-    }
-  }
 }

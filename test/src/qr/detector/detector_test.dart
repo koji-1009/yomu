@@ -2,6 +2,8 @@ import 'package:test/test.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
 import 'package:yomu/src/qr/detector/detector.dart';
 
+import '../finder_pattern_helper.dart';
+
 void main() {
   group('Detector', () {
     test('detects simple synthetic code', () {
@@ -9,9 +11,9 @@ void main() {
       final matrix = BitMatrix(width: 21);
 
       // Draw Patterns (7x7)
-      _drawFinderPattern(matrix, 0, 0);
-      _drawFinderPattern(matrix, 14, 0);
-      _drawFinderPattern(matrix, 0, 14);
+      drawFinderPattern(matrix, 0, 0);
+      drawFinderPattern(matrix, 14, 0);
+      drawFinderPattern(matrix, 0, 14);
 
       // Add a timing pattern?
       // Horizontal (6, 8) to (14, 8) ? No, row 6 (0-indexed).
@@ -59,19 +61,4 @@ void main() {
       expect(Detector.adjustDimension(23), 25);
     });
   });
-}
-
-void _drawFinderPattern(BitMatrix matrix, int xStart, int yStart) {
-  for (var y = 0; y < 7; y++) {
-    for (var x = 0; x < 7; x++) {
-      if (y == 0 || y == 6 || x == 0 || x == 6) {
-        matrix.set(xStart + x, yStart + y);
-      } else if (y == 1 || y == 5 || x == 1 || x == 5) {
-        // White
-      } else {
-        // Black 3x3
-        matrix.set(xStart + x, yStart + y);
-      }
-    }
-  }
 }

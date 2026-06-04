@@ -11,23 +11,35 @@ class ImageProcessor {
   /// Processes a [YomuImage] to produce a grayscale luminance image,
   /// downsampling if necessary to improve performance.
   ///
+  /// Set [allowDownsample] to false to keep the full resolution; used by
+  /// retry strategies when a downsampled pass failed (small codes can drop
+  /// below the detectable module size when downsampled).
+  ///
   /// Returns a record containing the pixel data, width, and height.
-  static (Uint8List, int, int) process(YomuImage image) {
+  static (Uint8List, int, int) process(
+    YomuImage image, {
+    bool allowDownsample = true,
+  }) {
     if (image.format == YomuImageFormat.grayscale) {
       return _processLuminance(
         image.bytes,
         image.width,
         image.height,
         image.rowStride,
+        allowDownsample: allowDownsample,
       );
     } else {
-      return _convertAndMaybeDownsample(image: image);
+      return _convertAndMaybeDownsample(
+        image: image,
+        allowDownsample: allowDownsample,
+      );
     }
   }
 
   /// Converts RGBA/BGRA bytes to grayscale luminance, downsampling if necessary.
   static (Uint8List, int, int) _convertAndMaybeDownsample({
     required YomuImage image,
+    required bool allowDownsample,
   }) {
     final bytes = image.bytes;
     final width = image.width;
@@ -37,8 +49,10 @@ class ImageProcessor {
 
     final totalPixels = width * height;
 
-    if (totalPixels <= _targetPixels && stride == width * 4) {
-      // Small enough and no stride: direct conversion
+    if ((totalPixels <= _targetPixels || !allowDownsample) &&
+        stride == width * 4) {
+      // Small enough (or full resolution requested) and no stride:
+      // direct conversion
       if (isBgra) {
         return (bgraToGrayscale(bytes, width, height), width, height);
       } else {
@@ -48,7 +62,9 @@ class ImageProcessor {
 
     // Compute scale factor
     // We use a slightly more aggressive scaling for very large images
-    final scale = math.sqrt(totalPixels / _targetPixels).round().clamp(1, 8);
+    final scale = allowDownsample
+        ? math.sqrt(totalPixels / _targetPixels).round().clamp(1, 8)
+        : 1;
 
     final dstWidth = width ~/ scale;
     final dstHeight = height ~/ scale;
@@ -86,11 +102,12 @@ class ImageProcessor {
     Uint8List luminance,
     int width,
     int height,
-    int rowStride,
-  ) {
+    int rowStride, {
+    bool allowDownsample = true,
+  }) {
     final totalPixels = width * height;
 
-    if (totalPixels <= _targetPixels) {
+    if (totalPixels <= _targetPixels || !allowDownsample) {
       if (rowStride == width) {
         return (
           luminance,

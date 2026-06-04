@@ -162,7 +162,12 @@ class TolerantFinderPatternFinder {
             if ((currentState & 1) == 0) {
               if (currentState == 4) {
                 if (FinderPatternFinder.foundPatternCross(stateCount)) {
-                  _recordHit(open, i, j + b, stateCount);
+                  _recordHit(
+                    open: open,
+                    row: i,
+                    endX: j + b,
+                    stateCount: stateCount,
+                  );
                 }
                 stateCount[0] = stateCount[2];
                 stateCount[1] = stateCount[3];
@@ -184,7 +189,7 @@ class TolerantFinderPatternFinder {
       // End of row: the pattern may end at the right edge.
       if (currentState == 4 &&
           FinderPatternFinder.foundPatternCross(stateCount)) {
-        _recordHit(open, i, maxJ, stateCount);
+        _recordHit(open: open, row: i, endX: maxJ, stateCount: stateCount);
       }
 
       // Retire clusters that have not been extended recently.
@@ -200,17 +205,17 @@ class TolerantFinderPatternFinder {
     return closed;
   }
 
-  void _recordHit(
-    List<PatternCluster> open,
-    int i,
-    int j,
-    List<int> stateCount,
-  ) {
+  void _recordHit({
+    required List<PatternCluster> open,
+    required int row,
+    required int endX,
+    required List<int> stateCount,
+  }) {
     var total = 0;
     for (var s = 0; s < 5; s++) {
       total += stateCount[s];
     }
-    final centerX = j - stateCount[4] - stateCount[3] - stateCount[2] / 2.0;
+    final centerX = endX - stateCount[4] - stateCount[3] - stateCount[2] / 2.0;
     final moduleSize = total / 7.0;
 
     PatternCluster? best;
@@ -224,9 +229,11 @@ class TolerantFinderPatternFinder {
     }
 
     if (best != null) {
-      best.add(i, centerX, moduleSize);
+      best.add(row, centerX, moduleSize);
     } else {
-      open.add(PatternCluster(firstRow: i, x: centerX, moduleSize: moduleSize));
+      open.add(
+        PatternCluster(firstRow: row, x: centerX, moduleSize: moduleSize),
+      );
     }
   }
 
@@ -249,52 +256,79 @@ class TolerantFinderPatternFinder {
     if (x < 0 || x >= image.width) {
       return null;
     }
-    final h = image.height;
     final y = cluster.centerY.round();
-    if (y < 0 || y >= h || !image.get(x, y)) {
+    if (y < 0 || y >= image.height || !image.get(x, y)) {
       return null;
     }
 
     // Bound ring runs generously: perspective can stretch the vertical
     // module size well beyond the horizontal estimate. The final ratio
     // check validates the result, so the bound only limits walk cost.
+    // The center run is unbounded; it terminates at the ring's inner white.
     final maxRun = (cluster.avgModuleSize * 3).ceil() + 1;
-    final stateCount = List<int>.filled(5, 0);
 
-    // Walk up: center black (2), white (1), black (0). The center run is
-    // unbounded; it terminates at the ring's inner white.
-    var i = y;
-    while (i >= 0 && image.get(x, i)) {
-      stateCount[2]++;
-      i--;
-    }
-    while (i >= 0 && !image.get(x, i) && stateCount[1] < maxRun) {
-      stateCount[1]++;
-      i--;
-    }
-    while (i >= 0 && image.get(x, i) && stateCount[0] < maxRun) {
-      stateCount[0]++;
-      i--;
-    }
+    // Walk up from the center: black (2), white (1), black (0).
+    final up2 = _runLength(x: x, startY: y, step: -1, dark: true);
+    final s1 = _runLength(
+      x: x,
+      startY: y - up2,
+      step: -1,
+      dark: false,
+      limit: maxRun,
+    );
+    final s0 = _runLength(
+      x: x,
+      startY: y - up2 - s1,
+      step: -1,
+      dark: true,
+      limit: maxRun,
+    );
 
-    // Walk down: center black (2), white (3), black (4).
-    i = y + 1;
-    while (i < h && image.get(x, i)) {
-      stateCount[2]++;
-      i++;
-    }
-    while (i < h && !image.get(x, i) && stateCount[3] < maxRun) {
-      stateCount[3]++;
-      i++;
-    }
-    while (i < h && image.get(x, i) && stateCount[4] < maxRun) {
-      stateCount[4]++;
-      i++;
-    }
+    // Walk down: black (2), white (3), black (4).
+    final down2 = _runLength(x: x, startY: y + 1, step: 1, dark: true);
+    final s3 = _runLength(
+      x: x,
+      startY: y + 1 + down2,
+      step: 1,
+      dark: false,
+      limit: maxRun,
+    );
+    final s4 = _runLength(
+      x: x,
+      startY: y + 1 + down2 + s3,
+      step: 1,
+      dark: true,
+      limit: maxRun,
+    );
 
+    final stateCount = [s0, s1, up2 + down2, s3, s4];
     if (!FinderPatternFinder.foundPatternCross(stateCount)) {
       return null;
     }
-    return i - stateCount[4] - stateCount[3] - stateCount[2] / 2.0;
+    final bottom = y + 1 + down2 + s3 + s4;
+    return bottom - s4 - s3 - (up2 + down2) / 2.0;
+  }
+
+  /// Counts consecutive pixels of the given color along the column at [x],
+  /// starting at [startY] and moving by [step], stopping at the image edge
+  /// or after [limit] pixels.
+  int _runLength({
+    required int x,
+    required int startY,
+    required int step,
+    required bool dark,
+    int? limit,
+  }) {
+    final height = image.height;
+    var y = startY;
+    var count = 0;
+    while (y >= 0 &&
+        y < height &&
+        image.get(x, y) == dark &&
+        (limit == null || count < limit)) {
+      count++;
+      y += step;
+    }
+    return count;
   }
 }

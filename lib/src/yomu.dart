@@ -151,17 +151,9 @@ class Yomu {
     // images rarely contain QR finder patterns, so they exit here without
     // paying the retry cost.
     if (!barcodeScanner.isEmpty) {
-      final barcodeResult = _decodeBarcodeFromPixels(
-        pixels,
-        processWidth,
-        processHeight,
-      );
+      final barcodeResult = _scanBarcode(pixels, processWidth, processHeight);
       if (barcodeResult != null) {
-        return DecoderResult(
-          text: barcodeResult.text,
-          byteSegments: const [],
-          ecLevel: null,
-        );
+        return barcodeResult;
       }
     }
 
@@ -200,17 +192,26 @@ class Yomu {
 
     // Try 1D barcodes
     if (!barcodeScanner.isEmpty) {
-      final barcodeResult = _decodeBarcodeFromPixels(pixels, width, height);
+      final barcodeResult = _scanBarcode(pixels, width, height);
       if (barcodeResult != null) {
-        return DecoderResult(
-          text: barcodeResult.text,
-          byteSegments: const [],
-          ecLevel: null,
-        );
+        return barcodeResult;
       }
     }
 
     throw const DetectionException('No QR code or barcode found');
+  }
+
+  /// Scans for a 1D barcode and wraps the result as a [DecoderResult].
+  DecoderResult? _scanBarcode(Uint8List pixels, int width, int height) {
+    final barcodeResult = _decodeBarcodeFromPixels(pixels, width, height);
+    if (barcodeResult == null) {
+      return null;
+    }
+    return DecoderResult(
+      text: barcodeResult.text,
+      byteSegments: const [],
+      ecLevel: null,
+    );
   }
 
   /// Builds the retry decoder configured like this instance.

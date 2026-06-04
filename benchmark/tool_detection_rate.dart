@@ -50,64 +50,58 @@ void main(List<String> args) {
   print('================================================\n');
 
   for (final dirPath in qrDirs) {
-    final files = _getFiles(dirPath);
-    if (files.isEmpty) continue;
-
-    var success = 0;
-    final failures = <String>[];
-
-    for (final file in files) {
-      final image = _loadImage(file);
-      try {
-        qrDecoder.decode(image);
-        success++;
-      } catch (_) {
-        failures.add(file.uri.pathSegments.last);
-      }
-    }
-
-    totalImages += files.length;
-    totalSuccess += success;
-
-    final rate = (success / files.length * 100).toStringAsFixed(1);
-    print('RATE:${dirPath.padRight(40)} | $success/${files.length} ($rate%)');
-    if (verbose && failures.isNotEmpty) {
-      for (final f in failures) {
-        print('  FAIL: $f');
-      }
-    }
-  }
-
-  // Barcode fixtures
-  final barcodeFiles = _getFiles(barcodeDir);
-  if (barcodeFiles.isNotEmpty) {
-    var success = 0;
-    final failures = <String>[];
-    for (final file in barcodeFiles) {
-      final image = _loadImage(file);
-      try {
-        barcodeDecoder.decode(image);
-        success++;
-      } catch (_) {
-        failures.add(file.uri.pathSegments.last);
-      }
-    }
-    totalImages += barcodeFiles.length;
-    totalSuccess += success;
-
-    final rate = (success / barcodeFiles.length * 100).toStringAsFixed(1);
-    print(
-      'RATE:${barcodeDir.padRight(40)} | $success/${barcodeFiles.length} ($rate%)',
+    final (success, total) = _measureDirectory(
+      dirPath: dirPath,
+      decoder: qrDecoder,
+      verbose: verbose,
     );
-    if (verbose && failures.isNotEmpty) {
-      for (final f in failures) {
-        print('  FAIL: $f');
-      }
-    }
+    totalSuccess += success;
+    totalImages += total;
   }
+
+  final (success, total) = _measureDirectory(
+    dirPath: barcodeDir,
+    decoder: barcodeDecoder,
+    verbose: verbose,
+  );
+  totalSuccess += success;
+  totalImages += total;
 
   final totalRate = (totalSuccess / totalImages * 100).toStringAsFixed(1);
   print('\nTOTAL: $totalSuccess/$totalImages ($totalRate%)');
+}
+
+/// Decodes every fixture in [dirPath] with [decoder], prints the directory's
+/// rate line (and failures when [verbose]), and returns (success, total).
+(int, int) _measureDirectory({
+  required String dirPath,
+  required Yomu decoder,
+  required bool verbose,
+}) {
+  final files = _getFiles(dirPath);
+  if (files.isEmpty) {
+    return (0, 0);
+  }
+
+  var success = 0;
+  final failures = <String>[];
+  for (final file in files) {
+    try {
+      decoder.decode(_loadImage(file));
+      success++;
+    } catch (_) {
+      failures.add(file.uri.pathSegments.last);
+    }
+  }
+
+  final rate = (success / files.length * 100).toStringAsFixed(1);
+  print('RATE:${dirPath.padRight(40)} | $success/${files.length} ($rate%)');
+  if (verbose && failures.isNotEmpty) {
+    for (final f in failures) {
+      print('  FAIL: $f');
+    }
+  }
+  return (success, files.length);
 }
 
 List<File> _getFiles(String path) {

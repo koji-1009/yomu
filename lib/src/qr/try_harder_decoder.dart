@@ -114,7 +114,7 @@ class TryHarderDecoder {
     final tl = info.topLeft;
     final tr = info.topRight;
 
-    final distTop = _dist(tl.x, tl.y, tr.x, tr.y);
+    final distTop = _dist(tl, tr);
     if (!distTop.isFinite || distTop <= 0) {
       return null;
     }
@@ -296,9 +296,9 @@ class TryHarderDecoder {
     return null;
   }
 
-  static double _dist(double x1, double y1, double x2, double y2) {
-    final dx = x1 - x2;
-    final dy = y1 - y2;
+  static double _dist(FinderPattern a, FinderPattern b) {
+    final dx = a.x - b.x;
+    final dy = a.y - b.y;
     return sqrt(dx * dx + dy * dy);
   }
 }

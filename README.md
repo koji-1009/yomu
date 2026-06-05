@@ -54,17 +54,27 @@ final result = Yomu.qrOnly.decode(YomuImage.rgba(
 
 The main entry point class.
 
-| Constructor / Static                   | Description                    |
-| -------------------------------------- | ------------------------------ |
-| `Yomu.all`                             | QR codes + all barcode formats |
-| `Yomu.qrOnly`                          | QR codes only                  |
-| `Yomu.barcodeOnly`                     | 1D barcodes only               |
-| `Yomu({enableQRCode, barcodeScanner})` | Custom configuration           |
+| Constructor / Static                   | Description                                       |
+| -------------------------------------- | ------------------------------------------------- |
+| `Yomu.all`                             | QR codes + all barcode formats                    |
+| `Yomu.qrOnly`                          | QR codes only                                     |
+| `Yomu.barcodeOnly`                     | 1D barcodes only                                  |
+| `Yomu.realtime`                        | All formats, `tryHarder` off (per-frame scanning) |
+| `Yomu({enableQRCode, barcodeScanner})` | Custom configuration                              |
 
 | Method        | Description                                     |
 | ------------- | ----------------------------------------------- |
 | `decode()`    | Decode the first QR code or barcode in an image |
 | `decodeAll()` | Detect and decode all QR codes in an image      |
+
+### Detection vs Latency (`tryHarder`)
+
+`decode()` runs escalating retry strategies by default (`tryHarder: true`) when the fast path fails: corner grid search, despeckle, tolerant finder and a full-resolution retry. This significantly improves the detection rate for noisy, dirty, perspective-distorted and small codes, while successful scans pay nothing. `decodeAll()` applies the same strategy to multi-code sheets: detected-but-undecodable codes get the corner rescue, and a pass that finds nothing escalates to despeckle and full resolution.
+
+The retries only cost time on images that fail the fast path (roughly +8ms on a Full HD frame without a code, AOT). Pick by use case:
+
+* **Single images** (photos, uploaded pictures): keep the default. A slower failure is better than a missed code.
+* **Real-time camera streams**: use `Yomu.realtime` (or `tryHarder: false`). Frames without a code fail as fast as possible; a code missed on one frame is caught on a later one.
 
 ### `YomuImage` Class
 
@@ -78,6 +88,27 @@ A platform-agnostic container for image data.
 | `YomuImage.yuv420()`    | Create from Y-plane of YUV420 camera image |
 
 ## 🔧 Support Status
+
+### Supported Image Classes
+
+Yomu targets modern capture sources: **printed codes, on-screen codes, and ordinary camera scans**. Instead of relying on era-specific photo corpora, the test fixtures are generated to bracket the capability boundary of each distortion axis from both sides (see `scripts/generate_stress_qr.py`):
+
+| Distortion axis            | Decodes         | Does not decode   |
+| -------------------------- | --------------- | ----------------- |
+| Salt & pepper noise        | 25%             | 30%               |
+| Low-light (Gaussian) noise | σ=110           | σ=120             |
+| Gray dirt occlusion        | 30%             | 35%               |
+| Gaussian blur              | radius 5.0      | radius 6.0        |
+| Perspective (top squeeze)  | 0.3             | 0.4               |
+| Perspective (side squeeze) | 0.6             | — (saturates)     |
+| JPEG artifacts             | quality 1       | — (no boundary)   |
+| Specular glare             | full saturation | — (EC absorbs it) |
+| Screen moire               | amplitude 0.7   | amplitude 0.8     |
+| Composite casual scan¹     | blur 5.0        | blur 5.5          |
+
+¹ Mild perspective (0.2) + lighting gradient + blur. Each component alone is well inside its single-axis boundary.
+
+Degradations outside these definable classes — arbitrary surface curvature, finder patterns cut out of the frame, damage beyond the error-correction capacity — are out of scope; that long tail is the domain of ML-based detectors.
 
 ### Encoding Modes (QR)
 

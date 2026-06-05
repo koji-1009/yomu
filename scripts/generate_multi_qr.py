@@ -4,6 +4,7 @@
 # dependencies = [
 #     "qrcode",
 #     "pillow",
+#     "numpy",
 # ]
 # ///
 """
@@ -13,6 +14,7 @@ Usage:
     uv run scripts/generate_multi_qr.py
 """
 
+import numpy as np
 import qrcode
 from PIL import Image
 
@@ -84,6 +86,58 @@ def generate_multi_qr_image(
     print(f"Generated {filename} with {len(qr_codes)} QR codes ({layout} layout)")
 
 
+def generate_noisy_multi_qr(filename: str, intensity: float = 0.10):
+    """
+    A vertical 3-code sheet covered in salt & pepper noise: every code on
+    the sheet fails the fast path at once, exercising the despeckle pass
+    of `decodeAll` (tryHarder).
+    """
+    tmp_path = filename + ".tmp.png"
+    generate_multi_qr_image(
+        ["Noise A", "Noise B", "Noise C"],
+        tmp_path,
+        "vertical",
+    )
+    img = Image.open(tmp_path).convert("RGB")
+    import os
+
+    os.remove(tmp_path)
+
+    np.random.seed(45)
+    pixels = np.array(img)
+    noise = np.random.rand(*pixels.shape[:2])
+    pixels[noise < (intensity / 2)] = [255, 255, 255]
+    pixels[noise > (1 - intensity / 2)] = [0, 0, 0]
+    Image.fromarray(pixels).save(filename)
+    print(f"Generated {filename} (3 codes, salt & pepper {intensity:.0%})")
+
+
+def generate_small_multi_qr_4k(filename: str):
+    """
+    Two ~90px codes in a 4K frame: downsampling shrinks both below the
+    detectable module size at once, exercising the full-resolution pass
+    of `decodeAll` (tryHarder).
+    """
+    codes = []
+    for data in ["Small A", "Small B"]:
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(data)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+        codes.append(img.resize((90, 90), Image.Resampling.BOX))
+
+    canvas = Image.new("RGB", (3840, 2160), (255, 255, 255))
+    canvas.paste(codes[0], (400, 400))
+    canvas.paste(codes[1], (2800, 1400))
+    canvas.save(filename)
+    print(f"Generated {filename} (2 small codes in 4K)")
+
+
 def main():
     """Main execution entry point."""
     # Two QR codes horizontally
@@ -106,6 +160,10 @@ def main():
         "fixtures/qr_images/multi_qr_4_grid.png",
         "grid",
     )
+
+    # Degraded sheets exercising the decodeAll retry passes
+    generate_noisy_multi_qr("fixtures/qr_images/multi_qr_3_noise.png")
+    generate_small_multi_qr_4k("fixtures/qr_images/multi_qr_2_small_4k.png")
 
 
 if __name__ == "__main__":

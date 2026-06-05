@@ -42,6 +42,7 @@ class Detector {
     return processFinderPatternInfo(info);
   }
 
+  /// Builds a [DetectorResult] from located finder patterns.
   DetectorResult processFinderPatternInfo(FinderPatternInfo info) {
     final topLeft = info.topLeft;
     final topRight = info.topRight;

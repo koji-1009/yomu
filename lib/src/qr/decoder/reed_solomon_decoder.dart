@@ -38,13 +38,11 @@ class ReedSolomonDecoder {
     final syndrome = GenericGFPoly(field, syndromeCoefficients);
 
     // Find error locator and evaluator polynomials using Euclidean Algorithm
-    final sigmaOmega = _runEuclideanAlgorithm(
+    final (sigma, omega) = _runEuclideanAlgorithm(
       a: field.buildMonomial(twoS, 1),
       b: syndrome,
       R: twoS,
     );
-    final sigma = sigmaOmega[0];
-    final omega = sigmaOmega[1];
 
     // Find error locations (roots of sigma)
     final errorLocations = _findErrorLocations(sigma);
@@ -59,7 +57,8 @@ class ReedSolomonDecoder {
     }
   }
 
-  List<GenericGFPoly> _runEuclideanAlgorithm({
+  /// Returns `(sigma, omega)`: the error locator and error evaluator.
+  (GenericGFPoly, GenericGFPoly) _runEuclideanAlgorithm({
     required GenericGFPoly a,
     required GenericGFPoly b,
     required int R,
@@ -76,8 +75,8 @@ class ReedSolomonDecoder {
     var tLast = field.zero;
     var t = field.one;
 
-    // Run until r degree < R/2
-    while (r.degree >= R / 2) {
+    // Run until r degree < R/2, compared without leaving the integers.
+    while (2 * r.degree >= R) {
       if (r.isZero) {
         throw const ReedSolomonException('r is zero');
       }
@@ -87,9 +86,8 @@ class ReedSolomonDecoder {
       rLast = r;
       tLast = t;
 
-      final divisionResult = rLastLast.divide(rLast);
-      final q = divisionResult[0];
-      r = divisionResult[1]; // Remainder
+      final (q, remainder) = rLastLast.divide(rLast);
+      r = remainder;
 
       // t = tLastLast + q * tLast
       t = q.multiply(tLast).addOrSubtract(tLastLast);
@@ -108,7 +106,7 @@ class ReedSolomonDecoder {
     final sigma = sigmaTilde.multiplyByScalar(inverse);
     final omega = omegaTilde.multiplyByScalar(inverse);
 
-    return [sigma, omega];
+    return (sigma, omega);
   }
 
   Uint8List _findErrorLocations(GenericGFPoly errorLocator) {

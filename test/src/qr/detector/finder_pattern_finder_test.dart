@@ -155,6 +155,71 @@ void main() {
         // max > min * 1.5 -> 20 > 10 * 1.5 (15). True. Should return false.
         expect(FinderPatternFinder.isValidTriplet(p1, p2, p3), isFalse);
       });
+
+      test('does not depend on the order the patterns are passed in', () {
+        // The same three corners, so every permutation has to reach the same
+        // verdict however the distances and module sizes happen to be
+        // ordered on the way in.
+        const corner = FinderPattern(
+          x: 0,
+          y: 0,
+          estimatedModuleSize: 10,
+          count: 1,
+        );
+        const right = FinderPattern(
+          x: 100,
+          y: 0,
+          estimatedModuleSize: 11,
+          count: 1,
+        );
+        const below = FinderPattern(
+          x: 0,
+          y: 100,
+          estimatedModuleSize: 12,
+          count: 1,
+        );
+
+        const permutations = [
+          [corner, right, below],
+          [corner, below, right],
+          [right, corner, below],
+          [right, below, corner],
+          [below, corner, right],
+          [below, right, corner],
+        ];
+
+        for (final permutation in permutations) {
+          expect(
+            FinderPatternFinder.isValidTriplet(
+              permutation[0],
+              permutation[1],
+              permutation[2],
+            ),
+            isTrue,
+            reason: 'permutation $permutation',
+          );
+        }
+      });
+
+      test('rejects a triangle whose longest side is not the hypotenuse', () {
+        // Equilateral: the two shortest sides match, but the longest is
+        // nowhere near sqrt(2) times them.
+        const p1 = FinderPattern(x: 0, y: 0, estimatedModuleSize: 10, count: 1);
+        const p2 = FinderPattern(
+          x: 100,
+          y: 0,
+          estimatedModuleSize: 10,
+          count: 1,
+        );
+        const p3 = FinderPattern(
+          x: 50,
+          y: 86.6,
+          estimatedModuleSize: 10,
+          count: 1,
+        );
+
+        expect(FinderPatternFinder.isValidTriplet(p1, p2, p3), isFalse);
+      });
     });
 
     group('orderPatterns', () {

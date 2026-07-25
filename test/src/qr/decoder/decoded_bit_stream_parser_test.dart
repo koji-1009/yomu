@@ -5,6 +5,27 @@ import 'package:yomu/src/qr/decoder/decoded_bit_stream_parser.dart';
 import 'package:yomu/src/qr/version.dart';
 import 'package:yomu/src/yomu_exception.dart';
 
+/// Builds a bit stream the way an encoder would, most significant bit first.
+class _BitWriter {
+  final List<bool> _bits = [];
+
+  void write(int value, int length) {
+    for (var i = length - 1; i >= 0; i--) {
+      _bits.add((value >> i) & 1 == 1);
+    }
+  }
+
+  Uint8List toBytes() {
+    final bytes = Uint8List((_bits.length + 7) ~/ 8);
+    for (var i = 0; i < _bits.length; i++) {
+      if (_bits[i]) {
+        bytes[i >> 3] |= 1 << (7 - (i & 7));
+      }
+    }
+    return bytes;
+  }
+}
+
 void main() {
   group('DecodedBitStreamParser', () {
     test('decode numeric mode', () {
@@ -141,6 +162,54 @@ void main() {
         version: Version.getVersionForNumber(1),
       );
       expect(result.text, '1');
+    });
+
+    test('pads every numeric group to its digit count', () {
+      // A group carries its value in binary, so "007" and "7" arrive as the
+      // same number and only the group size says how many digits to emit.
+      final version = Version.getVersionForNumber(1);
+
+      for (var value = 0; value < 1000; value++) {
+        final writer = _BitWriter()
+          ..write(1, 4) // numeric mode
+          ..write(3, 10) // three digits
+          ..write(value, 10)
+          ..write(0, 4); // terminator
+
+        final result = DecodedBitStreamParser.decode(
+          bytes: writer.toBytes(),
+          version: version,
+        );
+        expect(result.text, value.toString().padLeft(3, '0'));
+      }
+
+      for (var value = 0; value < 100; value++) {
+        final writer = _BitWriter()
+          ..write(1, 4)
+          ..write(2, 10)
+          ..write(value, 7)
+          ..write(0, 4);
+
+        final result = DecodedBitStreamParser.decode(
+          bytes: writer.toBytes(),
+          version: version,
+        );
+        expect(result.text, value.toString().padLeft(2, '0'));
+      }
+
+      for (var value = 0; value < 10; value++) {
+        final writer = _BitWriter()
+          ..write(1, 4)
+          ..write(1, 10)
+          ..write(value, 4)
+          ..write(0, 4);
+
+        final result = DecodedBitStreamParser.decode(
+          bytes: writer.toBytes(),
+          version: version,
+        );
+        expect(result.text, '$value');
+      }
     });
 
     test('decode byte mode with UTF-8', () {

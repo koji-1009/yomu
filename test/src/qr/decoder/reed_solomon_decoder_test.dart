@@ -40,8 +40,7 @@ void main() {
       final shifted = dataPoly.multiplyByMonomial(ecBytes, 1);
 
       // Remainder = shifted % generator
-      final result = shifted.divide(generator);
-      final remainder = result[1];
+      final (_, remainder) = shifted.divide(generator);
 
       // Result = shifted + remainder (effectively [data] + [ec])
       final resultPoly = shifted.addOrSubtract(remainder);

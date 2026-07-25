@@ -86,12 +86,17 @@ class Version {
   }
 
   /// Counts the number of differing bits between two integers.
+  ///
+  /// Clearing the lowest set bit each round costs one iteration per bit that
+  /// is actually set, where shifting the difference away costs one per bit
+  /// position up to the highest - 18 of them for version information, most
+  /// of which are zero.
   static int _countBitDifference(int a, int b) {
     var diff = a ^ b;
     var count = 0;
     while (diff != 0) {
-      count += diff & 1;
-      diff >>= 1;
+      count++;
+      diff &= diff - 1;
     }
     return count;
   }

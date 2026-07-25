@@ -64,9 +64,11 @@ class GenericGFPoly {
       }
       return result;
     }
+    // Horner's method with log(a) looked up once instead of per coefficient.
+    final logA = field.log(a);
     var result = coefficients[0];
     for (var i = 1; i < coefficients.length; i++) {
-      result = field.multiply(a, result) ^ coefficients[i];
+      result = field.multiplyByLog(logA, result) ^ coefficients[i];
     }
     return result;
   }
@@ -142,7 +144,8 @@ class GenericGFPoly {
     return GenericGFPoly(field, product);
   }
 
-  List<GenericGFPoly> divide(GenericGFPoly other) {
+  /// Divides this polynomial by [other], returning `(quotient, remainder)`.
+  (GenericGFPoly, GenericGFPoly) divide(GenericGFPoly other) {
     if (other.isZero) {
       throw ArgumentError('Divide by 0');
     }
@@ -164,6 +167,6 @@ class GenericGFPoly {
       quotient = quotient.addOrSubtract(iterationQuotient);
       remainder = remainder.addOrSubtract(term);
     }
-    return [quotient, remainder];
+    return (quotient, remainder);
   }
 }

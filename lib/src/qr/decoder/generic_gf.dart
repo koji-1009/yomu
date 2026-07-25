@@ -555,6 +555,18 @@ class GenericGF {
     return _expTable[sum >= 255 ? sum - 255 : sum];
   }
 
+  /// `exp(logA) * b` in GF(256), for a caller that already knows `log(a)`.
+  ///
+  /// Multiplying a whole polynomial by one element - evaluating it, scaling
+  /// it - would otherwise look `log(a)` up once per coefficient.
+  @pragma('dart2js:prefer-inline')
+  @pragma('vm:prefer-inline')
+  int multiplyByLog(int logA, int b) {
+    if (b == 0) return 0;
+    final sum = logA + _logTable[b];
+    return _expTable[sum >= 255 ? sum - 255 : sum];
+  }
+
   /// Helper to build a monomial polynomial.
   GenericGFPoly buildMonomial(int degree, int coefficient) {
     if (coefficient == 0) return zero;
@@ -564,8 +576,22 @@ class GenericGF {
   }
 
   /// Zero polynomial.
-  GenericGFPoly get zero => GenericGFPoly(this, Uint8List.fromList(const [0]));
+  ///
+  /// Shared rather than built per access: the Euclidean algorithm asks for
+  /// it on every iteration, and no operation mutates a polynomial's
+  /// coefficients - they all return new ones.
+  GenericGFPoly get zero => _zero;
 
   /// One polynomial.
-  GenericGFPoly get one => GenericGFPoly(this, Uint8List.fromList(const [1]));
+  GenericGFPoly get one => _one;
+
+  static final GenericGFPoly _zero = GenericGFPoly(
+    qrCodeField256,
+    Uint8List.fromList(const [0]),
+  );
+
+  static final GenericGFPoly _one = GenericGFPoly(
+    qrCodeField256,
+    Uint8List.fromList(const [1]),
+  );
 }

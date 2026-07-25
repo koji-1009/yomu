@@ -257,7 +257,9 @@ class Detector {
   }
 
   double _dist(FinderPattern a, FinderPattern b) {
-    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+    final dx = a.x - b.x;
+    final dy = a.y - b.y;
+    return sqrt(dx * dx + dy * dy);
   }
 
   /// Detects multiple QR codes in the image.

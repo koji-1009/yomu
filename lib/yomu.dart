@@ -53,6 +53,8 @@ export 'src/barcode/ean13_decoder.dart' show EAN13Decoder;
 export 'src/barcode/ean8_decoder.dart' show EAN8Decoder;
 export 'src/barcode/itf_decoder.dart' show ITFDecoder;
 export 'src/barcode/upca_decoder.dart' show UPCADecoder;
+// Decoding effort
+export 'src/decode_effort.dart' show DecodeEffort;
 // Image Utilities
 export 'src/image_data.dart' show YomuImage, YomuImageFormat;
 // QR Code

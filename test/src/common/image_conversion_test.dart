@@ -49,6 +49,65 @@ void main() {
           );
         },
       );
+
+      test('matches the byte path when the view is not word-aligned', () {
+        const pixels = [
+          255, 0, 0, 255, // Red
+          0, 255, 0, 255, // Green
+          0, 0, 255, 255, // Blue
+          255, 255, 255, 255, // White
+        ];
+        final aligned = Uint8List.fromList(pixels);
+
+        // A view starting one byte into its buffer cannot be read as 32-bit
+        // words, so conversion must fall back to per-byte access.
+        final backing = Uint8List(pixels.length + 1)
+          ..setRange(1, pixels.length + 1, pixels);
+        final unaligned = Uint8List.sublistView(backing, 1);
+        expect(unaligned.offsetInBytes.isOdd, isTrue);
+
+        expect(
+          rgbaToGrayscale(unaligned, 4, 1),
+          rgbaToGrayscale(aligned, 4, 1),
+        );
+      });
+    });
+
+    group('bgraToGrayscale', () {
+      test('converts basic colors correctly', () {
+        // Same colors as the RGBA test, with the byte order swapped.
+        final bytes = Uint8List.fromList([
+          0, 0, 255, 255, // Red
+          0, 255, 0, 255, // Green
+          255, 0, 0, 255, // Blue
+          255, 255, 255, 255, // White
+        ]);
+
+        final luminance = bgraToGrayscale(bytes, 4, 1);
+        expect(luminance, hasLength(4));
+        expect(luminance[0], closeTo(76, 1));
+        expect(luminance[1], closeTo(150, 1));
+        expect(luminance[2], closeTo(29, 1));
+        expect(luminance[3], 255);
+      });
+
+      test('matches the byte path when the view is not word-aligned', () {
+        const pixels = [
+          0, 0, 255, 255, // Red
+          0, 255, 0, 255, // Green
+          255, 0, 0, 255, // Blue
+          255, 255, 255, 255, // White
+        ];
+        final aligned = Uint8List.fromList(pixels);
+        final backing = Uint8List(pixels.length + 1)
+          ..setRange(1, pixels.length + 1, pixels);
+        final unaligned = Uint8List.sublistView(backing, 1);
+
+        expect(
+          bgraToGrayscale(unaligned, 4, 1),
+          bgraToGrayscale(aligned, 4, 1),
+        );
+      });
     });
 
     group('int32ToGrayscale', () {

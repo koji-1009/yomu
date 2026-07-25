@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'error_correction_level.dart';
 
 /// Holds the error correction level and data mask pattern decoded from
@@ -5,40 +7,17 @@ import 'error_correction_level.dart';
 class FormatInformation {
   const FormatInformation(this.errorCorrectionLevel, this.dataMask);
 
-  static const List<List<int>> _decodeLookup = [
-    [0x5412, 0x00],
-    [0x5125, 0x01],
-    [0x5E7C, 0x02],
-    [0x5B4B, 0x03],
-    [0x45F9, 0x04],
-    [0x40CE, 0x05],
-    [0x4F97, 0x06],
-    [0x4AA0, 0x07],
-    [0x77C4, 0x08],
-    [0x72F3, 0x09],
-    [0x7DAA, 0x0A],
-    [0x789D, 0x0B],
-    [0x662F, 0x0C],
-    [0x6318, 0x0D],
-    [0x6C41, 0x0E],
-    [0x6976, 0x0F],
-    [0x1689, 0x10],
-    [0x13BE, 0x11],
-    [0x1CE7, 0x12],
-    [0x19D0, 0x13],
-    [0x0762, 0x14],
-    [0x0255, 0x15],
-    [0x0D0C, 0x16],
-    [0x083B, 0x17],
-    [0x355F, 0x18],
-    [0x3068, 0x19],
-    [0x3F31, 0x1A],
-    [0x3A06, 0x1B],
-    [0x24B4, 0x1C],
-    [0x2183, 0x1D],
-    [0x2EDA, 0x1E],
-    [0x2BED, 0x1F],
+  /// The 15-bit codeword for each of the 32 format information values, so
+  /// that `_decodeLookup[v]` is the encoding of value `v`.
+  static const List<int> _decodeLookup = [
+    0x5412, 0x5125, 0x5E7C, 0x5B4B, 0x45F9, 0x40CE, 0x4F97, 0x4AA0, //
+    0x77C4, 0x72F3, 0x7DAA, 0x789D, 0x662F, 0x6318, 0x6C41, 0x6976,
+    0x1689, 0x13BE, 0x1CE7, 0x19D0, 0x0762, 0x0255, 0x0D0C, 0x083B,
+    0x355F, 0x3068, 0x3F31, 0x3A06, 0x24B4, 0x2183, 0x2EDA, 0x2BED,
   ];
+
+  /// Largest value the codewords occupy, and the size of [_lut].
+  static const int _maxFormatInfo = 0x7FFF;
 
   final ErrorCorrectionLevel errorCorrectionLevel;
   final int dataMask;
@@ -69,21 +48,15 @@ class FormatInformation {
     int maskedFormatInfo1,
     int maskedFormatInfo2,
   ) {
-    // Find best match in table
-    var bestDifference = 32; // Infinity
-    var bestFormatInfo = 0;
+    final (value1, difference1) = _nearestCodeword(maskedFormatInfo1);
+    final (value2, difference2) = _nearestCodeword(maskedFormatInfo2);
 
-    // Try both readings
-    for (final maskedFormatInfo in [maskedFormatInfo1, maskedFormatInfo2]) {
-      for (final entry in _decodeLookup) {
-        final targetInfo = entry[0];
-        final bitsDifference = _numBitsDiffering(maskedFormatInfo, targetInfo);
-        if (bitsDifference < bestDifference) {
-          bestFormatInfo = entry[1];
-          bestDifference = bitsDifference;
-        }
-      }
-    }
+    // The first reading wins ties, matching the order the two were
+    // searched in before.
+    final bestDifference = difference1 <= difference2
+        ? difference1
+        : difference2;
+    final bestFormatInfo = difference1 <= difference2 ? value1 : value2;
 
     // Hamming distance check
     if (bestDifference <= 3) {
@@ -93,6 +66,66 @@ class FormatInformation {
       );
     }
     return null;
+  }
+
+  /// Returns the format information value nearest to [maskedFormatInfo] and
+  /// its Hamming distance, or a distance of 32 when nothing lies within the
+  /// three bits the code can correct.
+  static (int, int) _nearestCodeword(int maskedFormatInfo) {
+    if (maskedFormatInfo >= 0 && maskedFormatInfo <= _maxFormatInfo) {
+      final entry = (_lut ??= _buildLut())[maskedFormatInfo];
+      return entry < 0 ? (0, 32) : (entry & 0x1F, entry >> 5);
+    }
+
+    // Wider than a format information reading can be, so the table does not
+    // cover it; fall back to the search it replaced rather than truncating
+    // the input and reporting a match that isn't one.
+    var bestValue = 0;
+    var bestDifference = 32;
+    for (var value = 0; value < _decodeLookup.length; value++) {
+      final difference = _numBitsDiffering(
+        maskedFormatInfo,
+        _decodeLookup[value],
+      );
+      if (difference < bestDifference) {
+        bestValue = value;
+        bestDifference = difference;
+      }
+    }
+    return (bestValue, bestDifference);
+  }
+
+  /// Every 15-bit reading mapped to `value | (distance << 5)`, or -1 when no
+  /// codeword lies within the three bits BCH(15,5) can correct.
+  ///
+  /// Built lazily on first use, once per isolate. Reading the answer costs a
+  /// single load, where the search it replaces cost up to 32 rounds of
+  /// [_numBitsDiffering] - and the retry ladder pays that per rejected
+  /// bottom-right corner candidate, not once per decode.
+  static Int8List? _lut;
+
+  static Int8List _buildLut() {
+    // The code has minimum distance 7, so the radius-3 balls around the
+    // codewords are disjoint: every entry below is written exactly once and
+    // no distance comparison is needed while filling them.
+    final lut = Int8List(_maxFormatInfo + 1)
+      ..fillRange(0, _maxFormatInfo + 1, -1);
+    for (var value = 0; value < _decodeLookup.length; value++) {
+      final codeword = _decodeLookup[value];
+      lut[codeword] = value;
+      for (var b1 = 0; b1 < 15; b1++) {
+        final one = codeword ^ (1 << b1);
+        lut[one] = value | (1 << 5);
+        for (var b2 = b1 + 1; b2 < 15; b2++) {
+          final two = one ^ (1 << b2);
+          lut[two] = value | (2 << 5);
+          for (var b3 = b2 + 1; b3 < 15; b3++) {
+            lut[two ^ (1 << b3)] = value | (3 << 5);
+          }
+        }
+      }
+    }
+    return lut;
   }
 
   static int _numBitsDiffering(int a, int b) {

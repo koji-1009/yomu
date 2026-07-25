@@ -23,6 +23,10 @@
 * Binarization was ~65% of decode time and now costs roughly one sequential pass over the image (1.3x a bare read loop, against 4.2x before). On the fixture corpus (AOT): standard QR -30%, high-version QR -44%, uneven lighting -40%, Full HD / 4K -39%, barcodes -22%. Per image: 4K 3.51ms -> 2.12ms, Full HD 1.99ms -> 1.24ms, version 7 2.70ms -> 1.57ms.
 * **Table-driven data masks**: six of the eight mask patterns built their 32-bit words a bit at a time, two integer modulos per module, and unmasking runs twice per decode attempt since the second XOR is what restores the matrix. Every mask condition is periodic - 12 rows by 3 word alignments covers all of them - so those words are constants now, 1.1 KiB in total. Generating the mask words for a version 40 symbol: 23.5us -> 1.8us. On the fixture corpus (AOT): images holding no code -6.5%, distorted -4.1%, whole corpus -4.4%.
 
+### Fixes
+
+* **Finder pattern run lengths no longer wrap at 255**: the run lengths behind the 1:1:3:1:1 test were counted in a byte, but a run is bounded by the image - the white margin around a code on a megapixel frame passes 255 pixels easily. A real finder pattern was never at risk (that would need a module wider than 255 pixels, which downsampling rules out), but a run that is nothing like one could read as one: `black(10) gap(266) black(30) white(10) black(10)` is a textbook 1:1:3:1:1 once the gap is taken modulo 256. Such a candidate still had to survive decoding, so this cost work on noisy input rather than producing wrong results.
+
 ### Test fixtures
 
 * `gaussian_noise_120`, `moire_0.8` and `composite_scan_blur_5.5` moved from `fixtures/unsupported_images` to `fixtures/distorted_images`, and the stress generator gained the next rung on each axis so the boundary is pinned from above again (moire 0.9, composite scan blur 6.0, low-light noise sigma 170).

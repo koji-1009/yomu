@@ -15,7 +15,9 @@ class FinderPatternFinder {
   /// Exposed for diagnostics and testing.
   List<FinderPattern> get possibleCenters => _possibleCenters;
 
-  final Uint8List _crossCheckStateCount = Uint8List(5);
+  /// Run lengths in pixels, not bytes: a run can be as long as the image is
+  /// wide or tall. See [_stateCounts].
+  final Int32List _crossCheckStateCount = Int32List(5);
 
   FinderPatternInfo find() {
     final maxI = image.height;
@@ -25,7 +27,7 @@ class FinderPatternFinder {
 
     // Skip rows for speed (iSkip=3 is a good balance)
     const iSkip = 3;
-    final stateCount = Uint8List(5);
+    final stateCount = _stateCounts();
 
     // Center-first scanning: scan from center outward
     // This finds QR codes faster when they're centered (common case)
@@ -146,6 +148,16 @@ class FinderPatternFinder {
 
     return count;
   }
+
+  /// The five run lengths of a 1:1:3:1:1 candidate, in pixels.
+  ///
+  /// A single run is bounded by the image, not by 255: the scan adds a whole
+  /// 32-pixel word at a time while crossing a uniform area, so the white
+  /// margin around a code on a megapixel frame overflows a byte easily. A
+  /// wrapped count cannot corrupt a real finder pattern - that would need a
+  /// module wider than 255 pixels - but it does let a run that is nothing
+  /// like a finder pattern read as one.
+  static Int32List _stateCounts() => Int32List(5);
 
   void _shiftCounts2(List<int> stateCount) {
     stateCount[0] = stateCount[2];
@@ -430,7 +442,7 @@ class FinderPatternFinder {
 
     const iSkip = 3;
 
-    final stateCount = Uint8List(5);
+    final stateCount = _stateCounts();
 
     for (var i = iSkip - 1; i < maxI; i += iSkip) {
       stateCount.fillRange(0, 5, 0);

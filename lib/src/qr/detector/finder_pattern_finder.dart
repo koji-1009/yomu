@@ -411,7 +411,9 @@ class FinderPatternFinder {
   }
 
   static double _dist(FinderPattern a, FinderPattern b) {
-    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+    final dx = a.x - b.x;
+    final dy = a.y - b.y;
+    return sqrt(dx * dx + dy * dy);
   }
 
   /// Finds multiple QR codes in the image.
@@ -569,15 +571,27 @@ class FinderPatternFinder {
     final d23 = _dist(p2, p3);
     final d13 = _dist(p1, p3);
 
-    // Sort distances to find the two shorter sides and the hypotenuse
-    final distances = Float64List(3)
-      ..[0] = d12
-      ..[1] = d23
-      ..[2] = d13;
-    distances.sort();
-    final shorter1 = distances[0];
-    final shorter2 = distances[1];
-    final hypotenuse = distances[2];
+    // Sort the three distances in place. A sorting network beats allocating
+    // a list to call sort() on, and this runs inside the triplet loop of
+    // findMulti, which is cubic in the number of candidates.
+    var shorter1 = d12;
+    var shorter2 = d23;
+    var hypotenuse = d13;
+    if (shorter1 > shorter2) {
+      final swap = shorter1;
+      shorter1 = shorter2;
+      shorter2 = swap;
+    }
+    if (shorter2 > hypotenuse) {
+      final swap = shorter2;
+      shorter2 = hypotenuse;
+      hypotenuse = swap;
+    }
+    if (shorter1 > shorter2) {
+      final swap = shorter1;
+      shorter1 = shorter2;
+      shorter2 = swap;
+    }
 
     // The two shorter sides should be approximately equal (within 20%)
     if ((shorter1 - shorter2).abs() > shorter1 * 0.2) {
@@ -591,13 +605,17 @@ class FinderPatternFinder {
     }
 
     // Check that module sizes are similar (within 50%)
-    final sizes = [
-      p1.estimatedModuleSize,
-      p2.estimatedModuleSize,
-      p3.estimatedModuleSize,
-    ];
-    final maxSize = sizes.reduce(max);
-    final minSize = sizes.reduce(min);
+    final size1 = p1.estimatedModuleSize;
+    final size2 = p2.estimatedModuleSize;
+    final size3 = p3.estimatedModuleSize;
+
+    var maxSize = size1;
+    if (size2 > maxSize) maxSize = size2;
+    if (size3 > maxSize) maxSize = size3;
+
+    var minSize = size1;
+    if (size2 < minSize) minSize = size2;
+    if (size3 < minSize) minSize = size3;
 
     if (maxSize > minSize * 1.5) {
       return false;

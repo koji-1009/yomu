@@ -118,7 +118,9 @@ abstract class DecodedBitStreamParser {
       }
       final bits = source.readBits(10);
       if (bits >= 1000) throw DecodeException('Illegal numeric value: $bits');
-      sb.write(_formatNumeric(value: bits, digits: 3));
+      sb.writeCharCode(_zero + bits ~/ 100);
+      sb.writeCharCode(_zero + (bits ~/ 10) % 10);
+      sb.writeCharCode(_zero + bits % 10);
       count -= 3;
     }
     if (count == 2) {
@@ -127,7 +129,8 @@ abstract class DecodedBitStreamParser {
       }
       final bits = source.readBits(7);
       if (bits >= 100) throw DecodeException('Illegal numeric value: $bits');
-      sb.write(_formatNumeric(value: bits, digits: 2));
+      sb.writeCharCode(_zero + bits ~/ 10);
+      sb.writeCharCode(_zero + bits % 10);
       count = 0;
     } else if (count == 1) {
       if (source.available() < 4) {
@@ -135,16 +138,15 @@ abstract class DecodedBitStreamParser {
       }
       final bits = source.readBits(4);
       if (bits >= 10) throw DecodeException('Illegal numeric value: $bits');
-      sb.write(_formatNumeric(value: bits, digits: 1));
+      sb.writeCharCode(_zero + bits);
       count = 0;
     }
   }
 
-  static String _formatNumeric({required int value, required int digits}) {
-    final s = value.toString();
-    if (s.length >= digits) return s;
-    return s.padLeft(digits, '0');
-  }
+  /// Code unit of '0', so that a digit can be written without building the
+  /// string that would hold it. Numeric mode is three digits per group and a
+  /// long numeric symbol is thousands of them.
+  static const int _zero = 0x30;
 
   static void _decodeAlphanumericSegment({
     required BitSource source,
@@ -214,7 +216,8 @@ abstract class DecodedBitStreamParser {
       throw const DecodeException('Not enough bits for Kanji mode');
     }
 
-    final shiftJisBytes = <int>[];
+    // Two bytes per character, and count is already known.
+    final shiftJisBytes = Uint8List(count * 2);
 
     for (var i = 0; i < count; i++) {
       final twoBytes = source.readBits(13);
@@ -233,8 +236,8 @@ abstract class DecodedBitStreamParser {
       }
 
       // Extract the two Shift JIS bytes
-      shiftJisBytes.add((assembledValue >> 8) & 0xFF);
-      shiftJisBytes.add(assembledValue & 0xFF);
+      shiftJisBytes[i * 2] = (assembledValue >> 8) & 0xFF;
+      shiftJisBytes[i * 2 + 1] = assembledValue & 0xFF;
     }
 
     // Convert Shift JIS to Unicode

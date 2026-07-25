@@ -108,5 +108,53 @@ void main() {
       expect(Version.decodeVersionInformation(0x07C93)?.versionNumber, 7);
       expect(Version.decodeVersionInformation(0x07C9B), isNull);
     });
+
+    test('decodeVersionInformation corrects up to three flipped bits', () {
+      // Every version 7-40 codeword, with each combination of up to three
+      // bit errors, has to come back as that same version: the count of
+      // differing bits is what decides, so an undercount would accept a
+      // reading it should not and an overcount would reject a correctable
+      // one.
+      for (var versionNumber = 7; versionNumber <= 40; versionNumber++) {
+        final codeword = _versionCodewords[versionNumber - 7];
+
+        expect(
+          Version.decodeVersionInformation(codeword)?.versionNumber,
+          versionNumber,
+          reason: 'clean reading of version $versionNumber',
+        );
+
+        for (var b1 = 0; b1 < 18; b1++) {
+          expect(
+            Version.decodeVersionInformation(
+              codeword ^ (1 << b1),
+            )?.versionNumber,
+            versionNumber,
+            reason: 'version $versionNumber with bit $b1 flipped',
+          );
+
+          for (var b2 = b1 + 1; b2 < 18; b2++) {
+            for (var b3 = b2 + 1; b3 < 18; b3++) {
+              final corrupted = codeword ^ (1 << b1) ^ (1 << b2) ^ (1 << b3);
+              expect(
+                Version.decodeVersionInformation(corrupted)?.versionNumber,
+                versionNumber,
+                reason:
+                    'version $versionNumber with bits $b1, $b2, $b3 flipped',
+              );
+            }
+          }
+        }
+      }
+    });
   });
 }
+
+/// The 18-bit version information codewords for versions 7 to 40.
+const _versionCodewords = [
+  0x07C94, 0x085BC, 0x09A99, 0x0A4D3, 0x0BBF6, 0x0C762, 0x0D847, 0x0E60D, //
+  0x0F928, 0x10B78, 0x1145D, 0x12A17, 0x13532, 0x149A6, 0x15683, 0x168C9,
+  0x177EC, 0x18EC4, 0x191E1, 0x1AFAB, 0x1B08E, 0x1CC1A, 0x1D33F, 0x1ED75,
+  0x1F250, 0x209D5, 0x216F0, 0x228BA, 0x2379F, 0x24B0B, 0x2542E, 0x26A64,
+  0x27541, 0x28C69,
+];

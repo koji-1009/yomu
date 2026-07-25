@@ -10,27 +10,34 @@ import 'package:yomu/yomu.dart';
 /// Use this to track detection capability (検出力) regressions/improvements.
 ///
 /// Usage:
-///   dart run benchmark/tool_detection_rate.dart [--verbose] [--fast-only]
+///   dart run benchmark/tool_detection_rate.dart [--verbose] [--effort=LEVEL]
+///   dart run benchmark/tool_detection_rate.dart --matrix
 ///
-/// `--fast-only` disables the try-harder retries (tryHarder: false),
-/// which measures the fast-path-only baseline on the same corpus.
+/// `--effort` selects the retry level (fast, balanced or thorough; default
+/// thorough), which is how the detection side of the effort trade-off is
+/// measured on a fixed corpus.
+///
+/// `--matrix` runs every level and emits a markdown table. CI posts this on
+/// each pull request so that a change trading detection for speed - or the
+/// reverse - shows up in review instead of silently rotting the numbers
+/// documented on `DecodeEffort`.
 void main(List<String> args) {
+  if (args.contains('--matrix')) {
+    _printMatrix();
+    return;
+  }
   final verbose = args.contains('--verbose');
-  final fastOnly = args.contains('--fast-only');
-  final qrDecoder = fastOnly
-      ? const Yomu(
-          enableQRCode: true,
-          barcodeScanner: BarcodeScanner.none,
-          tryHarder: false,
-        )
-      : Yomu.qrOnly;
-  final barcodeDecoder = fastOnly
-      ? const Yomu(
-          enableQRCode: false,
-          barcodeScanner: BarcodeScanner.all,
-          tryHarder: false,
-        )
-      : Yomu.barcodeOnly;
+  final effort = _effortArg(args);
+  final qrDecoder = Yomu(
+    enableQRCode: true,
+    barcodeScanner: BarcodeScanner.none,
+    effort: effort,
+  );
+  final barcodeDecoder = Yomu(
+    enableQRCode: false,
+    barcodeScanner: BarcodeScanner.all,
+    effort: effort,
+  );
 
   final qrDirs = [
     'fixtures/qr_images',
@@ -46,7 +53,7 @@ void main(List<String> args) {
   var totalSuccess = 0;
 
   print('================================================');
-  print('🎯 YOMU DETECTION RATE');
+  print('🎯 YOMU DETECTION RATE (effort: ${effort.name})');
   print('================================================\n');
 
   for (final dirPath in qrDirs) {
@@ -102,6 +109,61 @@ void main(List<String> args) {
     }
   }
   return (success, files.length);
+}
+
+/// Emits a markdown detection table across every [DecodeEffort] level.
+void _printMatrix() {
+  const qrDirs = [
+    'fixtures/qr_images',
+    'fixtures/qr_complex_images',
+    'fixtures/distorted_images',
+    'fixtures/uneven_lighting',
+    'fixtures/performance_test_images',
+    'fixtures/unsupported_images',
+  ];
+  const barcodeDir = 'fixtures/barcode_images';
+
+  print('### Detection rate by effort');
+  print('');
+  print('| effort | detected | rate |');
+  print('| --- | --- | --- |');
+
+  for (final effort in DecodeEffort.values) {
+    var success = 0;
+    var total = 0;
+    for (final dir in [...qrDirs, barcodeDir]) {
+      final isBarcode = dir == barcodeDir;
+      final decoder = Yomu(
+        enableQRCode: !isBarcode,
+        barcodeScanner: isBarcode ? BarcodeScanner.all : BarcodeScanner.none,
+        effort: effort,
+      );
+      for (final file in _getFiles(dir)) {
+        total++;
+        try {
+          decoder.decode(_loadImage(file));
+          success++;
+        } catch (_) {
+          // Counted as a miss.
+        }
+      }
+    }
+    final rate = (success / total * 100).toStringAsFixed(1);
+    print('| `${effort.name}` | $success/$total | $rate% |');
+  }
+}
+
+DecodeEffort _effortArg(List<String> args) {
+  for (final arg in args) {
+    if (arg.startsWith('--effort=')) {
+      final name = arg.substring('--effort='.length);
+      return DecodeEffort.values.firstWhere(
+        (e) => e.name == name,
+        orElse: () => throw ArgumentError('unknown effort: $name'),
+      );
+    }
+  }
+  return DecodeEffort.thorough;
 }
 
 List<File> _getFiles(String path) {

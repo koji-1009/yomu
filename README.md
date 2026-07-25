@@ -13,7 +13,7 @@ Yomu is a **zero-dependency** pure Dart implementation of a QR code and barcode 
 
 * **📦 Zero Dependencies**: No external package dependencies. Keep your app's dependency graph clean.
 * **🎯 Pure Dart**: No C++/Native code. Works instantly on Web (Wasm/JS), Desktop, and Mobile without build issues.
-* **🚀 High Performance**: Full HD in ~4.4ms, 4K in ~9ms on M4 MacBook Air (AOT). Fast enough for real-time scanning.
+* **🚀 High Performance**: Full HD in ~2.4ms, 4K in ~4.0ms on M4 MacBook Air (AOT). Fast enough for real-time scanning.
 * **🛡️ Robust & Tested**: Comprehensive test coverage. Tested against hundreds of distorted, noisy, and unevenly lit images.
 
 ## 🚀 Quick Start
@@ -54,27 +54,41 @@ final result = Yomu.qrOnly.decode(YomuImage.rgba(
 
 The main entry point class.
 
-| Constructor / Static                   | Description                                       |
-| -------------------------------------- | ------------------------------------------------- |
-| `Yomu.all`                             | QR codes + all barcode formats                    |
-| `Yomu.qrOnly`                          | QR codes only                                     |
-| `Yomu.barcodeOnly`                     | 1D barcodes only                                  |
-| `Yomu.realtime`                        | All formats, `tryHarder` off (per-frame scanning) |
-| `Yomu({enableQRCode, barcodeScanner})` | Custom configuration                              |
+| Constructor / Static                   | Description                                  |
+| -------------------------------------- | -------------------------------------------- |
+| `Yomu.all`                             | QR codes + all barcode formats               |
+| `Yomu.qrOnly`                          | QR codes only                                |
+| `Yomu.barcodeOnly`                     | 1D barcodes only                             |
+| `Yomu.responsive`                      | All formats, `DecodeEffort.balanced`         |
+| `Yomu.realtime`                        | All formats, `DecodeEffort.fast` (per-frame) |
+| `Yomu({enableQRCode, barcodeScanner})` | Custom configuration                         |
 
 | Method        | Description                                     |
 | ------------- | ----------------------------------------------- |
 | `decode()`    | Decode the first QR code or barcode in an image |
 | `decodeAll()` | Detect and decode all QR codes in an image      |
 
-### Detection vs Latency (`tryHarder`)
+### Detection vs Latency (`DecodeEffort`)
 
-`decode()` runs escalating retry strategies by default (`tryHarder: true`) when the fast path fails: corner grid search, despeckle, tolerant finder and a full-resolution retry. This significantly improves the detection rate for noisy, dirty, perspective-distorted and small codes, while successful scans pay nothing. `decodeAll()` applies the same strategy to multi-code sheets: detected-but-undecodable codes get the corner rescue, and a pass that finds nothing escalates to despeckle and full resolution.
+Retries only run on images the fast path cannot decode, so **successful scans are never slowed down** by this setting. What it trades is detection on hard inputs against latency on inputs holding no code at all — which is every frame of a camera preview pointed at nothing.
 
-The retries only cost time on images that fail the fast path (roughly +8ms on a Full HD frame without a code, AOT). Pick by use case:
+The levels split where the cost actually jumps: between stages that **reuse** the binarized image already in hand and stages that **rebuild** it from the source pixels.
 
-* **Single images** (photos, uploaded pictures): keep the default. A slower failure is better than a missed code.
-* **Real-time camera streams**: use `Yomu.realtime` (or `tryHarder: false`). Frames without a code fail as fast as possible; a code missed on one frame is caught on a later one.
+| `effort`                | Retries                                                    | Detection¹     | Blank frame² | Textured frame² |
+| ----------------------- | ---------------------------------------------------------- | -------------- | ------------ | --------------- |
+| `DecodeEffort.fast`     | none                                                       | 167/201, 83.1% | 1.41ms       | 2.58ms          |
+| `DecodeEffort.balanced` | corner grid search, despeckle, tolerant finder             | 188/201, 93.5% | 1.36ms       | 17.98ms         |
+| `DecodeEffort.thorough` | + full-resolution retry, alternate binarization thresholds | 192/201, 95.5% | 7.89ms       | 51.30ms         |
+
+¹ Fixture corpus. ² Full HD frame containing no code, AOT. A textured frame costs more at every level because noise produces false finder patterns, so each stage has candidates to rule out rather than nothing to look at.
+
+Pick by use case:
+
+* **Single images** (photos, uploaded pictures): keep the default `thorough`. A slower failure is better than a missed code.
+* **Camera streams that can spend ~18ms on a bad frame**: `Yomu.responsive` (`balanced`). It recovers 21 of the 25 codes `thorough` adds over `fast`, for a third of the cost on a textured frame.
+* **Real-time preview**: `Yomu.realtime` (`fast`). Frames without a code fail as fast as possible; a code missed on one frame is caught on a later one.
+
+The older `tryHarder: bool` parameter still works — `false` maps to `fast`, `true` to `thorough` — but it is deprecated in favour of `effort`.
 
 ### `YomuImage` Class
 
@@ -96,17 +110,19 @@ Yomu targets modern capture sources: **printed codes, on-screen codes, and ordin
 | Distortion axis            | Decodes         | Does not decode   |
 | -------------------------- | --------------- | ----------------- |
 | Salt & pepper noise        | 25%             | 30%               |
-| Low-light (Gaussian) noise | σ=110           | σ=120             |
+| Low-light (Gaussian) noise | σ=120²          | σ=170²            |
 | Gray dirt occlusion        | 30%             | 35%               |
 | Gaussian blur              | radius 5.0      | radius 6.0        |
 | Perspective (top squeeze)  | 0.3             | 0.4               |
 | Perspective (side squeeze) | 0.6             | — (saturates)     |
 | JPEG artifacts             | quality 1       | — (no boundary)   |
 | Specular glare             | full saturation | — (EC absorbs it) |
-| Screen moire               | amplitude 0.7   | amplitude 0.8     |
-| Composite casual scan¹     | blur 5.0        | blur 5.5          |
+| Screen moire               | amplitude 0.8   | amplitude 0.9     |
+| Composite casual scan¹     | blur 5.5        | blur 6.0          |
 
 ¹ Mild perspective (0.2) + lighting gradient + blur. Each component alone is well inside its single-axis boundary.
+
+² The only probabilistic axis. Each σ draws one noise field, so a fixture near the transition reports its own draw rather than the decoder's limit. Measured decode rate over 20 independent draws per σ: 110→100%, 120→100%, 130→75%, 140→70%, 150→50%, 160→40%, 170→5%, 180→5%. The rungs are taken from the flat ends so neither side depends on a lucky draw; the real transition is around σ=150.
 
 Degradations outside these definable classes — arbitrary surface curvature, finder patterns cut out of the frame, damage beyond the error-correction capacity — are out of scope; that long tail is the domain of ML-based detectors.
 
@@ -146,8 +162,8 @@ uv run scripts/benchmark_runner.py
 
 | Mode | Avg Decode Time |
 | ---- | --------------- |
-| AOT  | ~0.92ms         |
-| JIT  | ~1.30ms         |
+| AOT  | ~0.55ms         |
+| JIT  | ~0.72ms         |
 
 ### Large Images (Fused Downsampling)
 
@@ -155,8 +171,8 @@ Images >1MP are automatically processed with a fused conversion step for optimal
 
 | Resolution          | Avg Decode Time |
 | ------------------- | --------------- |
-| 4K (3840×2160)      | ~9.0ms          |
-| Full HD (1920×1080) | ~4.4ms          |
+| 4K (3840×2160)      | ~4.0ms          |
+| Full HD (1920×1080) | ~2.4ms          |
 
 ## License
 

@@ -50,7 +50,7 @@ void main() {
   const fast = Yomu(
     enableQRCode: true,
     barcodeScanner: BarcodeScanner.all,
-    tryHarder: false,
+    effort: DecodeEffort.fast,
   );
   const hard = Yomu(enableQRCode: true, barcodeScanner: BarcodeScanner.all);
 

@@ -6,6 +6,7 @@ import 'common/binarizer/binarizer.dart';
 import 'common/binarizer/luminance_source.dart';
 import 'common/bit_matrix.dart';
 import 'common/image_processor.dart';
+import 'decode_effort.dart';
 import 'image_data.dart';
 import 'qr/decoder/decoded_bit_stream_parser.dart';
 import 'qr/decoder/qrcode_decoder.dart';
@@ -40,15 +41,19 @@ class Yomu {
   /// - [barcodeScanner]: Configuration for 1D barcode scanning (default: none)
   /// - [binarizerThreshold]: Threshold factor for binarization (default: 0.875)
   /// - [alignmentAreaAllowance]: Allowance for alignment pattern search (default: 15)
-  /// - [tryHarder]: Whether to run escalating retry strategies when the
-  ///   fast path fails (default: true)
+  /// - [effort]: How much work to spend on images the fast path cannot
+  ///   decode (default: [DecodeEffort.thorough])
   const Yomu({
     required this.enableQRCode,
     required this.barcodeScanner,
     this.binarizerThreshold = 0.875,
     this.alignmentAreaAllowance = 15,
-    this.tryHarder = true,
-  });
+    DecodeEffort? effort,
+    @Deprecated('Use effort: DecodeEffort.fast / .thorough instead')
+    bool? tryHarder,
+  }) : effort =
+           effort ??
+           (tryHarder == false ? DecodeEffort.fast : DecodeEffort.thorough);
 
   /// Whether to scan for QR codes.
   final bool enableQRCode;
@@ -62,15 +67,21 @@ class Yomu {
   /// Allowance for alignment pattern search.
   final int alignmentAreaAllowance;
 
-  /// Whether [decode] runs escalating retry strategies (corner grid
-  /// search, despeckle, tolerant finder, full-resolution retry) when the
-  /// fast path fails.
+  /// How much work [decode] and [decodeAll] may spend on an image the fast
+  /// path cannot decode.
   ///
   /// Retries only run on images the fast path cannot decode, so successful
-  /// scans are unaffected. Disable for latency-critical pipelines (e.g.
-  /// per-frame camera scanning) where a missed frame is cheaper than a
-  /// slower failure path.
-  final bool tryHarder;
+  /// scans are unaffected by this. See [DecodeEffort] for the measured
+  /// detection and latency of each level.
+  final DecodeEffort effort;
+
+  /// Whether any retry stage runs at all.
+  @Deprecated('Use effort instead')
+  bool get tryHarder => effort != DecodeEffort.fast;
+
+  /// Whether [effort] admits stages that rebuild the image from the source
+  /// pixels (full-resolution conversion, alternate binarization thresholds).
+  bool get _rebuildsImage => effort == DecodeEffort.thorough;
 
   /// Shared decoder instance for QR code decoding.
   static const _decoder = QRCodeDecoder();
@@ -95,13 +106,24 @@ class Yomu {
 
   /// Yomu tuned for real-time per-frame scanning (camera preview).
   ///
-  /// Identical to [all] but with [tryHarder] disabled: frames without a
-  /// code fail as fast as possible instead of paying the retry ladder.
-  /// A code missed on one frame is simply caught on a later one.
+  /// Identical to [all] but at [DecodeEffort.fast]: frames without a code
+  /// fail as fast as possible instead of paying the retry ladder. A code
+  /// missed on one frame is simply caught on a later one.
   static const realtime = Yomu(
     enableQRCode: true,
     barcodeScanner: BarcodeScanner.all,
-    tryHarder: false,
+    effort: DecodeEffort.fast,
+  );
+
+  /// Yomu for streams that can afford more than [realtime] per frame.
+  ///
+  /// All formats at [DecodeEffort.balanced]: every retry that reuses the
+  /// binarized image runs, but none that rebuilds it, so a frame holding no
+  /// code costs a few times the fast path rather than an order of magnitude.
+  static const responsive = Yomu(
+    enableQRCode: true,
+    barcodeScanner: BarcodeScanner.all,
+    effort: DecodeEffort.balanced,
   );
 
   /// Decodes a QR code or barcode from a [YomuImage].
@@ -109,18 +131,24 @@ class Yomu {
   /// This is the preferred method for decoding as it handles different image formats
   /// and row strides correctly.
   ///
-  /// With [tryHarder] enabled (the default), escalating retry strategies
-  /// run when the fast path fails: bottom-right corner grid search,
-  /// despeckle, tolerant finder and a full-resolution retry for
-  /// downsampled images. In this mode a detected-but-undecodable QR code
-  /// falls through to barcode scanning instead of propagating a
-  /// [DecodeException].
+  /// Above [DecodeEffort.fast], escalating retry strategies run when the
+  /// fast path fails: bottom-right corner grid search, despeckle and the
+  /// tolerant finder, plus - at [DecodeEffort.thorough] - a full-resolution
+  /// retry and a sweep of alternate binarization thresholds. In those modes
+  /// a detected-but-undecodable QR code falls through to barcode scanning
+  /// instead of propagating a [DecodeException].
   DecoderResult decode(YomuImage image) {
     final (pixels, processWidth, processHeight) = _processImage(image);
 
-    if (!tryHarder) {
+    if (effort == DecodeEffort.fast) {
       return _decodeFastOnly(pixels, processWidth, processHeight);
     }
+
+    final source = LuminanceSource(
+      width: processWidth,
+      height: processHeight,
+      luminances: pixels,
+    );
 
     BitMatrix? matrix;
 
@@ -131,11 +159,6 @@ class Yomu {
     // Stage 1+2: fast QR path, then dimension/corner retries reusing the
     // located finder patterns.
     if (enableQRCode) {
-      final source = LuminanceSource(
-        width: processWidth,
-        height: processHeight,
-        luminances: pixels,
-      );
       matrix = Binarizer(
         source,
         thresholdFactor: binarizerThreshold,
@@ -167,11 +190,24 @@ class Yomu {
       // Stage 5: full-resolution retry. Downsampling can shrink small
       // codes below the detectable module size. Skipped when the work
       // budget is already exhausted on garbage candidates.
-      if ((processWidth < image.width || processHeight < image.height) &&
+      if (_rebuildsImage &&
+          (processWidth < image.width || processHeight < image.height) &&
           retry.hasBudget) {
         final fullRes = _decodeFullResolution(image, retry);
         if (fullRes != null) {
           return fullRes;
+        }
+      }
+
+      // Stage 6: alternate binarization thresholds, cheapest attempt first
+      // across all of them. Placing the whole sweep last costs the images it
+      // rescues one wasted ladder, but placing even its cheap half earlier
+      // would tax every image that the earlier stages already rescue - and
+      // those are the far more common case.
+      if (_rebuildsImage) {
+        final swept = _decodeWithAlternateThresholds(source);
+        if (swept != null) {
+          return swept;
         }
       }
     }
@@ -215,8 +251,12 @@ class Yomu {
   }
 
   /// Builds the retry decoder configured like this instance.
-  TryHarderDecoder _newTryHarderDecoder() {
-    return TryHarderDecoder(alignmentAreaAllowance: alignmentAreaAllowance);
+  TryHarderDecoder _newTryHarderDecoder({int? gridPointBudget}) {
+    return TryHarderDecoder(
+      alignmentAreaAllowance: alignmentAreaAllowance,
+      gridPointBudget:
+          gridPointBudget ?? TryHarderDecoder.defaultGridPointBudget,
+    );
   }
 
   /// Stage 1+2: locates finder patterns once, tries the fast decode, then
@@ -275,6 +315,63 @@ class Yomu {
     }
   }
 
+  /// Threshold factors retried once every stage at [binarizerThreshold] has
+  /// failed, ordered by how much they recover in practice.
+  ///
+  /// The default factor assumes a code whose ink is clearly darker than its
+  /// local mean. Screen moire and washed-out prints push the modules toward
+  /// that mean, so a darker factor is needed to keep them black; heavy
+  /// sensor noise and scan blur do the opposite, lifting the background into
+  /// the code, where only a factor above 1 separates them again.
+  static const _retryThresholdFactors = [0.6, 1.0, 1.1];
+
+  /// Binarizes [source] once per entry in [_retryThresholdFactors],
+  /// skipping the configured [binarizerThreshold] (already tried).
+  List<BitMatrix> _alternateMatrices(LuminanceSource source) {
+    return [
+      for (final factor in _retryThresholdFactors)
+        if (factor != binarizerThreshold)
+          Binarizer(source, thresholdFactor: factor).getBlackMatrix(),
+    ];
+  }
+
+  /// Grid-search budget granted to each alternate binarization.
+  ///
+  /// A fresh allowance is required: the default-threshold stages typically
+  /// spend theirs on candidates that were never going to decode, and a
+  /// sweep sharing that exhausted budget could not run the grid search that
+  /// actually rescues the image. It is half of
+  /// [TryHarderDecoder.defaultGridPointBudget] so that granting one per
+  /// factor still bounds the whole call: the most expensive rescue observed
+  /// on an alternate threshold costs ~152k points, leaving headroom without
+  /// letting the sweep dominate the worst case.
+  static const _sweepGridPointBudget = 250000;
+
+  /// Final QR stage: retries every alternate binarization on the fast path
+  /// before any of them pays for the deep ladder, so a code that merely
+  /// needed a different threshold is not charged for the expensive stages.
+  DecoderResult? _decodeWithAlternateThresholds(LuminanceSource source) {
+    final alternates = _alternateMatrices(source);
+    final retries = [
+      for (var i = 0; i < alternates.length; i++)
+        _newTryHarderDecoder(gridPointBudget: _sweepGridPointBudget),
+    ];
+
+    for (var i = 0; i < alternates.length; i++) {
+      final result = _decodeFastWithCornerRetry(alternates[i], retries[i]);
+      if (result != null) {
+        return result;
+      }
+    }
+    for (var i = 0; i < alternates.length; i++) {
+      final result = retries[i].decodeDeep(alternates[i]);
+      if (result != null) {
+        return result;
+      }
+    }
+    return null;
+  }
+
   /// Stage 5: re-runs conversion at full resolution and tries the fast
   /// path plus the corner retry. Returns null on failure.
   DecoderResult? _decodeFullResolution(
@@ -316,11 +413,11 @@ class Yomu {
 
   /// Decodes all QR codes from a [YomuImage].
   ///
-  /// With [tryHarder] enabled (the default), codes that are detected but
-  /// fail to decode get the corner-grid rescue, and when an entire pass
-  /// finds nothing the scan escalates: despeckle, then a full-resolution
-  /// pass for downsampled images. Sheets that decode on the fast pass pay
-  /// no retry cost.
+  /// Above [DecodeEffort.fast], codes that are detected but fail to decode
+  /// get the corner-grid rescue, and when an entire pass finds nothing the
+  /// scan escalates to despeckle; at [DecodeEffort.thorough] it also
+  /// re-scans at alternate thresholds and at full resolution. Sheets that
+  /// decode on the fast pass pay no retry cost.
   List<DecoderResult> decodeAll(YomuImage image) {
     if (!enableQRCode) {
       return const [];
@@ -328,7 +425,7 @@ class Yomu {
 
     final (pixels, processWidth, processHeight) = _processImage(image);
 
-    if (!tryHarder) {
+    if (effort == DecodeEffort.fast) {
       return _decodeAllQRFromPixels(pixels, processWidth, processHeight);
     }
 
@@ -345,24 +442,42 @@ class Yomu {
 
     // Pass 1: fast multi scan (with the in-pass corner rescue).
     final fast = _decodeAllOnMatrix(matrix, retry);
-    if (fast.isNotEmpty) {
-      return fast;
+    if (fast.decodedAll) {
+      return fast.results;
     }
 
-    // Pass 2: despeckle. Noise breaks every code on the sheet at once.
+    // Pass 2: alternate binarization thresholds. Unlike the passes below,
+    // this one also runs when pass 1 found *some* codes: a sheet can hold
+    // codes of differing contrast, and the factor that resolves an occluded
+    // one is not the factor that already resolved the clean one.
+    if (_rebuildsImage && fast.detected > fast.results.length) {
+      // The sweep only ever returns a strictly better pass, so any result
+      // it hands back is worth preferring - including a partial one, which
+      // still recovers a code the default threshold could not.
+      final swept = _decodeAllWithAlternateThresholds(source, fast);
+      if (swept.results.length > fast.results.length) {
+        return swept.results;
+      }
+    }
+    if (fast.results.isNotEmpty) {
+      return fast.results;
+    }
+
+    // Pass 3: despeckle. Noise breaks every code on the sheet at once.
     final despeckled = _decodeAllOnMatrix(matrix.majority3x3(), retry);
-    if (despeckled.isNotEmpty) {
-      return despeckled;
+    if (despeckled.results.isNotEmpty) {
+      return despeckled.results;
     }
 
-    // Pass 3: full resolution. Downsampling shrinks every code at once.
-    if ((processWidth < image.width || processHeight < image.height) &&
+    // Pass 4: full resolution. Downsampling shrinks every code at once.
+    if (_rebuildsImage &&
+        (processWidth < image.width || processHeight < image.height) &&
         retry.hasBudget) {
       final fullMatrix = _fullResolutionMatrix(image);
       if (fullMatrix != null) {
         final fullResults = _decodeAllOnMatrix(fullMatrix, retry);
-        if (fullResults.isNotEmpty) {
-          return fullResults;
+        if (fullResults.results.isNotEmpty) {
+          return fullResults.results;
         }
       }
     }
@@ -370,13 +485,35 @@ class Yomu {
     return const [];
   }
 
+  /// Re-runs the multi scan at each of [_retryThresholdFactors], returning
+  /// the best pass (the one that decoded the most of its detected codes).
+  ///
+  /// Passes are compared rather than merged: two codes carrying the same
+  /// text are legitimate on one sheet, so deduplicating results would lose
+  /// one of them.
+  _MultiScan _decodeAllWithAlternateThresholds(
+    LuminanceSource source,
+    _MultiScan best,
+  ) {
+    for (final matrix in _alternateMatrices(source)) {
+      final scan = _decodeAllOnMatrix(
+        matrix,
+        _newTryHarderDecoder(gridPointBudget: _sweepGridPointBudget),
+      );
+      if (scan.results.length > best.results.length) {
+        best = scan;
+      }
+      if (best.decodedAll) {
+        break;
+      }
+    }
+    return best;
+  }
+
   /// Multi-code scan on a single matrix: every disjoint finder triplet
   /// gets the fast decode, then the corner-grid rescue if it was detected
   /// but failed to decode.
-  List<DecoderResult> _decodeAllOnMatrix(
-    BitMatrix matrix,
-    TryHarderDecoder retry,
-  ) {
+  _MultiScan _decodeAllOnMatrix(BitMatrix matrix, TryHarderDecoder retry) {
     final infos = FinderPatternFinder(matrix).findMulti();
     final results = <DecoderResult>[];
     for (final info in infos) {
@@ -387,7 +524,7 @@ class Yomu {
         results.add(result);
       }
     }
-    return results;
+    return _MultiScan(results: results, detected: infos.length);
   }
 
   /// Internal: Decodes a QR code from luminance array (fast-only path).
@@ -481,4 +618,19 @@ class Yomu {
       throw ImageProcessingException('Failed to process image: $e');
     }
   }
+}
+
+/// Outcome of one multi-code pass: what decoded, and how many codes the
+/// finder located.
+///
+/// The gap between the two is what tells [Yomu.decodeAll] that a sheet still
+/// holds an undecoded code and that further passes are worth their cost.
+class _MultiScan {
+  const _MultiScan({required this.results, required this.detected});
+
+  final List<DecoderResult> results;
+  final int detected;
+
+  /// Whether every located code decoded (and at least one was located).
+  bool get decodedAll => results.isNotEmpty && results.length == detected;
 }

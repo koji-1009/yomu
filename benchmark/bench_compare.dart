@@ -146,6 +146,7 @@ void _printCategoryReport(String name, Map<String, Metric> metrics) {
     'Complex',
     '4K',
     'FullHD',
+    'Square',
     'Distorted',
     'Noise',
     'Edge',
@@ -160,6 +161,20 @@ void _printCategoryReport(String name, Map<String, Metric> metrics) {
   print('');
 }
 
+/// Buckets a fixture by what it is meant to stress.
+///
+/// The order of the checks is the definition, not an implementation detail:
+/// the first match wins, so a keyword placed early swallows everything below
+/// it. Two orderings matter here.
+///
+/// Resolution comes first, because a noisy background in a 4K frame stresses
+/// downsampling, not noise robustness.
+///
+/// Noise then comes before the generic distortion bucket. The salt & pepper
+/// ladder is named `damaged_noise_*`, so checking `damaged` first swallowed
+/// nine of the eleven noise fixtures and left Noise reporting two images - one
+/// of them a boundary case, which made the category average a single image's
+/// failure-path cost rather than a category metric.
 String _categorize(String filename) {
   if (filename.contains('4k_')) {
     return '4K';
@@ -167,16 +182,24 @@ String _categorize(String filename) {
   if (filename.contains('fullhd_')) {
     return 'FullHD';
   }
+  if (filename.contains('square_')) {
+    return 'Square';
+  }
+  if (filename.contains('noise')) {
+    return 'Noise';
+  }
   if (filename.contains('rotation') ||
       filename.contains('tilt') ||
       filename.contains('distorted') ||
       filename.contains('blur') ||
       filename.contains('curved') ||
-      filename.contains('damaged')) {
+      filename.contains('damaged') ||
+      filename.contains('perspective') ||
+      filename.contains('moire') ||
+      filename.contains('glare') ||
+      filename.contains('jpeg') ||
+      filename.contains('composite')) {
     return 'Distorted';
-  }
-  if (filename.contains('noise')) {
-    return 'Noise';
   }
 
   if (filename.contains('version_7') ||
@@ -251,6 +274,7 @@ Future<(Map<String, Metric>, Map<String, double>)> _bench(
     'Complex': [],
     '4K': [],
     'FullHD': [],
+    'Square': [],
     'Distorted': [],
     'Noise': [],
     'Edge': [],

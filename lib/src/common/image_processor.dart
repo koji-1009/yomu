@@ -70,8 +70,35 @@ class ImageProcessor {
     final dstHeight = height ~/ scale;
     final result = Uint8List(dstWidth * dstHeight);
     final halfScale = scale ~/ 2;
-    final pixelStride = scale * 4;
+    final weightLow = lowByteWeight(isBgra: isBgra);
+    final weightHigh = highByteWeight(isBgra: isBgra);
 
+    // Whole-pixel reads need a 4-aligned view and a stride that is a whole
+    // number of pixels; camera buffers can violate either.
+    final words = (stride & 3) == 0
+        ? packedPixelView(bytes, bytes.lengthInBytes >> 2)
+        : null;
+
+    if (words != null) {
+      final wordStride = stride >> 2;
+      for (var dstY = 0; dstY < dstHeight; dstY++) {
+        final srcY = dstY * scale + halfScale;
+        final dstRowOffset = dstY * dstWidth;
+        var wordOffset = srcY * wordStride + halfScale;
+
+        for (var dstX = 0; dstX < dstWidth; dstX++) {
+          result[dstRowOffset + dstX] = luminanceOfWord(
+            words[wordOffset],
+            weightLow,
+            weightHigh,
+          );
+          wordOffset += scale;
+        }
+      }
+      return (result, dstWidth, dstHeight);
+    }
+
+    final pixelStride = scale * 4;
     for (var dstY = 0; dstY < dstHeight; dstY++) {
       final srcY = dstY * scale + halfScale;
       final rowOffset = srcY * stride; // Correct stride usage
@@ -80,16 +107,12 @@ class ImageProcessor {
       var currentByteOffset = rowOffset + (halfScale * 4);
 
       for (var dstX = 0; dstX < dstWidth; dstX++) {
-        final rIndex = isBgra ? currentByteOffset + 2 : currentByteOffset;
-        final gIndex = currentByteOffset + 1;
-        final bIndex = isBgra ? currentByteOffset : currentByteOffset + 2;
-
-        final r = bytes[rIndex];
-        final g = bytes[gIndex];
-        final b = bytes[bIndex];
-
         // Integer approximation: (306 * r + 601 * g + 117 * b) >> 10
-        result[dstRowOffset + dstX] = (306 * r + 601 * g + 117 * b) >> 10;
+        result[dstRowOffset + dstX] =
+            (weightLow * bytes[currentByteOffset] +
+                601 * bytes[currentByteOffset + 1] +
+                weightHigh * bytes[currentByteOffset + 2]) >>
+            10;
         currentByteOffset += pixelStride;
       }
     }

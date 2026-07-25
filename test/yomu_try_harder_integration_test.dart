@@ -31,8 +31,33 @@ YomuImage _loadGrayscale(String path) {
   );
 }
 
+/// A ~150px code pasted into a 4K frame: after downsampling its modules drop
+/// to ~1.5px, so only a full-resolution pass can decode it.
+YomuImage _tinyCodeInFrame() {
+  final qr = img.decodePng(
+    File('fixtures/qr_images/alphanumeric_hello.png').readAsBytesSync(),
+  )!;
+  final small = img
+      .copyResize(qr, width: 150, interpolation: img.Interpolation.average)
+      .convert(format: img.Format.uint8, numChannels: 4);
+  final smallBytes = small.buffer.asUint8List();
+
+  const canvasW = 3840;
+  const canvasH = 2160;
+  final canvas = Uint8List(canvasW * canvasH * 4);
+  for (var i = 0; i < canvas.length; i++) {
+    canvas[i] = 255;
+  }
+  for (var y = 0; y < small.height; y++) {
+    final srcStart = y * small.width * 4;
+    final dstStart = ((y + 120) * canvasW + 120) * 4;
+    canvas.setRange(dstStart, dstStart + small.width * 4, smallBytes, srcStart);
+  }
+  return YomuImage.rgba(bytes: canvas, width: canvasW, height: canvasH);
+}
+
 void main() {
-  group('Yomu tryHarder integration', () {
+  group('Yomu retry integration', () {
     setUpAll(() {
       expect(
         Directory('fixtures/unsupported_images').existsSync(),
@@ -60,7 +85,7 @@ void main() {
       }
     });
 
-    group('small codes rescued by the full-resolution retry', () {
+    group('small codes in large frames', () {
       test('decodes a 200px code centered in a Full HD frame', () {
         final result = Yomu.qrOnly.decode(
           _loadRgba(
@@ -88,48 +113,14 @@ void main() {
         expect(result.text, 'PerfTest_fullhd_center_200');
       });
 
-      test(
-        'rescues a tiny code in a 4K frame via the full-resolution retry',
-        () {
-          // A ~150px code in a 4K frame shrinks to ~1.5px modules after
-          // downsampling, which breaks even the finder. Only the
-          // full-resolution retry can decode it.
-          final qr = img.decodePng(
-            File('fixtures/qr_images/alphanumeric_hello.png').readAsBytesSync(),
-          )!;
-          final small = img
-              .copyResize(
-                qr,
-                width: 150,
-                interpolation: img.Interpolation.average,
-              )
-              .convert(format: img.Format.uint8, numChannels: 4);
-          final smallBytes = small.buffer.asUint8List();
-
-          const canvasW = 3840;
-          const canvasH = 2160;
-          final canvas = Uint8List(canvasW * canvasH * 4);
-          for (var i = 0; i < canvas.length; i++) {
-            canvas[i] = 255;
-          }
-          // Paste the code at (120, 120) by direct row copies.
-          for (var y = 0; y < small.height; y++) {
-            final srcStart = y * small.width * 4;
-            final dstStart = ((y + 120) * canvasW + 120) * 4;
-            canvas.setRange(
-              dstStart,
-              dstStart + small.width * 4,
-              smallBytes,
-              srcStart,
-            );
-          }
-
-          final result = Yomu.qrOnly.decode(
-            YomuImage.rgba(bytes: canvas, width: canvasW, height: canvasH),
-          );
-          expect(result.text, 'HELLO WORLD');
-        },
-      );
+      test('decodes a tiny 150px code in a 4K frame', () {
+        // This used to need the full-resolution retry. Since the binarizer
+        // moved to block-averaged thresholds it decodes on the fast path, so
+        // the assertion is the capability, not the stage that provides it.
+        // The one input still known to require a full-resolution pass is the
+        // multi-code sheet in 'decodeAll retry passes' below.
+        expect(Yomu.qrOnly.decode(_tinyCodeInFrame()).text, 'HELLO WORLD');
+      });
     });
 
     group('detection boundary (fixtures bracket the capability limit)', () {
@@ -145,10 +136,13 @@ void main() {
         'perspective_y_0.6',
         // Modern imaging pipeline axes
         'gaussian_noise_110',
+        'gaussian_noise_120',
         'jpeg_q1',
         'glare_1.0',
         'moire_0.7',
+        'moire_0.8',
         'composite_scan_blur_5.0',
+        'composite_scan_blur_5.5',
       ]) {
         test('decodes $name (within the boundary)', () {
           final result = Yomu.qrOnly.decode(
@@ -158,6 +152,10 @@ void main() {
         });
       }
 
+      // The Gaussian-noise rungs are taken from the flat ends of the axis
+      // (sigma 120 decodes on 100% of independent draws, sigma 170 on 5%),
+      // not from the 130-160 transition where a single fixture would be
+      // asserting the outcome of one coin flip. See generate_stress_qr.py.
       for (final name in [
         // Legacy axes
         'damaged_noise_0.30',
@@ -165,9 +163,9 @@ void main() {
         'blur_radius_6.0',
         'perspective_x_0.4',
         // Modern imaging pipeline axes
-        'gaussian_noise_120',
-        'moire_0.8',
-        'composite_scan_blur_5.5',
+        'gaussian_noise_170',
+        'moire_0.9',
+        'composite_scan_blur_6.0',
       ]) {
         test('does not decode $name (beyond the boundary)', () {
           expect(
@@ -269,11 +267,62 @@ void main() {
         });
       });
 
-      test('tryHarder=false finds nothing on the degraded sheets', () {
+      test(
+        'keeps the codes it did decode when a sheetmate is beyond rescue',
+        () {
+          // A clean code next to one past the capability boundary: no retry
+          // pass can complete the sheet, so the codes that did decode must
+          // still be returned rather than discarded.
+          final clean = img
+              .decodePng(
+                File(
+                  'fixtures/qr_images/alphanumeric_hello.png',
+                ).readAsBytesSync(),
+              )!
+              .convert(format: img.Format.uint8, numChannels: 4);
+          final hopeless = img
+              .decodePng(
+                File(
+                  'fixtures/unsupported_images/damaged_dirt_0.40.png',
+                ).readAsBytesSync(),
+              )!
+              .convert(format: img.Format.uint8, numChannels: 4);
+
+          const canvasW = 760;
+          const canvasH = 460;
+          final canvas = Uint8List(canvasW * canvasH * 4);
+          for (var i = 0; i < canvas.length; i++) {
+            canvas[i] = 255;
+          }
+          void paste(img.Image source, int dstX, int dstY) {
+            final bytes = source.buffer.asUint8List();
+            for (var y = 0; y < source.height; y++) {
+              final srcStart = y * source.width * 4;
+              final dstStart = ((y + dstY) * canvasW + dstX) * 4;
+              canvas.setRange(
+                dstStart,
+                dstStart + source.width * 4,
+                bytes,
+                srcStart,
+              );
+            }
+          }
+
+          paste(hopeless, 10, 10);
+          paste(clean, 440, 10);
+
+          final results = Yomu.qrOnly.decodeAll(
+            YomuImage.rgba(bytes: canvas, width: canvasW, height: canvasH),
+          );
+          expect(results.map((r) => r.text), contains('HELLO WORLD'));
+        },
+      );
+
+      test('DecodeEffort.fast finds nothing on the degraded sheets', () {
         const fastOnly = Yomu(
           enableQRCode: true,
           barcodeScanner: BarcodeScanner.none,
-          tryHarder: false,
+          effort: DecodeEffort.fast,
         );
         expect(
           fastOnly.decodeAll(
@@ -339,11 +388,11 @@ void main() {
         );
       });
 
-      test('tryHarder=false preserves the DecodeException fast path', () {
+      test('DecodeEffort.fast preserves the DecodeException fast path', () {
         const fastOnly = Yomu(
           enableQRCode: true,
           barcodeScanner: BarcodeScanner.all,
-          tryHarder: false,
+          effort: DecodeEffort.fast,
         );
         expect(
           () => fastOnly.decode(
@@ -354,11 +403,11 @@ void main() {
       });
     });
 
-    group('tryHarder=false (fast-only mode)', () {
+    group('DecodeEffort.fast (fast-only mode)', () {
       const fastOnly = Yomu(
         enableQRCode: true,
         barcodeScanner: BarcodeScanner.none,
-        tryHarder: false,
+        effort: DecodeEffort.fast,
       );
 
       test('still decodes clean codes', () {
@@ -372,7 +421,7 @@ void main() {
         const fastAll = Yomu(
           enableQRCode: true,
           barcodeScanner: BarcodeScanner.all,
-          tryHarder: false,
+          effort: DecodeEffort.fast,
         );
         final result = fastAll.decode(
           _loadRgba('fixtures/barcode_images/ean13_product.png'),
@@ -381,7 +430,7 @@ void main() {
       });
 
       test('Yomu.realtime decodes clean codes without retries', () {
-        expect(Yomu.realtime.tryHarder, isFalse);
+        expect(Yomu.realtime.effort, DecodeEffort.fast);
         final result = Yomu.realtime.decode(
           _loadRgba('fixtures/qr_images/alphanumeric_hello.png'),
         );
@@ -401,6 +450,84 @@ void main() {
           ),
           throwsA(isA<DetectionException>()),
         );
+      });
+    });
+
+    group('DecodeEffort.balanced (reuses the image, never rebuilds it)', () {
+      const balanced = Yomu(
+        enableQRCode: true,
+        barcodeScanner: BarcodeScanner.none,
+        effort: DecodeEffort.balanced,
+      );
+
+      test('Yomu.responsive is the all-formats balanced preset', () {
+        expect(Yomu.responsive.effort, DecodeEffort.balanced);
+        expect(Yomu.responsive.enableQRCode, isTrue);
+        expect(Yomu.responsive.barcodeScanner.isEmpty, isFalse);
+      });
+
+      test('runs the retries that reuse the binarized image', () {
+        // Noise and dirt are recovered by the despeckle and corner-grid
+        // stages, neither of which rebuilds the image.
+        for (final name in ['damaged_noise_0.10', 'damaged_dirt_0.30']) {
+          expect(
+            balanced
+                .decode(_loadRgba('fixtures/distorted_images/$name.png'))
+                .text,
+            'Hello World',
+            reason: name,
+          );
+        }
+      });
+
+      test('skips the alternate-threshold sweep', () {
+        // moire_0.8 decodes only once the image is binarized at a different
+        // threshold factor, which is also a rebuild stage.
+        final image = _loadRgba('fixtures/distorted_images/moire_0.8.png');
+        expect(() => balanced.decode(image), throwsA(isA<YomuException>()));
+        expect(Yomu.qrOnly.decode(image).text, 'Hello World');
+      });
+
+      test('decodeAll escalates to despeckle but not to a rebuild', () {
+        expect(
+          balanced
+              .decodeAll(_loadRgba('fixtures/qr_images/multi_qr_3_noise.png'))
+              .map((r) => r.text)
+              .toSet(),
+          {'Noise A', 'Noise B', 'Noise C'},
+        );
+        // findMulti needs all three finder patterns of *every* code, which
+        // this 4K sheet only offers at full resolution - the one input still
+        // known to require a rebuild stage.
+        expect(
+          balanced.decodeAll(
+            _loadRgba('fixtures/qr_images/multi_qr_2_small_4k.png'),
+          ),
+          isEmpty,
+        );
+      });
+    });
+
+    group('deprecated tryHarder shim', () {
+      test('maps onto the matching effort level', () {
+        // ignore: deprecated_member_use_from_same_package
+        const legacyFast = Yomu(
+          enableQRCode: true,
+          barcodeScanner: BarcodeScanner.none,
+          tryHarder: false,
+        );
+        // ignore: deprecated_member_use_from_same_package
+        const legacyHard = Yomu(
+          enableQRCode: true,
+          barcodeScanner: BarcodeScanner.none,
+          tryHarder: true,
+        );
+        expect(legacyFast.effort, DecodeEffort.fast);
+        expect(legacyHard.effort, DecodeEffort.thorough);
+        // ignore: deprecated_member_use_from_same_package
+        expect(legacyFast.tryHarder, isFalse);
+        // ignore: deprecated_member_use_from_same_package
+        expect(legacyHard.tryHarder, isTrue);
       });
     });
 
@@ -425,7 +552,7 @@ void main() {
           enableQRCode: true,
           barcodeScanner: BarcodeScanner.none,
           alignmentAreaAllowance: 5,
-          tryHarder: false,
+          effort: DecodeEffort.fast,
         );
         final results = tight.decodeAll(
           _loadRgba('fixtures/qr_images/multi_qr_3_vertical.png'),

@@ -56,6 +56,57 @@ jobs:
             cp benchmark_summary.md benchmark_comparison.md
           fi
 
+      # 4. The effort trade-off, both sides of it
+      #
+      # The comparison above measures one effort level, so it cannot tell
+      # "this got slower" apart from "this now decodes, and decoding it costs a
+      # full retry ladder" - and it cannot see a change that buys speed by
+      # giving up detection at all. Reporting detection and latency across
+      # every level makes which of the two it is obvious, and keeps the numbers
+      # documented on DecodeEffort from going stale.
+      #
+      # Detection is compared against main because a drop there is a
+      # regression. Latency per level is PR-only: it explains the PR's own
+      # numbers rather than tracking a baseline, which the job above already
+      # does.
+      - name: Detection rate (PR)
+        run: |
+          dart run benchmark/tool_detection_rate.dart --matrix > detection_pr.md
+
+      - name: Detection rate (main)
+        run: |
+          cp benchmark/tool_detection_rate.dart main_ref/benchmark/tool_detection_rate.dart
+          cd main_ref
+          dart run benchmark/tool_detection_rate.dart --matrix > ../detection_main.md
+        continue-on-error: true
+
+      - name: Latency by effort (PR)
+        run: |
+          dart compile exe benchmark/tool_bench_seq.dart -o /tmp/bench_seq
+          /tmp/bench_seq --matrix > latency_pr.md
+        continue-on-error: true
+
+      - name: Append effort report
+        run: |
+          {
+            echo ''
+            echo '## Effort trade-off'
+            echo ''
+            echo '**This PR**'
+            echo ''
+            cat detection_pr.md
+            if [ -f latency_pr.md ]; then
+              echo ''
+              cat latency_pr.md
+            fi
+            if [ -f detection_main.md ]; then
+              echo ''
+              echo '**main, for comparison**'
+              echo ''
+              cat detection_main.md
+            fi
+          } >> benchmark_comparison.md
+
       - run: cat benchmark_comparison.md >> $GITHUB_STEP_SUMMARY
 
       - name: Post to PR

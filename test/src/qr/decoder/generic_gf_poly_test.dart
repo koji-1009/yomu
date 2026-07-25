@@ -71,9 +71,7 @@ void main() {
       final dividend = poly([1, 0, 0, 1]);
       final divisor = poly([1, 1]);
 
-      final result = dividend.divide(divisor);
-      final quotient = result[0];
-      final remainder = result[1];
+      final (quotient, remainder) = dividend.divide(divisor);
 
       expect(quotient.coefficients, [1, 1, 1]);
       expect(remainder.isZero, isTrue);
@@ -130,8 +128,34 @@ void main() {
       const field = GenericGF.qrCodeField256;
       final dividend = GenericGFPoly(field, Uint8List.fromList([1, 2, 3, 4]));
       final divisor = GenericGFPoly(field, Uint8List.fromList([1, 1]));
-      final result = dividend.divide(divisor);
-      expect(result.length, 2); // [quotient, remainder]
+      final (quotient, remainder) = dividend.divide(divisor);
+
+      // quotient * divisor + remainder == dividend
+      final reconstructed = quotient.multiply(divisor).addOrSubtract(remainder);
+      expect(reconstructed.coefficients, dividend.coefficients);
+      expect(remainder.degree, lessThan(divisor.degree));
+    });
+
+    test('zero and one are shared and unchanged by use', () {
+      const field = GenericGF.qrCodeField256;
+
+      expect(identical(field.zero, field.zero), isTrue);
+      expect(identical(field.one, field.one), isTrue);
+
+      // Operations that hand the shared instances back must not leave them
+      // altered for the next caller.
+      final poly = GenericGFPoly(field, Uint8List.fromList([1, 2, 3]));
+      poly.multiplyByScalar(0);
+      poly.multiply(field.zero);
+      field.buildMonomial(3, 0);
+      GenericGFPoly(
+        field,
+        Uint8List.fromList([1, 1]),
+      ).divide(GenericGFPoly(field, Uint8List.fromList([1])));
+
+      expect(field.zero.coefficients, [0]);
+      expect(field.zero.isZero, isTrue);
+      expect(field.one.coefficients, [1]);
     });
   });
 }

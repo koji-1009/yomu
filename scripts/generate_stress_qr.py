@@ -280,19 +280,29 @@ def generate_modern_extension(base: Image.Image):
     Random-consuming axes seed per value (`seed(44 + value)`), so editing
     one ladder never changes the bytes of another fixture.
 
-    Boundary as of the try-harder implementation:
-    - gaussian noise: sigma 110 decodes / 120 does not
+    Boundary as of the alternate-threshold sweep (each of these three axes
+    moved out one rung when the retry ladder gained the sweep, because they
+    fail by shifting contrast rather than by destroying it):
+    - gaussian noise: sigma 120 decodes / 170 does not. This axis is the
+      only probabilistic one: each sigma draws one noise field, so a single
+      fixture near the transition says more about its draw than about the
+      decoder. Measured decode rate over 20 independent draws per sigma:
+      110->100%, 120->100%, 130->75%, 140->70%, 150->50%, 160->40%,
+      170->5%, 180->5%. The rungs are therefore taken from the flat ends
+      (120 at 100%, 170 at 5%) rather than from the transition, so neither
+      fixture depends on a lucky or unlucky draw. Do not "tighten" this to
+      a value in the 130-160 band: a fixture there is a coin flip
     - jpeg: decodes at quality 1 (no practical boundary)
     - glare: decodes at full saturation of the highlighted region (error
       correction absorbs it while the finder patterns stay outside the
       highlight; a highlight covering a finder pattern is the cropped-
       pattern class, which is out of scope by definition)
-    - moire: amplitude 0.7 decodes / 0.8 does not
-    - composite scan: blur 5.0 decodes / 5.5 does not (the single-axis
-      blur boundary is 6.0; the composition lowers it)
+    - moire: amplitude 0.8 decodes / 0.9 does not
+    - composite scan: blur 5.5 decodes / 6.0 does not (the single-axis
+      blur boundary is also 6.0)
     """
     # Low-light sensor noise (Gaussian luminance noise).
-    for sigma in [110, 120]:
+    for sigma in [110, 120, 170]:
         img, name = apply_gaussian_noise(base, sigma)
         img.save(OUTPUT_DIR / name)
         print(f"Generated: {name}")
@@ -315,7 +325,7 @@ def generate_modern_extension(base: Image.Image):
 
     # Screen moire: sinusoidal interference beating against the module
     # grid (display pixel pitch vs camera sampling).
-    for a in [0.7, 0.8]:
+    for a in [0.7, 0.8, 0.9]:
         img, name = apply_moire(base, a)
         img.save(OUTPUT_DIR / name)
         print(f"Generated: {name}")
@@ -323,7 +333,7 @@ def generate_modern_extension(base: Image.Image):
     # Composite casual scan: mild perspective + lighting gradient with an
     # increasing blur. Each component is well inside its single-axis
     # boundary; the composition is what creates the failure.
-    for r in [5.0, 5.5]:
+    for r in [5.0, 5.5, 6.0]:
         img, name = apply_composite_scan(base, r)
         img.save(OUTPUT_DIR / name)
         print(f"Generated: {name}")

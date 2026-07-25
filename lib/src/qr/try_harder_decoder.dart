@@ -32,21 +32,24 @@ import 'detector/tolerant_finder_pattern_finder.dart';
 /// so that undecodable inputs cannot make the retry ladder pathologically
 /// slow.
 class TryHarderDecoder {
-  TryHarderDecoder({this.alignmentAreaAllowance = 15});
+  TryHarderDecoder({
+    this.alignmentAreaAllowance = 15,
+    int gridPointBudget = defaultGridPointBudget,
+  }) : _remainingGridPoints = gridPointBudget;
 
   /// Allowance for alignment pattern search (modules).
   final int alignmentAreaAllowance;
 
-  /// Work budget for grid searches, in sampled grid points (dim^2 per
-  /// attempt). Deterministic (machine independent), unlike a wall-clock
+  /// Default work budget for grid searches, in sampled grid points (dim^2
+  /// per attempt). Deterministic (machine independent), unlike a wall-clock
   /// budget, so retry outcomes are reproducible in tests and across
   /// devices. 500k points bound the grid work to roughly 10ms on M-class
   /// hardware (AOT). The offsets are searched nearest-first, so rescues
-  /// hit early: the most expensive fixture rescue consumes ~88k points,
-  /// leaving over 5x headroom.
-  static const int gridPointBudget = 500000;
+  /// hit early: the most expensive fixture rescue consumes ~152k points,
+  /// leaving over 3x headroom.
+  static const int defaultGridPointBudget = 500000;
 
-  int _remainingGridPoints = gridPointBudget;
+  int _remainingGridPoints;
 
   /// Remaining grid-search work budget in sampled points.
   /// Exposed for diagnostics and testing.
@@ -73,10 +76,12 @@ class TryHarderDecoder {
 
   /// Minimum module size (pixels) for the grid search to be worthwhile.
   ///
-  /// Below ~2px/module the sampled grid cannot be reliable anyway, and
-  /// noise images produce false finder patterns with ~1.5px modules whose
-  /// huge derived dimensions would make the grid search pathologically
-  /// expensive (every rescued fixture has >= 3.4px modules).
+  /// This is the Nyquist limit of the sampled grid, not a heuristic: below
+  /// two samples per module the grid is aliased and the modules cannot be
+  /// recovered from it whatever the viewing geometry. Noise images produce
+  /// false finder patterns at ~1.4px modules, whose huge derived dimensions
+  /// would make the grid search pathologically expensive; every candidate
+  /// that actually decodes across the fixture corpus measures >= 3.05px.
   static const double _minGridSearchModuleSize = 2.0;
 
   static const _decoder = QRCodeDecoder();

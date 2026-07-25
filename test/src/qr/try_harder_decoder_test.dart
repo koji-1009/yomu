@@ -191,13 +191,14 @@ void main() {
 
       final d = decoder();
       expect(d.decodeWithFinderInfo(matrix, info), isNull);
-      final consumed = TryHarderDecoder.gridPointBudget - d.remainingGridPoints;
+      final consumed =
+          TryHarderDecoder.defaultGridPointBudget - d.remainingGridPoints;
       expect(consumed, greaterThan(0));
 
       // Second identical search is deduplicated: no extra budget consumed.
       expect(d.decodeWithFinderInfo(matrix, info), isNull);
       expect(
-        TryHarderDecoder.gridPointBudget - d.remainingGridPoints,
+        TryHarderDecoder.defaultGridPointBudget - d.remainingGridPoints,
         consumed,
       );
     });

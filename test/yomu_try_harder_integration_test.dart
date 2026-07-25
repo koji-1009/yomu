@@ -145,10 +145,13 @@ void main() {
         'perspective_y_0.6',
         // Modern imaging pipeline axes
         'gaussian_noise_110',
+        'gaussian_noise_120',
         'jpeg_q1',
         'glare_1.0',
         'moire_0.7',
+        'moire_0.8',
         'composite_scan_blur_5.0',
+        'composite_scan_blur_5.5',
       ]) {
         test('decodes $name (within the boundary)', () {
           final result = Yomu.qrOnly.decode(
@@ -158,6 +161,10 @@ void main() {
         });
       }
 
+      // The Gaussian-noise rungs are taken from the flat ends of the axis
+      // (sigma 120 decodes on 100% of independent draws, sigma 170 on 5%),
+      // not from the 130-160 transition where a single fixture would be
+      // asserting the outcome of one coin flip. See generate_stress_qr.py.
       for (final name in [
         // Legacy axes
         'damaged_noise_0.30',
@@ -165,9 +172,9 @@ void main() {
         'blur_radius_6.0',
         'perspective_x_0.4',
         // Modern imaging pipeline axes
-        'gaussian_noise_120',
-        'moire_0.8',
-        'composite_scan_blur_5.5',
+        'gaussian_noise_170',
+        'moire_0.9',
+        'composite_scan_blur_6.0',
       ]) {
         test('does not decode $name (beyond the boundary)', () {
           expect(
@@ -268,6 +275,57 @@ void main() {
           'HELLO WORLD',
         });
       });
+
+      test(
+        'keeps the codes it did decode when a sheetmate is beyond rescue',
+        () {
+          // A clean code next to one past the capability boundary: no retry
+          // pass can complete the sheet, so the codes that did decode must
+          // still be returned rather than discarded.
+          final clean = img
+              .decodePng(
+                File(
+                  'fixtures/qr_images/alphanumeric_hello.png',
+                ).readAsBytesSync(),
+              )!
+              .convert(format: img.Format.uint8, numChannels: 4);
+          final hopeless = img
+              .decodePng(
+                File(
+                  'fixtures/unsupported_images/damaged_dirt_0.40.png',
+                ).readAsBytesSync(),
+              )!
+              .convert(format: img.Format.uint8, numChannels: 4);
+
+          const canvasW = 760;
+          const canvasH = 460;
+          final canvas = Uint8List(canvasW * canvasH * 4);
+          for (var i = 0; i < canvas.length; i++) {
+            canvas[i] = 255;
+          }
+          void paste(img.Image source, int dstX, int dstY) {
+            final bytes = source.buffer.asUint8List();
+            for (var y = 0; y < source.height; y++) {
+              final srcStart = y * source.width * 4;
+              final dstStart = ((y + dstY) * canvasW + dstX) * 4;
+              canvas.setRange(
+                dstStart,
+                dstStart + source.width * 4,
+                bytes,
+                srcStart,
+              );
+            }
+          }
+
+          paste(hopeless, 10, 10);
+          paste(clean, 440, 10);
+
+          final results = Yomu.qrOnly.decodeAll(
+            YomuImage.rgba(bytes: canvas, width: canvasW, height: canvasH),
+          );
+          expect(results.map((r) => r.text), contains('HELLO WORLD'));
+        },
+      );
 
       test('tryHarder=false finds nothing on the degraded sheets', () {
         const fastOnly = Yomu(

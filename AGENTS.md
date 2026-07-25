@@ -35,10 +35,12 @@ These directives are **NON-NEGOTIABLE**.
 * **Allocations**: Minimize allocations in hot loops. Reuse `Uint8List` and `Int32List` buffers where possible.
 * **Verification**:
   ```bash
-  # Run benchmark suite
+  # Run benchmark suite (regression check, writes benchmark_summary.md)
   python3 scripts/benchmark_runner.py
-  # Detailed profiling
-  dart run benchmark/tool_profiling.dart
+  # A/B a single optimization: sequential, min-of-N, with a stage breakdown
+  dart compile exe benchmark/tool_bench_seq.dart -o /tmp/bench && /tmp/bench --stages
+  # Detection capability across every fixture directory
+  dart run benchmark/tool_detection_rate.dart --verbose
   ```
 
 ## 3. Agent Persona & Working Agreements
@@ -81,7 +83,9 @@ The codebase is structured to allow future expansion (e.g., 2D barcodes like Dat
   * **Goal**: Enable thorough unit testing of edge cases without mocking complex state or generating full images.
 * **Metadata Caching**: `QRCodeDecoder` caches function pattern masks per version to speed up bit parsing.
 * **Galois Field Optimization**: `GenericGF.multiply` avoids expensive modulo operations.
-* **Binarization**: Locally adaptive thresholding using integral images (O(1) window sum).
+* **Binarization**: Locally adaptive thresholding over an integral image of per-block (4x4) mean luminance. The adaptive window is at least 40px, so the threshold surface varies far more slowly than the block grid and quantizing it to blocks costs no meaningful accuracy - while cutting the per-pixel work to one load and one compare, with the output word accumulated in a register and stored once per 32 pixels. The integral holds means, never raw sums, so it cannot overflow 32-bit storage on large images.
+* **Effort Levels (`DecodeEffort`)**: The retry ladder is split where its cost jumps - between stages that **reuse** the binarized image (corner grid, despeckle, tolerant finder) and stages that **rebuild** it from source pixels (full-resolution retry, threshold sweep). Measured on a textured Full HD frame with no code: fast 3.9ms / balanced 19.3ms / thorough 56.1ms, for 83.1% / 93.5% / 95.5% detection. Any new retry stage must be classified into one of the two and gated accordingly; do not add a stage that rebuilds the image below `thorough`.
+* **Threshold Sweep (retry)**: When every stage at the configured threshold fails, `Yomu` re-binarizes at alternate factors (0.6 / 1.0 / 1.1) and re-runs the ladder. Codes that fail by _shifting_ contrast rather than destroying it (screen moire, heavy sensor noise, scan blur) decode cleanly at a different factor. It is last in the ladder because placing even its cheap half earlier taxes every image the earlier stages already rescue.
 * **Fused Downsampling**: Large images (>1MP) are converted/downsampled in a single pass to maintain high frame rates.
 * **Math**: Use precomputed lookup tables for Reed-Solomon.
 * **Word-Oriented Bit Processing**: `DataMask` builds 32-bit mask words and XORs entire `Int32List` entries, avoiding per-bit branching.

@@ -56,6 +56,40 @@ jobs:
             cp benchmark_summary.md benchmark_comparison.md
           fi
 
+      # 4. Detection rate across effort levels
+      #
+      # The latency comparison above cannot see a change that buys speed by
+      # giving up detection, which is precisely the trade DecodeEffort exposes.
+      # Reporting both sides keeps that trade visible in review, and keeps the
+      # numbers documented on DecodeEffort from going stale.
+      - name: Detection rate (PR)
+        run: |
+          dart run benchmark/tool_detection_rate.dart --matrix > detection_pr.md
+
+      - name: Detection rate (main)
+        run: |
+          cp benchmark/tool_detection_rate.dart main_ref/benchmark/tool_detection_rate.dart
+          cd main_ref
+          dart run benchmark/tool_detection_rate.dart --matrix > ../detection_main.md
+        continue-on-error: true
+
+      - name: Append detection report
+        run: |
+          {
+            echo ''
+            echo '## Detection'
+            echo ''
+            echo '**This PR**'
+            echo ''
+            cat detection_pr.md
+            if [ -f detection_main.md ]; then
+              echo ''
+              echo '**main**'
+              echo ''
+              cat detection_main.md
+            fi
+          } >> benchmark_comparison.md
+
       - run: cat benchmark_comparison.md >> $GITHUB_STEP_SUMMARY
 
       - name: Post to PR

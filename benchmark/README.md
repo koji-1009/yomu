@@ -26,17 +26,25 @@ Runs a comprehensive performance test across various categories (Standard, HiRes
 dart run benchmark/bench_compare.dart
 ```
 
-### 2. Micro-Benchmarks
+### 2. Sequential Benchmark (`tool_bench_seq.dart`)
+
+`bench_compare.dart` runs images in parallel isolates, which is fast but sensitive to scheduler noise — a poor instrument for A/B comparing an optimization. This tool runs every image on the main isolate and reports the **minimum** of N iterations per image, which is stable to well under 1% run to run. Use it when you need to attribute a change to the code rather than to the machine.
+
+```bash
+dart compile exe benchmark/tool_bench_seq.dart -o /tmp/bench && /tmp/bench --stages
+```
+
+`--stages` adds a per-stage breakdown (process / binarize / find / total) on a handful of representative images, which is how you find out where the time actually goes before optimizing.
+
+### 3. Micro-Benchmarks
 
 Targeted benchmarks for specific components.
 
 * **Binarizer**: `dart run benchmark/bench_binarizer.dart`
 
-### 3. Detection Rate (`tool_detection_rate.dart`)
+### 4. Detection Rate (`tool_detection_rate.dart`)
 
-Measures the decode success rate across every fixture directory (including
-`fixtures/unsupported_images`). Use this to track detection capability
-alongside performance.
+Measures the decode success rate across every fixture directory (including `fixtures/unsupported_images`). Use this to track detection capability alongside performance.
 
 ```bash
 dart run benchmark/tool_detection_rate.dart [--verbose]

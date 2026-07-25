@@ -21,6 +21,7 @@
 * **Branchless thresholding**: `luminance <= threshold` is now the sign bit of `luminance - (threshold + 1)` rather than an `if`. Binarizing a photograph otherwise means one unpredictable branch per pixel, and the misprediction dominated the compare; removing it cut the threshold pass by 3.4x on high-entropy input.
 * **Whole-pixel image conversion**: RGBA/BGRA to luminance (and the fused downsample) reads one 32-bit word per pixel instead of three bounds-checked bytes, falling back to per-byte access for unaligned buffers and strides that are not a whole number of pixels.
 * Binarization was ~65% of decode time and now costs roughly one sequential pass over the image (1.3x a bare read loop, against 4.2x before). On the fixture corpus (AOT): standard QR -30%, high-version QR -44%, uneven lighting -40%, Full HD / 4K -39%, barcodes -22%. Per image: 4K 3.51ms -> 2.12ms, Full HD 1.99ms -> 1.24ms, version 7 2.70ms -> 1.57ms.
+* **Table-driven data masks**: six of the eight mask patterns built their 32-bit words a bit at a time, two integer modulos per module, and unmasking runs twice per decode attempt since the second XOR is what restores the matrix. Every mask condition is periodic - 12 rows by 3 word alignments covers all of them - so those words are constants now, 1.1 KiB in total. Generating the mask words for a version 40 symbol: 23.5us -> 1.8us. On the fixture corpus (AOT): images holding no code -6.5%, distorted -4.1%, whole corpus -4.4%.
 
 ### Test fixtures
 

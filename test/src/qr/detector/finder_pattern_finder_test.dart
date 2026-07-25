@@ -189,6 +189,47 @@ void main() {
       });
     });
 
+    test('does not mistake a long run for a finder pattern', () {
+      // A run is as long as the image allows, so the counters have to hold
+      // more than a byte. Here the white gap is 266 pixels: read modulo 256
+      // it reads as 10, which turns black(10) gap(266) black(30) white(10)
+      // black(10) into a textbook 1:1:3:1:1 that it is not.
+      final matrix = BitMatrix(width: 400, height: 400);
+
+      void fillRow(int y, int from, int to) {
+        for (var x = from; x <= to; x++) {
+          matrix.set(x, y);
+        }
+      }
+
+      // Rows 200-229 carry the horizontal run pattern.
+      for (var y = 200; y <= 229; y++) {
+        fillRow(y, 0, 9); // black, 10 wide
+        // x 10-275 stays white: a 266 pixel gap
+        fillRow(y, 276, 305); // black, 30 wide
+        // x 306-315 white, 10 wide
+        fillRow(y, 316, 325); // black, 10 wide
+      }
+
+      // Column 291 alone gets a genuine 1:1:3:1:1 profile, so the vertical
+      // cross-check cannot be what rejects the candidate.
+      for (var y = 180; y <= 189; y++) {
+        matrix.set(291, y);
+      }
+      for (var y = 240; y <= 249; y++) {
+        matrix.set(291, y);
+      }
+
+      final finder = FinderPatternFinder(matrix);
+      finder.findMulti();
+
+      expect(
+        finder.possibleCenters,
+        isEmpty,
+        reason: 'the 266 pixel gap is not one module wide',
+      );
+    });
+
     group('findMulti', () {
       test('finds finder pattern at the very right edge of image', () {
         // Width 21. Indices 0..20.

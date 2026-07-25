@@ -48,6 +48,8 @@ The retry ladder becomes a three-level `DecodeEffort` axis instead of a boolean,
 ### Tooling
 
 * `benchmark/tool_bench_seq.dart`: sequential, single-isolate benchmark reporting the minimum of N iterations per image, stable to well under 1% run to run — the instrument for A/B comparing an optimization, where the isolate-parallel `bench_compare.dart` is too noisy. `--stages` adds a process / binarize / find breakdown.
+* **Benchmark categories now mean what they say.** `_categorize` matches filename substrings first-wins, and `damaged` was checked before `noise` - so nine of the eleven noise fixtures were bucketed as Distorted and the Noise category reported two images, one of them a boundary case, making its average a single image's failure-path cost. Noise is now matched before the generic distortion bucket (11 images), `square_*` gets its own category instead of diluting Standard with 20 synthetic frames (Standard is now the 20 qr_images), and perspective / moire / glare / jpeg / composite are classified as Distorted rather than falling through to Standard.
+* The runner's category parser listed a legacy `HiRes` bucket that matched nothing, which silently dropped the **4K and FullHD rows from every report**. Both now appear.
 * `benchmark/tool_detection_rate.dart --effort=LEVEL` and `--matrix`. CI now posts the detection matrix for the PR and for `main` alongside the latency comparison: the latency job alone cannot see a change that buys speed by giving up detection, which is precisely the trade `DecodeEffort` exposes.
 
 ## 1.1.0

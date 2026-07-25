@@ -270,7 +270,19 @@ class BenchmarkParser:
         )
 
     def _parse_categories(self, output: str):
-        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
+        # Must match the categories bench_compare.dart prints; "HiRes" was a
+        # legacy name that matched nothing, which silently dropped the 4K and
+        # FullHD rows from every report.
+        for cat in [
+            "Standard",
+            "Complex",
+            "4K",
+            "FullHD",
+            "Square",
+            "Distorted",
+            "Noise",
+            "Edge",
+        ]:
             matches = re.findall(rf"{cat}\s+: Avg ([\d.]+)ms, p95 ([\d.]+)ms", output)
             if len(matches) >= 2:
                 self.qr_cats[cat] = (
@@ -396,6 +408,7 @@ def generate_markdown_report(
             "Complex",
             "4K",
             "FullHD",
+            "Square",
             "Distorted",
             "Noise",
             "Edge",
@@ -411,6 +424,8 @@ def generate_markdown_report(
                     note = "3840×2160 images"
                 elif cat == "FullHD":
                     note = "1920×1080 images"
+                elif cat == "Square":
+                    note = "Small code in a 250-700px frame"
                 elif cat == "Distorted":
                     note = "Rotated / Tilted / Skewed"
                 elif cat == "Noise":
@@ -672,6 +687,7 @@ def generate_comparison_report(base_data: dict, target_data: dict) -> str:
             "Complex",
             "4K",
             "FullHD",
+            "Square",
             "Distorted",
             "Noise",
             "Edge",

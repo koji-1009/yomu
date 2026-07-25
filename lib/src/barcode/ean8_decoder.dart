@@ -200,17 +200,19 @@ class EAN8Decoder extends BarcodeDecoder {
     return null;
   }
 
+  /// Validates the check digit of [barcode], which this decoder has just
+  /// assembled from decoded digits, so every character is one.
   bool _validateChecksum(String barcode) {
     if (barcode.length != 8) return false;
 
     // EAN-8 checksum: sum of (odd positions) + 3 * sum of (even positions)
     var sum = 0;
     for (var i = 0; i < 7; i++) {
-      final digit = int.parse(barcode[i]);
+      final digit = digitAt(barcode, i);
       sum += (i % 2 == 0) ? digit * 3 : digit;
     }
 
     final checkDigit = (10 - (sum % 10)) % 10;
-    return checkDigit == int.parse(barcode[7]);
+    return checkDigit == digitAt(barcode, 7);
   }
 }

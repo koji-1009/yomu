@@ -268,16 +268,18 @@ class EAN13Decoder extends BarcodeDecoder {
     return null;
   }
 
+  /// Validates the check digit of [barcode], which this decoder has just
+  /// assembled from decoded digits, so every character is one.
   bool _validateChecksum(String barcode) {
     if (barcode.length != 13) return false;
 
     var sum = 0;
     for (var i = 0; i < 12; i++) {
-      final digit = int.parse(barcode[i]);
+      final digit = digitAt(barcode, i);
       sum += (i % 2 == 0) ? digit : digit * 3;
     }
 
     final checkDigit = (10 - (sum % 10)) % 10;
-    return checkDigit == int.parse(barcode[12]);
+    return checkDigit == digitAt(barcode, 12);
   }
 }

@@ -4,6 +4,20 @@ import '../common/bit_matrix.dart';
 import 'barcode_result.dart';
 import 'barcode_scanner.dart';
 
+/// Code unit of '0'.
+const int _zero = 0x30;
+
+/// Returns the digit at [index] of [text].
+///
+/// [text] must hold a digit at [index] - it is a barcode a decoder has just
+/// assembled out of decoded digits. Checksum validation walks one such
+/// string a character at a time, and `int.parse(text[index])` would allocate
+/// a one-character string per digit to read a value the code unit already
+/// carries.
+@pragma('vm:prefer-inline')
+@pragma('dart2js:prefer-inline')
+int digitAt(String text, int index) => text.codeUnitAt(index) - _zero;
+
 /// Abstract base class for 1D barcode decoders.
 ///
 /// Implement this class to add support for new barcode formats.

@@ -21,10 +21,20 @@ import 'package:yomu/yomu.dart';
 ///   --iters=N   Iterations per image (default 30).
 ///   --warmup=N  Warmup iterations per image (default 10).
 ///   --stages    Also report a per-stage breakdown (convert/binarize/find).
+///   --matrix    Emit a markdown latency table across every DecodeEffort
+///               level instead of the default single-level report.
 void main(List<String> args) {
   final iters = _intArg(args, '--iters=', 30);
   final warmup = _intArg(args, '--warmup=', 10);
   final withStages = args.contains('--stages');
+
+  if (args.contains('--matrix')) {
+    _printMatrix(
+      iterations: _intArg(args, '--iters=', 3),
+      warmup: _intArg(args, '--warmup=', 1),
+    );
+    return;
+  }
 
   const qrDirs = [
     'fixtures/qr_images',
@@ -180,6 +190,66 @@ void _reportStages({required int iters, required int warmup}) {
       '${binarize.toStringAsFixed(3).padLeft(8)} | '
       '${find.toStringAsFixed(3).padLeft(8)} | '
       '${total.toStringAsFixed(3).padLeft(8)}',
+    );
+  }
+}
+
+/// Emits a markdown latency table across every [DecodeEffort] level.
+///
+/// A single-level report cannot distinguish "this got slower" from "this now
+/// decodes, and decoding it costs a full retry ladder" - the categories that
+/// look alarming are exactly the ones whose images only decode at
+/// [DecodeEffort.thorough]. Showing all three levels side by side makes which
+/// of the two it is obvious, and puts a number on what a caller buys by
+/// choosing a cheaper level.
+void _printMatrix({required int iterations, required int warmup}) {
+  const dirs = [
+    'fixtures/qr_images',
+    'fixtures/qr_complex_images',
+    'fixtures/distorted_images',
+    'fixtures/uneven_lighting',
+    'fixtures/performance_test_images',
+    'fixtures/unsupported_images',
+    'fixtures/barcode_images',
+  ];
+
+  print('### Latency by effort (avg ms per image, min of $iterations)');
+  print('');
+  print('| corpus | images | fast | balanced | thorough |');
+  print('| --- | --- | --- | --- | --- |');
+
+  for (final dir in dirs) {
+    final images = _load(dir);
+    if (images.isEmpty) {
+      continue;
+    }
+    final cells = <String>[];
+    for (final effort in DecodeEffort.values) {
+      final decoder = Yomu(
+        enableQRCode: !dir.contains('barcode'),
+        barcodeScanner: dir.contains('barcode')
+            ? BarcodeScanner.all
+            : BarcodeScanner.none,
+        effort: effort,
+      );
+      var total = 0.0;
+      for (final (_, image) in images) {
+        final (best, _) = _time(
+          iterations: iterations,
+          warmup: warmup,
+          body: () {
+            try {
+              decoder.decode(image);
+            } catch (_) {}
+          },
+        );
+        total += best;
+      }
+      cells.add((total / images.length).toStringAsFixed(3));
+    }
+    print(
+      '| `${dir.replaceFirst('fixtures/', '')}` | ${images.length} | '
+      '${cells[0]} | ${cells[1]} | ${cells[2]} |',
     );
   }
 }

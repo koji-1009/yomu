@@ -36,6 +36,8 @@ dart compile exe benchmark/tool_bench_seq.dart -o /tmp/bench && /tmp/bench --sta
 
 `--stages` adds a per-stage breakdown (process / binarize / find / total) on a handful of representative images, which is how you find out where the time actually goes before optimizing.
 
+`--matrix` reports average latency per fixture directory across every `DecodeEffort` level. A single-level number cannot tell "this got slower" apart from "this now decodes, and decoding it costs a full retry ladder"; the three columns side by side can. CI posts this on each pull request.
+
 ### 3. Micro-Benchmarks
 
 Targeted benchmarks for specific components.

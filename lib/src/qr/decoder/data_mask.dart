@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../common/bit_matrix.dart';
 
 /// The eight QR code data mask patterns (ISO 18004 Table 10).
@@ -67,14 +69,51 @@ enum DataMask {
         final shifted = (baseJ & 0x01) == 0 ? base : ~base;
         return limit == 32 ? shifted : shifted & ((1 << limit) - 1);
       default:
-        // General path: build mask bit by bit
-        var mask = 0;
-        for (var b = 0; b < limit; b++) {
-          if (isMasked(i, baseJ + b)) {
-            mask |= (1 << b);
-          }
-        }
-        return mask;
+        // General path: every mask condition is periodic, so the word is
+        // one of a handful of precomputed constants.
+        final word =
+            _wordTable[index][(i % _rowPeriod) * _wordPhases +
+                (baseJ >> 5) % _wordPhases];
+        return limit == 32 ? word : word & ((1 << limit) - 1);
     }
+  }
+
+  /// Row period shared by all eight conditions: lcm(2, 4, 6).
+  ///
+  /// [binary001] and [binary000] step on `i` modulo 2, [binary100] on
+  /// `i ~/ 2` (period 4), and the `i * j` patterns on `i` modulo 6.
+  static const int _rowPeriod = 12;
+
+  /// Distinct word alignments. The column period is lcm(2, 3, 6) = 6, and a
+  /// word covering columns `32 * w` onwards starts at `(32 * w) % 6`, which
+  /// is `(2 * w) % 6` - three values, one per residue of `w` modulo 3.
+  static const int _wordPhases = 3;
+
+  /// One 32-bit mask word per (row phase, word phase), per mask: 12 * 3
+  /// words each, 1.1 KiB in total, built once per isolate.
+  ///
+  /// Unmasking a version 40 symbol touches ~1000 words and runs twice per
+  /// decode attempt (XOR unmasks, XOR again restores), so building each of
+  /// those words a bit at a time - with two integer modulos per bit - is
+  /// what this replaces.
+  static final List<Uint32List> _wordTable = [
+    for (final mask in values)
+      Uint32List.fromList([
+        for (var row = 0; row < _rowPeriod; row++)
+          for (var phase = 0; phase < _wordPhases; phase++)
+            mask._maskWordAt(row, phase * 2),
+      ]),
+  ];
+
+  /// Builds one whole 32-bit mask word bit by bit. Only used to fill
+  /// [_wordTable].
+  int _maskWordAt(int i, int baseJ) {
+    var mask = 0;
+    for (var b = 0; b < 32; b++) {
+      if (isMasked(i, baseJ + b)) {
+        mask |= (1 << b);
+      }
+    }
+    return mask;
   }
 }

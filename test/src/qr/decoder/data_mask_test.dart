@@ -134,6 +134,60 @@ void main() {
           }
         }
       });
+
+      test('matches isMasked for every mask and every version dimension', () {
+        // unmaskBitMatrix builds whole 32-bit words from precomputed
+        // constants; isMasked is the definition those words have to agree
+        // with, at every word alignment a real symbol produces.
+        for (final mask in DataMask.values) {
+          for (var version = 1; version <= 40; version++) {
+            final dimension = 17 + 4 * version;
+            final bits = BitMatrix(width: dimension, height: dimension);
+
+            mask.unmaskBitMatrix(bits, dimension);
+
+            for (var i = 0; i < dimension; i++) {
+              for (var j = 0; j < dimension; j++) {
+                expect(
+                  bits.get(j, i),
+                  mask.isMasked(i, j),
+                  reason: '$mask at ($i, $j) of a $dimension module symbol',
+                );
+              }
+            }
+          }
+        }
+      });
+
+      test('leaves the padding bits of the last word clear', () {
+        // A row's last word covers columns the symbol does not have. Those
+        // bits must stay clear so a later read cannot pick them up.
+        for (final mask in DataMask.values) {
+          for (final dimension in [21, 45, 101, 177]) {
+            final bits = BitMatrix(width: dimension, height: dimension);
+
+            mask.unmaskBitMatrix(bits, dimension);
+
+            final tailBits = dimension & 31;
+            if (tailBits == 0) {
+              continue; // the last word is full
+            }
+            final padding = ~((1 << tailBits) - 1) & 0xFFFFFFFF;
+
+            for (var i = 0; i < dimension; i++) {
+              final lastWord =
+                  bits.bits[i * bits.rowStride + bits.rowStride - 1];
+              expect(
+                lastWord & padding,
+                0,
+                reason:
+                    '$mask left padding set in row $i of a '
+                    '$dimension module symbol',
+              );
+            }
+          }
+        }
+      });
     });
 
     test('all mask patterns are unique', () {

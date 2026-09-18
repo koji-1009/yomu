@@ -20,13 +20,13 @@
 ///
 /// | level      | detection      | blank frame | textured frame |
 /// | ---------- | -------------- | ----------- | -------------- |
-/// | [fast]     | 167/201, 83.1% | 1.20ms      | 3.62ms         |
-/// | [balanced] | 188/201, 93.5% | 1.43ms      | 16.52ms        |
-/// | [thorough] | 192/201, 95.5% | 8.24ms      | 65.43ms        |
+/// | [fast]     | 167/201, 83.1% | 1.20ms      | 3.58ms         |
+/// | [balanced] | 188/201, 93.5% | 1.45ms      | 16.69ms        |
+/// | [thorough] | 192/201, 95.5% | 8.34ms      | 75.08ms        |
 ///
 /// [balanced] is where the trade sits best for a stream: it recovers 21 of
-/// the 25 codes [thorough] adds over [fast], for a quarter of the cost on a
-/// textured frame and a sixth on a blank one.
+/// the 25 codes [thorough] adds over [fast], for under a quarter of the cost
+/// on a textured frame and a sixth on a blank one.
 ///
 /// The jump to [thorough] is the cost of rebuilding the image: the
 /// full-resolution pass binarizes four times as many pixels, and the

@@ -35,10 +35,16 @@ class TryHarderDecoder {
   TryHarderDecoder({
     this.alignmentAreaAllowance = 15,
     int gridPointBudget = defaultGridPointBudget,
+    this.readLightOnDark = false,
   }) : _remainingGridPoints = gridPointBudget;
 
   /// Allowance for alignment pattern search (modules).
   final int alignmentAreaAllowance;
+
+  /// Whether the despeckle stage also reads light-on-dark codes. Their
+  /// finder patterns come from the same row scan, so this adds no scan -
+  /// which is also why the tolerant finder, a scan of its own, does not.
+  final bool readLightOnDark;
 
   /// Default work budget for grid searches, in sampled grid points (dim^2
   /// per attempt). Deterministic (machine independent), unlike a wall-clock
@@ -164,11 +170,36 @@ class TryHarderDecoder {
     return _decodeTolerant(matrix);
   }
 
-  /// Strict find -> decode -> bottom-right grid retry on [matrix].
+  /// Strict find -> decode -> bottom-right grid retry on [matrix], then -
+  /// with [readLightOnDark] - on the light-on-dark candidates the same scan
+  /// collected.
   DecoderResult? _detectAndDecode(BitMatrix matrix) {
+    final inverted = readLightOnDark ? matrix.inverted() : null;
+    final finder = FinderPatternFinder(matrix, invertedImage: inverted);
+    final result = _decodeLocated(matrix, finder.find);
+    if (result != null) {
+      return result;
+    }
+    if (finder.inverted case final lightOnDark?) {
+      return _decodeLocated(
+        inverted!,
+        lightOnDark.selectBest,
+        gridSearch: false,
+      );
+    }
+    return null;
+  }
+
+  /// Decode -> bottom-right grid retry on the finder patterns [locate]
+  /// returns for [matrix].
+  DecoderResult? _decodeLocated(
+    BitMatrix matrix,
+    FinderPatternInfo Function() locate, {
+    bool gridSearch = true,
+  }) {
     final FinderPatternInfo info;
     try {
-      info = FinderPatternFinder(matrix).find();
+      info = locate();
     } catch (_) {
       return null;
     }
@@ -182,7 +213,7 @@ class TryHarderDecoder {
     } catch (_) {
       // Fall through to the grid retry with the same finder info.
     }
-    return decodeWithFinderInfo(matrix, info);
+    return gridSearch ? decodeWithFinderInfo(matrix, info) : null;
   }
 
   /// Tolerant cluster-based finding plus decode attempts per triplet.

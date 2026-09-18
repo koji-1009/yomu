@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:image/image.dart' as img;
 import 'package:test/test.dart';
 import 'package:yomu/src/barcode/barcode_decoder.dart';
 import 'package:yomu/src/barcode/barcode_result.dart';
@@ -71,6 +73,51 @@ void main() {
     test('isEmpty returns correct state', () {
       expect(BarcodeScanner.none.isEmpty, isTrue);
       expect(BarcodeScanner.retail.isEmpty, isFalse);
+    });
+  });
+
+  group('getRunLengths', () {
+    test('starts with the white run of a row that starts white', () {
+      final row = Uint8List.fromList([0, 0, 1, 1, 1, 0]);
+      expect(BarcodeScanner.getRunLengths(row), [2, 3, 1]);
+    });
+
+    test('starts with an empty white run when the row starts black', () {
+      // Decoders read even indices as white. A row whose first pixel is
+      // black - a dark border, or a dark object at the left edge - would
+      // otherwise shift every run to the other colour.
+      final row = Uint8List.fromList([1, 1, 0, 0, 0, 1]);
+      expect(BarcodeScanner.getRunLengths(row), [0, 2, 3, 1]);
+    });
+  });
+
+  group('rows that start black', () {
+    // A Code 128 barcode from the fixture corpus with a 10px dark band added
+    // to the left of the image. Its quiet zone is left intact.
+    test('still decode', () {
+      const band = 10;
+      final file = File('fixtures/barcode_images/code128_hello.png');
+      final decoded = img.decodePng(file.readAsBytesSync())!;
+      final gray = decoded.convert(format: img.Format.uint8, numChannels: 1);
+      final source = gray.buffer.asUint8List();
+      final width = gray.width + band;
+      final pixels = Uint8List(width * gray.height);
+      for (var y = 0; y < gray.height; y++) {
+        pixels.setRange(
+          y * width + band,
+          y * width + width,
+          source,
+          y * gray.width,
+        );
+      }
+
+      final result = BarcodeScanner.all.scan(
+        LuminanceSource(width: width, height: gray.height, luminances: pixels),
+      );
+
+      expect(result?.text, 'Hello World');
+      // Positions still count from the image's left edge.
+      expect(result?.startX, greaterThanOrEqualTo(band));
     });
   });
 }

@@ -6,6 +6,10 @@
 
 * **Reflectance reversal** ([#96](https://github.com/koji-1009/yomu/issues/96)): QR codes printed as light modules on a dark background (ISO/IEC 18004:2015, 6.2) now decode at every `DecodeEffort`, in both `decode` and `decodeAll`. The finder pattern scan reads light-on-dark patterns from the same runs as the normal ones - a 1:1:3:1:1 sequence that starts on a white run - so the image is scanned once; those candidates are tried once the normal attempt (and, in `decode`, barcode scanning) has failed. Decoding a normal code costs up to 3% more (`qr_images` at `fast`: 0.43ms to 0.44ms). Frames holding no code pay for checking the light-on-dark candidates: on a textured Full HD frame, `fast` goes from 2.5ms to 3.6ms (measured with the #94 fix), `balanced` from 14.8ms to 15.9ms and `thorough` from 61.5ms to 63.8ms. Blank frames are unaffected.
 
+### Performance
+
+* **Finder pattern cross-check stops at the pattern's width**: the vertical check walked the center run of a 1:1:3:1:1 candidate to its end, however long. On a 1D barcode every bar is such a run, so each horizontal hit walked the full bar height before failing. A center run as long as the pattern is wide can never pass the checks that follow, so the walk now stops there; the candidates found are identical on every fixture. The finder pattern scan on barcode images: 0.086ms to 0.068ms; `Yomu.all` on barcode images: 0.40ms to 0.365ms.
+
 ### Fixes
 
 * **`decodeAll` pairs each code with its own finder patterns** ([#95](https://github.com/koji-1009/yomu/issues/95)): in a grid of codes, the matching finder patterns of three neighbouring codes form a right isosceles triangle as well, and the first valid triplet found was taken. Four codes in a 2x2 grid rotated by 5° decoded 0/4. Triplets are now taken smallest first, after those whose patterns were confirmed on a consistent number of rows, and all four decode.

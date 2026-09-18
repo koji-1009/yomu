@@ -348,6 +348,58 @@ void main() {
       );
     });
 
+    group('vertical cross-check', () {
+      // Sets columns [from, to] on rows [top, bottom].
+      void fill(BitMatrix m, int from, int to, int top, int bottom) {
+        for (var y = top; y <= bottom; y++) {
+          for (var x = from; x <= to; x++) {
+            m.set(x, y);
+          }
+        }
+      }
+
+      test('rejects a center run taller than the pattern is wide', () {
+        // Every row from 18 to 250 reads 4:4:12:4:4 across, like the bars
+        // of a 1D barcode. Above the tall center bar sits a proper
+        // white/black profile, so rows near its top only fail on the way
+        // down, and deeper rows fail on the way up.
+        final matrix = BitMatrix(width: 40, height: 300);
+        fill(matrix, 0, 3, 18, 250);
+        fill(matrix, 8, 19, 18, 250);
+        fill(matrix, 24, 27, 18, 250);
+        fill(matrix, 8, 19, 10, 13);
+
+        final finder = FinderPatternFinder(matrix)..findMulti();
+
+        expect(finder.possibleCenters, isEmpty);
+      });
+
+      test('accepts a finder pattern stretched vertically', () {
+        // Modules 4px wide and 5px tall: the vertical total is 1.25x the
+        // horizontal one, within the cross-check's tolerance.
+        final matrix = BitMatrix(width: 40, height: 50);
+        for (var my = 0; my < 7; my++) {
+          for (var mx = 0; mx < 7; mx++) {
+            final ring = mx == 0 || mx == 6 || my == 0 || my == 6;
+            final core = mx >= 2 && mx <= 4 && my >= 2 && my <= 4;
+            if (ring || core) {
+              fill(
+                matrix,
+                4 + mx * 4,
+                4 + mx * 4 + 3,
+                4 + my * 5,
+                4 + my * 5 + 4,
+              );
+            }
+          }
+        }
+
+        final finder = FinderPatternFinder(matrix)..findMulti();
+
+        expect(finder.possibleCenters, hasLength(1));
+      });
+    });
+
     group('light-on-dark patterns', () {
       // Three finder patterns of a 21-module code, the last one flush with
       // the right edge so that rows end inside it.

@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
+
 import 'package:image/image.dart' as img;
 import 'package:yomu/src/common/binarizer/binarizer.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
@@ -23,10 +26,18 @@ import 'package:yomu/yomu.dart';
 ///   --stages    Also report a per-stage breakdown (convert/binarize/find).
 ///   --matrix    Emit a markdown latency table across every DecodeEffort
 ///               level instead of the default single-level report.
+///   --frames    Emit the failure-path latency of every DecodeEffort level on
+///               Full HD frames holding no code (the table in README.md and
+///               DecodeEffort's documentation).
 void main(List<String> args) {
   final iters = _intArg(args, '--iters=', 30);
   final warmup = _intArg(args, '--warmup=', 10);
   final withStages = args.contains('--stages');
+
+  if (args.contains('--frames')) {
+    _printFrames(iterations: iters, warmup: warmup);
+    return;
+  }
 
   if (args.contains('--matrix')) {
     _printMatrix(
@@ -251,6 +262,58 @@ void _printMatrix({required int iterations, required int warmup}) {
       '| `${dir.replaceFirst('fixtures/', '')}` | ${images.length} | '
       '${cells[0]} | ${cells[1]} | ${cells[2]} |',
     );
+  }
+}
+
+/// Emits the failure-path latency of every [DecodeEffort] level on Full HD
+/// frames holding no code, with every format enabled as in the presets.
+///
+/// This is the cost a camera preview pointed at nothing pays per frame. A
+/// blank frame has nothing to look at; a textured one (uniform random noise,
+/// fixed seed) is full of false finder patterns, so every stage has
+/// candidates to rule out.
+void _printFrames({required int iterations, required int warmup}) {
+  const width = 1920;
+  const height = 1080;
+  final blank = Uint8List(width * height * 4)
+    ..fillRange(0, width * height * 4, 255);
+  final random = Random(42);
+  final textured = Uint8List(width * height * 4);
+  for (var i = 0; i < textured.length; i += 4) {
+    final v = random.nextInt(256);
+    textured[i] = v;
+    textured[i + 1] = v;
+    textured[i + 2] = v;
+    textured[i + 3] = 255;
+  }
+  final frames = [
+    ('blank', YomuImage.rgba(bytes: blank, width: width, height: height)),
+    ('textured', YomuImage.rgba(bytes: textured, width: width, height: height)),
+  ];
+
+  print('### Failure-path latency (Full HD, no code, min of $iterations)');
+  print('');
+  print('| effort | blank frame | textured frame |');
+  print('| --- | --- | --- |');
+  for (final effort in DecodeEffort.values) {
+    final decoder = Yomu(
+      enableQRCode: true,
+      barcodeScanner: BarcodeScanner.all,
+      effort: effort,
+    );
+    final cells = [
+      for (final (_, image) in frames)
+        _time(
+          iterations: iterations,
+          warmup: warmup,
+          body: () {
+            try {
+              decoder.decode(image);
+            } catch (_) {}
+          },
+        ).$1.toStringAsFixed(2),
+    ];
+    print('| `${effort.name}` | ${cells[0]}ms | ${cells[1]}ms |');
   }
 }
 

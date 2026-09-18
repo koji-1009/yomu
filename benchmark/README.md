@@ -38,6 +38,8 @@ dart compile exe benchmark/tool_bench_seq.dart -o /tmp/bench && /tmp/bench --sta
 
 `--matrix` reports average latency per fixture directory across every `DecodeEffort` level. A single-level number cannot tell "this got slower" apart from "this now decodes, and decoding it costs a full retry ladder"; the three columns side by side can. CI posts this on each pull request.
 
+`--frames` reports the failure-path latency of every `DecodeEffort` level on two Full HD frames holding no code - one blank, one textured (uniform random noise from a fixed seed) - with every format enabled. It is the cost a camera preview pointed at nothing pays per frame, and it produces the blank / textured frame columns in `README.md` and the `DecodeEffort` documentation.
+
 ### 3. Micro-Benchmarks
 
 Targeted benchmarks for specific components.

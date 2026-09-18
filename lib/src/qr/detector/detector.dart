@@ -60,8 +60,13 @@ class Detector {
       moduleSize,
     );
 
-    // Determine version from dimension
+    // Determine version from dimension. Finder spacing outside versions
+    // 1-40 cannot belong to a QR code: reject it here rather than let the
+    // version lookup throw a non-Yomu error further down.
     final provisionalVersion = (dimension - 17) ~/ 4;
+    if (provisionalVersion < 1 || provisionalVersion > 40) {
+      throw const DetectionException('Finder spacing outside versions 1-40');
+    }
 
     // For Version 2+, try to find alignment pattern
     AlignmentPattern? alignmentPattern;

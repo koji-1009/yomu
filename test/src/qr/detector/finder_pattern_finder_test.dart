@@ -223,6 +223,58 @@ void main() {
       });
     });
 
+    group('hasConsistentCounts', () {
+      FinderPattern at(int count) =>
+          FinderPattern(x: 0, y: 0, estimatedModuleSize: 4, count: count);
+
+      test('accepts counts within a factor of two', () {
+        expect(
+          FinderPatternFinder.hasConsistentCounts(at(5), at(6), at(10)),
+          isTrue,
+        );
+      });
+
+      test('rejects a pattern confirmed on under half the rows', () {
+        expect(
+          FinderPatternFinder.hasConsistentCounts(at(10), at(3), at(10)),
+          isFalse,
+        );
+        expect(
+          FinderPatternFinder.hasConsistentCounts(at(4), at(4), at(1)),
+          isFalse,
+        );
+      });
+    });
+
+    group('findMulti triplet selection', () {
+      // Four version 1 codes (21 modules of 4 px, finder centers 56 px
+      // apart) in a 2x2 grid, 120 px apart: the matching finder patterns of
+      // three codes also form a right isosceles triangle.
+      BitMatrix grid() {
+        final matrix = BitMatrix(width: 240, height: 240);
+        for (final (ox, oy) in [(0, 0), (120, 0), (0, 120), (120, 120)]) {
+          drawFinderPattern(matrix, ox, oy, moduleSize: 4);
+          drawFinderPattern(matrix, ox + 56, oy, moduleSize: 4);
+          drawFinderPattern(matrix, ox, oy + 56, moduleSize: 4);
+        }
+        return matrix;
+      }
+
+      test('pairs each code with its own finder patterns', () {
+        final infos = FinderPatternFinder(grid()).findMulti();
+
+        expect(infos, hasLength(4));
+        for (final info in infos) {
+          // A code's own triplet spans 56 px; a cross-code one spans 120.
+          expect(
+            (info.topRight.x - info.topLeft.x).abs() +
+                (info.topRight.y - info.topLeft.y).abs(),
+            closeTo(56, 1),
+          );
+        }
+      });
+    });
+
     group('orderPatterns', () {
       test('orders patterns correctly (normal orientation)', () {
         // TL(0,0), TR(10,0), BL(0,10)

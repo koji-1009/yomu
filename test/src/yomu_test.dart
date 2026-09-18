@@ -130,6 +130,48 @@ void main() {
     });
   });
 
+  group('Out-of-range version estimate', () {
+    // Three finder patterns spaced like a 245-module symbol, larger than
+    // version 40's 177 modules.
+    YomuImage oversizedSymbol() {
+      const width = 1000;
+      const module = 4;
+      final px = Uint8List(width * width)..fillRange(0, width * width, 255);
+      void finder(int x, int y) {
+        for (var my = 0; my < 7; my++) {
+          for (var mx = 0; mx < 7; mx++) {
+            final ring = mx == 0 || mx == 6 || my == 0 || my == 6;
+            final core = mx >= 2 && mx <= 4 && my >= 2 && my <= 4;
+            if (!(ring || core)) continue;
+            for (var dy = 0; dy < module; dy++) {
+              for (var dx = 0; dx < module; dx++) {
+                px[(y + my * module + dy) * width + x + mx * module + dx] = 0;
+              }
+            }
+          }
+        }
+      }
+
+      finder(10, 10);
+      finder(10 + 238 * module, 10);
+      finder(10, 10 + 238 * module);
+      return YomuImage.grayscale(bytes: px, width: width, height: width);
+    }
+
+    for (final (name, yomu) in [
+      ('realtime', Yomu.realtime),
+      ('responsive', Yomu.responsive),
+      ('qrOnly', Yomu.qrOnly),
+    ]) {
+      test('$name.decode throws DetectionException', () {
+        expect(
+          () => yomu.decode(oversizedSymbol()),
+          throwsA(isA<DetectionException>()),
+        );
+      });
+    }
+  });
+
   group('Error Handling', () {
     test('wraps unexpected exceptions in ImageProcessingException', () {
       final brokenImage = BrokenYomuImage();

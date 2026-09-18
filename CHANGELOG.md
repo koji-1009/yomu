@@ -6,6 +6,11 @@
 
 * **Reflectance reversal** ([#96](https://github.com/koji-1009/yomu/issues/96)): QR codes printed as light modules on a dark background (ISO/IEC 18004:2015, 6.2) now decode at every `DecodeEffort`, in both `decode` and `decodeAll`. The finder pattern scan reads light-on-dark patterns from the same runs as the normal ones - a 1:1:3:1:1 sequence that starts on a white run - so the image is scanned once; those candidates are tried once the normal attempt (and, in `decode`, barcode scanning) has failed. Decoding a normal code costs up to 3% more (`qr_images` at `fast`: 0.43ms to 0.44ms). Frames holding no code pay for checking the light-on-dark candidates: on a textured Full HD frame, `fast` goes from 2.5ms to 3.6ms (measured with the #94 fix), `balanced` from 14.8ms to 15.9ms and `thorough` from 61.5ms to 63.8ms. Blank frames are unaffected.
 
+### Fixes
+
+* **`decodeAll` pairs each code with its own finder patterns** ([#95](https://github.com/koji-1009/yomu/issues/95)): in a grid of codes, the matching finder patterns of three neighbouring codes form a right isosceles triangle as well, and the first valid triplet found was taken. Four codes in a 2x2 grid rotated by 5° decoded 0/4. Triplets are now taken smallest first, after those whose patterns were confirmed on a consistent number of rows, and all four decode.
+* **`decode` no longer throws `ArgumentError` at `DecodeEffort.fast`** ([#94](https://github.com/koji-1009/yomu/issues/94)): finder patterns spaced for a symbol outside versions 1-40 reached the version lookup, which threw `ArgumentError` rather than a `YomuException`, and the barcode fallback was skipped. The detector now rejects such spacing with a `DetectionException`. A textured Full HD frame holding no code hit this too, and now reaches barcode scanning: it costs 2.5ms at `fast` instead of 2.4ms.
+
 ## 1.2.0
 
 ### Features

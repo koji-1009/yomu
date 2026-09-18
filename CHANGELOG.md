@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Unreleased
+
+### Features
+
+* **Reflectance reversal** ([#96](https://github.com/koji-1009/yomu/issues/96)): QR codes printed as light modules on a dark background (ISO/IEC 18004:2015, 6.2) now decode at every `DecodeEffort`, in both `decode` and `decodeAll`. The finder pattern scan reads light-on-dark patterns from the same runs as the normal ones - a 1:1:3:1:1 sequence that starts on a white run - so the image is scanned once; those candidates are tried once the normal attempt (and, in `decode`, barcode scanning) has failed. Decoding a normal code costs up to 3% more (`qr_images` at `fast`: 0.43ms to 0.44ms). Frames holding no code pay for checking the light-on-dark candidates: on a textured Full HD frame, `fast` goes from 2.5ms to 3.6ms (measured with the #94 fix), `balanced` from 14.8ms to 15.9ms and `thorough` from 61.5ms to 63.8ms. Blank frames are unaffected.
+
 ## 1.2.0
 
 ### Features

@@ -131,6 +131,11 @@ class Yomu {
   /// This is the preferred method for decoding as it handles different image formats
   /// and row strides correctly.
   ///
+  /// A QR code printed with reflectance reversal (light modules on a dark
+  /// background) is read at every [DecodeEffort]. Its finder patterns are
+  /// collected by the same row scan as the normal ones, and tried once the
+  /// normal attempt and barcode scanning fail.
+  ///
   /// Above [DecodeEffort.fast], escalating retry strategies run when the
   /// fast path fails: bottom-right corner grid search, despeckle and the
   /// tolerant finder, plus - at [DecodeEffort.thorough] - a full-resolution
@@ -151,20 +156,25 @@ class Yomu {
     );
 
     BitMatrix? matrix;
+    BitMatrix? inverted;
+    FinderPatternFinder? finder;
 
     // One retry decoder per decode call: it deduplicates grid searches
     // across stages and enforces the deterministic work budget.
     final retry = _newTryHarderDecoder();
 
     // Stage 1+2: fast QR path, then dimension/corner retries reusing the
-    // located finder patterns.
+    // located finder patterns. The row scan also collects light-on-dark
+    // finder patterns for the reflectance reversal stage.
     if (enableQRCode) {
       matrix = Binarizer(
         source,
         thresholdFactor: binarizerThreshold,
       ).getBlackMatrix();
+      inverted = matrix.inverted();
+      finder = FinderPatternFinder(matrix, invertedImage: inverted);
 
-      final fast = _decodeFastWithCornerRetry(matrix, retry);
+      final fast = _decodeLocated(matrix, finder.find, retry);
       if (fast != null) {
         return fast;
       }
@@ -181,6 +191,17 @@ class Yomu {
     }
 
     if (enableQRCode) {
+      // Reflectance reversal: light modules on a dark background, from the
+      // finder patterns stage 1 already collected.
+      final reversed = _decodeLocated(
+        inverted!,
+        finder!.inverted!.selectBest,
+        retry,
+      );
+      if (reversed != null) {
+        return reversed;
+      }
+
       // Stages 3-4: despeckle, tolerant finder.
       final deep = retry.decodeDeep(matrix!);
       if (deep != null) {
@@ -217,10 +238,19 @@ class Yomu {
 
   /// Previous (fast-only) decode behavior, used when [tryHarder] is off.
   DecoderResult _decodeFastOnly(Uint8List pixels, int width, int height) {
+    BitMatrix? inverted;
+    FinderPatternFinder? finder;
+
     // Try QR code first
     if (enableQRCode) {
+      final matrix = Binarizer(
+        LuminanceSource(width: width, height: height, luminances: pixels),
+        thresholdFactor: binarizerThreshold,
+      ).getBlackMatrix();
+      inverted = matrix.inverted();
+      finder = FinderPatternFinder(matrix, invertedImage: inverted);
       try {
-        return _decodeQRFromPixels(pixels, width, height);
+        return _decodeQRFromInfo(matrix, finder.find());
       } on DetectionException {
         // Fall through to barcode scanning
       }
@@ -231,6 +261,16 @@ class Yomu {
       final barcodeResult = _scanBarcode(pixels, width, height);
       if (barcodeResult != null) {
         return barcodeResult;
+      }
+    }
+
+    // Reflectance reversal: light modules on a dark background, from the
+    // finder patterns the QR attempt's row scan already collected.
+    if (finder != null) {
+      try {
+        return _decodeQRFromInfo(inverted!, finder.inverted!.selectBest());
+      } on DetectionException {
+        // Fall through
       }
     }
 
@@ -265,9 +305,20 @@ class Yomu {
     BitMatrix matrix,
     TryHarderDecoder retry,
   ) {
+    return _decodeLocated(matrix, FinderPatternFinder(matrix).find, retry);
+  }
+
+  /// Stage 1+2 on the finder patterns [locate] returns for [matrix]: the
+  /// fast decode, then the dimension/corner retries. Returns null on
+  /// failure.
+  DecoderResult? _decodeLocated(
+    BitMatrix matrix,
+    FinderPatternInfo Function() locate,
+    TryHarderDecoder retry,
+  ) {
     final FinderPatternInfo info;
     try {
-      info = FinderPatternFinder(matrix).find();
+      info = locate();
     } on YomuException {
       return null;
     }
@@ -413,6 +464,10 @@ class Yomu {
 
   /// Decodes all QR codes from a [YomuImage].
   ///
+  /// When the normal pass decodes nothing, the light-on-dark finder patterns
+  /// its row scan collected are tried, for codes printed with reflectance
+  /// reversal.
+  ///
   /// Above [DecodeEffort.fast], codes that are detected but fail to decode
   /// get the corner-grid rescue, and when an entire pass finds nothing the
   /// scan escalates to despeckle; at [DecodeEffort.thorough] it also
@@ -439,9 +494,12 @@ class Yomu {
       source,
       thresholdFactor: binarizerThreshold,
     ).getBlackMatrix();
+    final inverted = matrix.inverted();
+    final finder = FinderPatternFinder(matrix, invertedImage: inverted);
 
-    // Pass 1: fast multi scan (with the in-pass corner rescue).
-    final fast = _decodeAllOnMatrix(matrix, retry);
+    // Pass 1: fast multi scan (with the in-pass corner rescue). Its row
+    // scan also collects light-on-dark finder patterns.
+    final fast = _decodeAllOnInfos(matrix, finder.findMulti(), retry);
     if (fast.decodedAll) {
       return fast.results;
     }
@@ -461,6 +519,16 @@ class Yomu {
     }
     if (fast.results.isNotEmpty) {
       return fast.results;
+    }
+
+    // Reflectance reversal: light modules on a dark background.
+    final reversed = _decodeAllOnInfos(
+      inverted,
+      finder.inverted!.selectMultiple(),
+      retry,
+    );
+    if (reversed.results.isNotEmpty) {
+      return reversed.results;
     }
 
     // Pass 3: despeckle. Noise breaks every code on the sheet at once.
@@ -514,7 +582,19 @@ class Yomu {
   /// gets the fast decode, then the corner-grid rescue if it was detected
   /// but failed to decode.
   _MultiScan _decodeAllOnMatrix(BitMatrix matrix, TryHarderDecoder retry) {
-    final infos = FinderPatternFinder(matrix).findMulti();
+    return _decodeAllOnInfos(
+      matrix,
+      FinderPatternFinder(matrix).findMulti(),
+      retry,
+    );
+  }
+
+  /// [_decodeAllOnMatrix] on already located finder triplets.
+  _MultiScan _decodeAllOnInfos(
+    BitMatrix matrix,
+    List<FinderPatternInfo> infos,
+    TryHarderDecoder retry,
+  ) {
     final results = <DecoderResult>[];
     for (final info in infos) {
       final result =
@@ -527,22 +607,17 @@ class Yomu {
     return _MultiScan(results: results, detected: infos.length);
   }
 
-  /// Internal: Decodes a QR code from luminance array (fast-only path).
-  DecoderResult _decodeQRFromPixels(Uint8List pixels, int width, int height) {
-    final source = LuminanceSource(
-      width: width,
-      height: height,
-      luminances: pixels,
-    );
-    final blackMatrix = Binarizer(
-      source,
-      thresholdFactor: binarizerThreshold,
-    ).getBlackMatrix();
-
-    // A failed finder throws DetectionException, which the caller turns
-    // into the barcode fallback; rethrowFinal preserves the expanded
-    // attempt's exception (e.g. an RS DecodeException) for the caller.
-    final info = FinderPatternFinder(blackMatrix).find();
+  /// Internal: Decodes a QR code from located finder patterns (fast-only
+  /// path).
+  ///
+  /// A failed finder throws DetectionException before this is reached,
+  /// which the caller turns into the barcode fallback; rethrowFinal
+  /// preserves the expanded attempt's exception (e.g. an RS
+  /// DecodeException) for the caller.
+  DecoderResult _decodeQRFromInfo(
+    BitMatrix blackMatrix,
+    FinderPatternInfo info,
+  ) {
     return _decodeWithAllowances(blackMatrix, info, rethrowFinal: true)!;
   }
 
@@ -573,35 +648,53 @@ class Yomu {
     );
     final binarizer = Binarizer(source, thresholdFactor: binarizerThreshold);
     final blackMatrix = binarizer.getBlackMatrix();
+    final inverted = blackMatrix.inverted();
 
+    // One row scan collects the finder patterns of both reflectances.
+    final finder = FinderPatternFinder(blackMatrix, invertedImage: inverted);
+    final results = _decodeAllQRFromInfos(blackMatrix, finder.findMulti());
+    if (results.isNotEmpty) {
+      return results;
+    }
+    // Reflectance reversal: light modules on a dark background.
+    return _decodeAllQRFromInfos(inverted, finder.inverted!.selectMultiple());
+  }
+
+  /// Internal: Decodes every located finder triplet (fast-only path).
+  List<DecoderResult> _decodeAllQRFromInfos(
+    BitMatrix blackMatrix,
+    List<FinderPatternInfo> infos,
+  ) {
     // Strategy: Try standard (5) first.
     if (alignmentAreaAllowance > 5) {
-      final detector = Detector(blackMatrix, alignmentAreaAllowance: 5);
-      final detectorResults = detector.detectMulti();
-      final results = <DecoderResult>[];
-      for (final detectorResult in detectorResults) {
-        try {
-          results.add(_decoder.decode(detectorResult.bits));
-        } catch (_) {
-          continue;
-        }
-      }
+      final results = _decodeInfos(
+        Detector(blackMatrix, alignmentAreaAllowance: 5),
+        infos,
+      );
       if (results.isNotEmpty) {
         return results;
       }
     }
 
     // Fallback: Expanded search
-    final detector = Detector(
-      blackMatrix,
-      alignmentAreaAllowance: alignmentAreaAllowance,
+    return _decodeInfos(
+      Detector(blackMatrix, alignmentAreaAllowance: alignmentAreaAllowance),
+      infos,
     );
-    final detectorResults = detector.detectMulti();
+  }
 
+  /// Samples and decodes each of [infos] with [detector], skipping those
+  /// that fail.
+  List<DecoderResult> _decodeInfos(
+    Detector detector,
+    List<FinderPatternInfo> infos,
+  ) {
     final results = <DecoderResult>[];
-    for (final detectorResult in detectorResults) {
+    for (final info in infos) {
       try {
-        results.add(_decoder.decode(detectorResult.bits));
+        results.add(
+          _decoder.decode(detector.processFinderPatternInfo(info).bits),
+        );
       } catch (_) {
         continue;
       }

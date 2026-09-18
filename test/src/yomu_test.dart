@@ -110,7 +110,7 @@ void main() {
         bytes: bytes,
       );
 
-      // detectMulti returns empty list if no patterns found.
+      // findMulti returns empty list if no patterns found.
       final results = Yomu.all.decodeAll(image);
       expect(results, isEmpty);
     });

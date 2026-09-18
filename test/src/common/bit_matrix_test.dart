@@ -74,5 +74,41 @@ void main() {
         }
       }
     });
+
+    test('inverted flips every bit within the matrix', () {
+      // 40 wide: the second word of each row holds 8 real bits.
+      final matrix = BitMatrix(width: 40, height: 3);
+      matrix.set(0, 0);
+      matrix.set(39, 1);
+      matrix.set(33, 2);
+
+      final inverted = matrix.inverted();
+
+      expect(inverted.width, 40);
+      expect(inverted.height, 3);
+      for (var y = 0; y < 3; y++) {
+        for (var x = 0; x < 40; x++) {
+          expect(inverted.get(x, y), !matrix.get(x, y), reason: '($x, $y)');
+        }
+      }
+      // The source is left untouched.
+      expect(matrix.get(0, 0), isTrue);
+      expect(matrix.get(1, 0), isFalse);
+    });
+
+    test('inverted leaves bits beyond the width and row stride clear', () {
+      // 40 wide with a padded stride of 3 words per row.
+      final matrix = BitMatrix.fromBits(
+        width: 40,
+        height: 2,
+        bits: Uint32List(6),
+        rowStride: 3,
+      );
+
+      final inverted = matrix.inverted();
+
+      expect(inverted.rowStride, 3);
+      expect(inverted.bits, [0xFFFFFFFF, 0xFF, 0, 0xFFFFFFFF, 0xFF, 0]);
+    });
   });
 }

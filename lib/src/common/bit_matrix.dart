@@ -95,6 +95,36 @@ class BitMatrix {
     );
   }
 
+  /// Returns a new matrix with every bit flipped: black becomes white and
+  /// white becomes black.
+  ///
+  /// Reading a symbol printed with reflectance reversal (light modules on a
+  /// dark background) is reading this matrix instead. Bits beyond [width]
+  /// stay clear, so nothing outside the image turns black.
+  BitMatrix inverted() {
+    final src = _bits;
+    final dst = Uint32List(src.length);
+    final stride = _rowStride;
+    final wordsPerRow = (width + 31) >> 5;
+    final tailBits = width & 31;
+    final tailMask = tailBits == 0 ? 0xFFFFFFFF : (1 << tailBits) - 1;
+
+    for (var y = 0; y < height; y++) {
+      final rowOffset = y * stride;
+      final last = rowOffset + wordsPerRow - 1;
+      for (var offset = rowOffset; offset < last; offset++) {
+        dst[offset] = ~src[offset];
+      }
+      dst[last] = ~src[last] & tailMask;
+    }
+    return BitMatrix.fromBits(
+      width: width,
+      height: height,
+      bits: dst,
+      rowStride: stride,
+    );
+  }
+
   /// Returns a new matrix where each bit is the 3x3 majority of its
   /// neighborhood (out-of-bounds cells count as white).
   ///

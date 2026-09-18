@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Unreleased
+
+### Fixes
+
+* **`decodeAll` pairs each code with its own finder patterns** ([#95](https://github.com/koji-1009/yomu/issues/95)): in a grid of codes, the matching finder patterns of three neighbouring codes form a right isosceles triangle as well, and the first valid triplet found was taken. Four codes in a 2x2 grid rotated by 5° decoded 0/4. Triplets are now taken smallest first, after those whose patterns were confirmed on a consistent number of rows, and all four decode.
+
 ## 1.2.0
 
 ### Features

@@ -10,6 +10,7 @@
 
 * **`decodeAll` pairs each code with its own finder patterns** ([#95](https://github.com/koji-1009/yomu/issues/95)): in a grid of codes, the matching finder patterns of three neighbouring codes form a right isosceles triangle as well, and the first valid triplet found was taken. Four codes in a 2x2 grid rotated by 5° decoded 0/4. Triplets are now taken smallest first, after those whose patterns were confirmed on a consistent number of rows, and all four decode.
 * **`decode` no longer throws `ArgumentError` at `DecodeEffort.fast`** ([#94](https://github.com/koji-1009/yomu/issues/94)): finder patterns spaced for a symbol outside versions 1-40 reached the version lookup, which threw `ArgumentError` rather than a `YomuException`, and the barcode fallback was skipped. The detector now rejects such spacing with a `DetectionException`. A textured Full HD frame holding no code hit this too, and now reaches barcode scanning: it costs 2.5ms at `fast` instead of 2.4ms.
+* **1D barcodes decode in rows that start dark**: the run lengths of a scan row started with the colour of its first pixel, but every decoder reads even-indexed runs as white. A dark border or a dark object at the left edge of the frame flipped every run, and no symbology could decode that row: with a 10px dark band added to the left of each barcode fixture (quiet zone intact), 0 of 19 decoded. A row that starts dark now begins with an empty white run, and all 19 decode.
 
 ## 1.2.0
 

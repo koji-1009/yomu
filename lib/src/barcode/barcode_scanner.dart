@@ -167,11 +167,20 @@ class BarcodeScanner {
   }
 
   /// Converts a row of booleans to run-length encoded data.
+  ///
+  /// Runs alternate white, black, white, ... starting at index 0: every
+  /// decoder reads even indices as white. A row whose first pixel is black
+  /// (a dark border, or a dark object at the left edge) therefore starts with
+  /// an empty white run, which keeps that parity and leaves the sum of the
+  /// runs before any index equal to its x position.
   static Uint16List getRunLengths(Uint8List row) {
     if (row.isEmpty) return Uint16List(0);
 
+    // An empty leading white run when the row starts black.
+    final lead = row[0] == 0 ? 0 : 1;
+
     // First pass: count runs to allocate exact size
-    var runCount = 0;
+    var runCount = lead;
     var currentPos = 0;
     var currentColor = row[0];
 
@@ -189,7 +198,7 @@ class BarcodeScanner {
     final runs = Uint16List(runCount);
     currentPos = 0;
     currentColor = row[0];
-    var index = 0;
+    var index = lead;
 
     while (currentPos < row.length) {
       var runLength = 0;

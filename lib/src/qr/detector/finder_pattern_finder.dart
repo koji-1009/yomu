@@ -314,14 +314,22 @@ class FinderPatternFinder {
     var offset = i * stride + xOffset;
 
     // We are "in" the center black module (state 2).
+    //
+    // The center run is bounded by originalStateCountTotal: the checks at
+    // the end need the vertical total within 40% of the horizontal one and
+    // the center at most 9/14 of it, so a center run of the whole horizontal
+    // total can never pass. Stopping there changes no result - it only stops
+    // a tall bar (a 1D barcode, say) from being walked end to end.
     // Up
     // 1. Scan up (decrease i) inside Black (state 2)
-    while (i >= 0 && (bits[offset] & xMask) != 0) {
+    while (i >= 0 &&
+        (bits[offset] & xMask) != 0 &&
+        stateCount[2] <= originalStateCountTotal) {
       stateCount[2]++;
       i--;
       offset -= stride;
     }
-    if (i < 0) return null;
+    if (i < 0 || stateCount[2] > originalStateCountTotal) return null;
 
     // 2. Scan up White (state 1)
     while (i >= 0 && (bits[offset] & xMask) == 0 && stateCount[1] <= maxCount) {
@@ -344,12 +352,14 @@ class FinderPatternFinder {
     offset = i * stride + xOffset;
 
     // 4. Scan down Black (state 2 residue)
-    while (i < maxI && (bits[offset] & xMask) != 0) {
+    while (i < maxI &&
+        (bits[offset] & xMask) != 0 &&
+        stateCount[2] <= originalStateCountTotal) {
       stateCount[2]++;
       i++;
       offset += stride;
     }
-    if (i == maxI) return null;
+    if (i == maxI || stateCount[2] > originalStateCountTotal) return null;
 
     // 5. Scan down White (state 3)
     while (i < maxI &&

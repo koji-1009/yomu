@@ -63,6 +63,8 @@ The main entry point class.
 | `Yomu.realtime`                        | All formats, `DecodeEffort.fast` (per-frame) |
 | `Yomu({enableQRCode, barcodeScanner})` | Custom configuration                         |
 
+QR codes printed light on dark (reflectance reversal, ISO/IEC 18004:2015 6.2) are read by default. Pass `readLightOnDark: false` when every code you read is dark on light: a frame holding no code then skips the light-on-dark checks (about 1ms on a textured Full HD frame at `fast` and `balanced`).
+
 | Method        | Description                                     |
 | ------------- | ----------------------------------------------- |
 | `decode()`    | Decode the first QR code or barcode in an image |

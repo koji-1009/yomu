@@ -20,13 +20,17 @@
 ///
 /// | level      | detection      | blank frame | textured frame |
 /// | ---------- | -------------- | ----------- | -------------- |
-/// | [fast]     | 167/201, 83.1% | 1.20ms      | 3.58ms         |
-/// | [balanced] | 188/201, 93.5% | 1.45ms      | 16.69ms        |
-/// | [thorough] | 192/201, 95.5% | 8.34ms      | 75.08ms        |
+/// | [fast]     | 167/201, 83.1% | 1.20ms      | 3.60ms         |
+/// | [balanced] | 188/201, 93.5% | 1.48ms      | 40.56ms        |
+/// | [thorough] | 192/201, 95.5% | 8.56ms      | 127.56ms       |
+///
+/// Every stage also reads light-on-dark codes ([Yomu.readLightOnDark], on by
+/// default), which roughly doubles the textured frame above [fast]; with it
+/// off the column reads 2.7ms / 15.4ms / 63ms.
 ///
 /// [balanced] is where the trade sits best for a stream: it recovers 21 of
-/// the 25 codes [thorough] adds over [fast], for under a quarter of the cost
-/// on a textured frame and a sixth on a blank one.
+/// the 25 codes [thorough] adds over [fast], for a third of the cost on a
+/// textured frame and a sixth on a blank one.
 ///
 /// The jump to [thorough] is the cost of rebuilding the image: the
 /// full-resolution pass binarizes four times as many pixels, and the
@@ -55,7 +59,7 @@ enum DecodeEffort {
   ///
   /// Recovers noisy, dirty and perspective-distorted codes. Bounded by a
   /// deterministic work budget, and it never rebuilds the image, so the
-  /// failure path stays within a few times the fast path.
+  /// failure path stays at about a third of [thorough]'s.
   balanced,
 
   /// [balanced] plus the stages that rebuild the image: a full-resolution

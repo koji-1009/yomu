@@ -74,6 +74,21 @@ class ComparativeBenchmarkResult:
 
 BenchmarkResult = Union[LegacyBenchmarkResult, ComparativeBenchmarkResult]
 
+# The categories bench_compare.dart prints, in report order. Every parser
+# and report reads this one list: separate copies had drifted, dropping the
+# Square row from the console report and keeping "HiRes", a category that no
+# longer exists, in the barcode one.
+CATEGORY_ORDER = [
+    "Standard",
+    "Complex",
+    "4K",
+    "FullHD",
+    "Square",
+    "Distorted",
+    "Noise",
+    "Edge",
+]
+
 
 def run_command(cmd: list[str], cwd: str = ".") -> tuple[int, str, str]:
     """Run a command and return exit code, stdout, stderr."""
@@ -273,16 +288,7 @@ class BenchmarkParser:
         # Must match the categories bench_compare.dart prints; "HiRes" was a
         # legacy name that matched nothing, which silently dropped the 4K and
         # FullHD rows from every report.
-        for cat in [
-            "Standard",
-            "Complex",
-            "4K",
-            "FullHD",
-            "Square",
-            "Distorted",
-            "Noise",
-            "Edge",
-        ]:
+        for cat in CATEGORY_ORDER:
             matches = re.findall(rf"{cat}\s+: Avg ([\d.]+)ms, p95 ([\d.]+)ms", output)
             if len(matches) >= 2:
                 self.qr_cats[cat] = (
@@ -403,16 +409,7 @@ def generate_markdown_report(
         md.append("| :--- | :--- | :--- | :--- |")
 
         cats = aot.qr_categories
-        for cat in [
-            "Standard",
-            "Complex",
-            "4K",
-            "FullHD",
-            "Square",
-            "Distorted",
-            "Noise",
-            "Edge",
-        ]:
+        for cat in CATEGORY_ORDER:
             if cat in cats:
                 c = cats[cat]
                 note = ""
@@ -443,7 +440,7 @@ def generate_markdown_report(
         md.append("| :--- | :--- | :--- | :--- |")
 
         cats = aot.barcode_categories
-        for cat in ["Standard", "Complex", "HiRes", "Distorted", "Noise", "Edge"]:
+        for cat in CATEGORY_ORDER:
             if cat in cats:
                 c = cats[cat]
                 md.append(f"| **{cat}** | {c[2]:.2f}ms | {c[3]:.2f}ms | |")
@@ -570,15 +567,7 @@ def _print_comparative_comparison(
         print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
         print("-" * 50)
         cats = aot.qr_categories
-        for cat in [
-            "Standard",
-            "Complex",
-            "4K",
-            "FullHD",
-            "Distorted",
-            "Noise",
-            "Edge",
-        ]:
+        for cat in CATEGORY_ORDER:
             if cat in cats:
                 c = cats[cat]
                 print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")
@@ -588,15 +577,7 @@ def _print_comparative_comparison(
         print(f"{'Category':<15} | {'Average':<15} | {'p95':<15}")
         print("-" * 50)
         cats = aot.barcode_categories
-        for cat in [
-            "Standard",
-            "Complex",
-            "4K",
-            "FullHD",
-            "Distorted",
-            "Noise",
-            "Edge",
-        ]:
+        for cat in CATEGORY_ORDER:
             if cat in cats:
                 c = cats[cat]
                 print(f"{cat:<15} | {c[2]:.3f}ms        | {c[3]:.3f}ms")
@@ -692,24 +673,12 @@ def generate_comparison_report(base_data: dict, target_data: dict) -> str:
         )
         md.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
 
-        # Define sort order
-        cat_order = [
-            "Standard",
-            "Complex",
-            "4K",
-            "FullHD",
-            "Square",
-            "Distorted",
-            "Noise",
-            "Edge",
-        ]
-
         all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
 
         # Sort based on defined order, put undefined ones at the end
         def sort_key(k):
             try:
-                return cat_order.index(k)
+                return CATEGORY_ORDER.index(k)
             except ValueError:
                 return 999
 

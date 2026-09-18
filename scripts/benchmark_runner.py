@@ -648,27 +648,36 @@ def generate_comparison_report(base_data: dict, target_data: dict) -> str:
             return val.get(nested_key, 0.0)
         return val
 
-    # QR Comparison
-    base_qr_avg = get_metric(base_aot, "qr_all_ms")
-    target_qr_avg = get_metric(target_aot, "qr_all_ms")
-
-    md.append("## 🏁 Main Metrics (AOT)")
-    md.append("| Metric | Base (main) | Target (PR) | Diff | State |")
-    md.append("| :--- | :--- | :--- | :--- | :--- |")
-
-    def row(label, base, target):
+    def diff_cell(base, target):
         diff = target - base
         pct = (diff / base * 100) if base > 0 else 0
+        return f"{diff:+.3f}ms ({pct:+.1f}%)"
+
+    # Each corpus is decoded twice: by the format's own configuration and by
+    # Yomu.all. They measure different things - Yomu.all tries QR first, so
+    # on barcode images it also pays for a failed QR attempt - and a change
+    # to one path shows up in only one of them, so both are reported.
+    md.append("## 🏁 Main Metrics (AOT)")
+    md.append("| Metric | Config | Base (main) | Target (PR) | Diff | State |")
+    md.append("| :--- | :--- | :--- | :--- | :--- | :--- |")
+
+    def row(label, config, key):
+        base = get_metric(base_aot, key)
+        target = get_metric(target_aot, key)
+        diff = target - base
         icon = "🟢" if diff <= 0 else "🔴"
         if abs(diff) < 0.05:
             icon = "⚪"  # Noise threshold
-        return f"| **{label}** | {base:.3f}ms | {target:.3f}ms | {diff:+.3f}ms ({pct:+.1f}%) | {icon} |"
+        return f"| **{label}** | `{config}` | {base:.3f}ms | {target:.3f}ms | {diff_cell(base, target)} | {icon} |"
 
-    md.append(row("QR Code Avg", base_qr_avg, target_qr_avg))
-
-    base_bar_avg = get_metric(base_aot, "barcode_all_ms")
-    target_bar_avg = get_metric(target_aot, "barcode_all_ms")
-    md.append(row("Barcode Avg", base_bar_avg, target_bar_avg))
+    md.append(row("QR Code Avg", "Yomu.qrOnly", "qr_baseline_ms"))
+    md.append(row("QR Code Avg", "Yomu.all", "qr_all_ms"))
+    md.append(row("Barcode Avg", "Yomu.barcodeOnly", "barcode_baseline_ms"))
+    md.append(row("Barcode Avg", "Yomu.all", "barcode_all_ms"))
+    md.append("")
+    md.append(
+        "> `Yomu.all` tries QR first: on barcode images its figure includes a failed QR attempt."
+    )
 
     # Category Comparison
     base_cats = base_aot.get("qr_categories", {}) if base_aot else {}
@@ -677,10 +686,12 @@ def generate_comparison_report(base_data: dict, target_data: dict) -> str:
     if base_cats or target_cats:
         md.append("")
         md.append("## 📊 QR Category Breakdown")
-        md.append("| Category | Base Avg | Target Avg | Diff |")
-        md.append("| :--- | :--- | :--- | :--- |")
+        md.append(
+            "| Category | `Yomu.qrOnly` Base | `Yomu.qrOnly` Target | `Yomu.qrOnly` Diff "
+            "| `Yomu.all` Base | `Yomu.all` Target | `Yomu.all` Diff |"
+        )
+        md.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
 
-        all_cats = set(list(base_cats.keys()) + list(target_cats.keys()))
         # Define sort order
         cat_order = [
             "Standard",
@@ -703,16 +714,13 @@ def generate_comparison_report(base_data: dict, target_data: dict) -> str:
                 return 999
 
         for cat in sorted(all_cats, key=sort_key):
-            # Format is [base_base, base_all, base_all, base_all]?
-            # No, dict value is [base_avg, base_p95, all_avg, all_p95]
-            # We want index 2 (all_avg)
-            b_val = base_cats.get(cat, [0, 0, 0, 0])[2] if cat in base_cats else 0
-            t_val = target_cats.get(cat, [0, 0, 0, 0])[2] if cat in target_cats else 0
-
-            diff = t_val - b_val
-            pct = (diff / b_val * 100) if b_val > 0 else 0
+            # Each value is [qrOnly_avg, qrOnly_p95, all_avg, all_p95].
+            b = base_cats.get(cat, [0, 0, 0, 0])
+            t = target_cats.get(cat, [0, 0, 0, 0])
             md.append(
-                f"| {cat} | {b_val:.3f}ms | {t_val:.3f}ms | {diff:+.3f}ms ({pct:+.1f}%) |"
+                f"| {cat} "
+                f"| {b[0]:.3f}ms | {t[0]:.3f}ms | {diff_cell(b[0], t[0])} "
+                f"| {b[2]:.3f}ms | {t[2]:.3f}ms | {diff_cell(b[2], t[2])} |"
             )
 
     return "\n".join(md)

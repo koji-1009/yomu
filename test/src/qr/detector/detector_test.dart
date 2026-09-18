@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
 import 'package:yomu/src/qr/detector/detector.dart';
+import 'package:yomu/src/yomu_exception.dart';
 
 import '../finder_pattern_helper.dart';
 
@@ -41,6 +42,32 @@ void main() {
 
       expect(result.bits.get(0, 0), isTrue); // Top left of Finder is Black
       expect(result.bits.get(3, 3), isTrue); // Center of Finder is Black
+    });
+
+    test('rejects finder spacing beyond version 40', () {
+      // Centers 238 modules apart: a 245-module symbol (version 57).
+      final matrix = BitMatrix(width: 260);
+      drawFinderPattern(matrix, 0, 0);
+      drawFinderPattern(matrix, 238, 0);
+      drawFinderPattern(matrix, 0, 238);
+
+      expect(
+        () => Detector(matrix).detect(),
+        throwsA(isA<DetectionException>()),
+      );
+    });
+
+    test('rejects finder spacing below version 1', () {
+      // Centers 10 modules apart: a 17-module symbol (version 0).
+      final matrix = BitMatrix(width: 30);
+      drawFinderPattern(matrix, 0, 0);
+      drawFinderPattern(matrix, 10, 0);
+      drawFinderPattern(matrix, 0, 10);
+
+      expect(
+        () => Detector(matrix).detect(),
+        throwsA(isA<DetectionException>()),
+      );
     });
   });
 

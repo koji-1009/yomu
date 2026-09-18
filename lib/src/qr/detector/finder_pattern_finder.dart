@@ -506,30 +506,61 @@ class FinderPatternFinder {
   /// of its code. Such a center is confirmed on far fewer rows than the
   /// real ones (see [hasConsistentCounts]), so triplets with consistent
   /// counts are taken before any without.
+  ///
+  /// Triplets are enumerated from their right-angle corner rather than as
+  /// every triple, which cost the cube of the candidate count - a textured
+  /// frame at full resolution yields hundreds of candidates, and picking
+  /// from 736 took seconds. A valid triplet's two shorter sides meet at the
+  /// corner and differ by at most 20%, so from each corner only pairs at
+  /// distances d and at most 1.2d are tried, and only out to the longest
+  /// leg a version 40 symbol allows (see [spansValidVersion]).
   List<FinderPatternInfo> _selectMultiplePatterns() {
     final count = _possibleCenters.length;
     if (count < 3) {
       return [];
     }
 
-    // Every valid triplet: its three indices, whether its counts are
-    // consistent, and the triangle's perimeter.
+    // Every valid triplet: its three indices (ascending), whether its counts
+    // are consistent, and the triangle's perimeter.
     final triplets = <(int, int, int, bool, double)>[];
-    for (var i = 0; i < count - 2; i++) {
-      final p1 = _possibleCenters[i];
-      for (var j = i + 1; j < count - 1; j++) {
-        final p2 = _possibleCenters[j];
-        for (var k = j + 1; k < count; k++) {
-          final p3 = _possibleCenters[k];
-          if (isValidTriplet(p1, p2, p3)) {
-            triplets.add((
-              i,
-              j,
-              k,
-              hasConsistentCounts(p1, p2, p3),
-              _dist(p1, p2) + _dist(p2, p3) + _dist(p1, p3),
-            ));
+    final others = Int32List(count - 1);
+    final distances = Float64List(count);
+    for (var c = 0; c < count; c++) {
+      final corner = _possibleCenters[c];
+      var n = 0;
+      for (var o = 0; o < count; o++) {
+        if (o == c) continue;
+        others[n++] = o;
+        distances[o] = _dist(corner, _possibleCenters[o]);
+      }
+      others.sort((a, b) => distances[a].compareTo(distances[b]));
+
+      final maxLeg = maxLegModules * corner.estimatedModuleSize;
+      var end = 0;
+      for (var a = 0; a < n; a++) {
+        final nearer = others[a];
+        final legA = distances[nearer];
+        if (legA > maxLeg) break;
+        if (end <= a) end = a + 1;
+        while (end < n && distances[others[end]] <= 1.2 * legA) {
+          end++;
+        }
+        final p2 = _possibleCenters[nearer];
+        for (var b = a + 1; b < end; b++) {
+          final farther = others[b];
+          final p3 = _possibleCenters[farther];
+          if (!isValidTriplet(corner, p2, p3) ||
+              !spansValidVersion(corner, p2, p3)) {
+            continue;
           }
+          final (i, j, k) = _ascending(c, nearer, farther);
+          triplets.add((
+            i,
+            j,
+            k,
+            hasConsistentCounts(corner, p2, p3),
+            legA + distances[farther] + _dist(p2, p3),
+          ));
         }
       }
     }
@@ -537,7 +568,19 @@ class FinderPatternFinder {
       if (a.$4 != b.$4) {
         return a.$4 ? -1 : 1;
       }
-      return a.$5.compareTo(b.$5);
+      final byPerimeter = a.$5.compareTo(b.$5);
+      if (byPerimeter != 0) {
+        return byPerimeter;
+      }
+      // Equal perimeters: order by index, so the pick does not depend on
+      // the order triplets were enumerated in.
+      if (a.$1 != b.$1) {
+        return a.$1.compareTo(b.$1);
+      }
+      if (a.$2 != b.$2) {
+        return a.$2.compareTo(b.$2);
+      }
+      return a.$3.compareTo(b.$3);
     });
 
     final results = <FinderPatternInfo>[];
@@ -557,6 +600,44 @@ class FinderPatternFinder {
     }
 
     return results;
+  }
+
+  static (int, int, int) _ascending(int a, int b, int c) {
+    if (a > b) (a, b) = (b, a);
+    if (b > c) (b, c) = (c, b);
+    if (a > b) (a, b) = (b, a);
+    return (a, b, c);
+  }
+
+  /// The longest leg a valid triplet can have, in the corner pattern's
+  /// modules: a version 40 leg ([spansValidVersion]) measured in a module
+  /// size up to 1.5x the corner's ([isValidTriplet]).
+  static const double maxLegModules = 171.5 * 1.5;
+
+  /// Checks that the legs of the triangle span a QR code of version 1-40,
+  /// measured in the patterns' own modules.
+  ///
+  /// Finder pattern centers sit 3.5 modules in from the symbol edges, so a
+  /// leg is `dimension - 7` modules: 14 for version 1, 170 for version 40.
+  /// The bounds allow for the rounding the detector applies when it turns
+  /// the legs into a dimension; outside them it rejects the triplet anyway.
+  static bool spansValidVersion(
+    FinderPattern p1,
+    FinderPattern p2,
+    FinderPattern p3,
+  ) {
+    final d12 = _dist(p1, p2);
+    final d23 = _dist(p2, p3);
+    final d13 = _dist(p1, p3);
+    final hypotenuse = max(d12, max(d23, d13));
+    final legs = d12 + d23 + d13 - hypotenuse;
+    final moduleSize =
+        (p1.estimatedModuleSize +
+            p2.estimatedModuleSize +
+            p3.estimatedModuleSize) /
+        3.0;
+    final span = legs / (2 * moduleSize);
+    return span >= 11.5 && span < 171.5;
   }
 
   /// Checks if three patterns form a valid QR code triangle.

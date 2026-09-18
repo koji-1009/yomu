@@ -223,6 +223,80 @@ void main() {
       });
     });
 
+    group('spansValidVersion', () {
+      // A right isosceles triangle with legs of [legModules] modules of
+      // 4 pixels each.
+      bool spans(double legModules) {
+        final leg = legModules * 4;
+        return FinderPatternFinder.spansValidVersion(
+          const FinderPattern(x: 0, y: 0, estimatedModuleSize: 4),
+          FinderPattern(x: leg, y: 0, estimatedModuleSize: 4),
+          FinderPattern(x: 0, y: leg, estimatedModuleSize: 4),
+        );
+      }
+
+      test('accepts version 1 (legs of 14 modules)', () {
+        expect(spans(14), isTrue);
+      });
+
+      test('accepts version 40 (legs of 170 modules)', () {
+        expect(spans(170), isTrue);
+      });
+
+      test('rejects legs shorter than version 1', () {
+        expect(spans(11), isFalse);
+      });
+
+      test('rejects legs longer than version 40', () {
+        expect(spans(172), isFalse);
+      });
+
+      test('ignores the hypotenuse, whatever the argument order', () {
+        const corner = FinderPattern(x: 0, y: 0, estimatedModuleSize: 4);
+        const right = FinderPattern(x: 80, y: 0, estimatedModuleSize: 4);
+        const below = FinderPattern(x: 0, y: 80, estimatedModuleSize: 4);
+        // Legs of 20 modules; the hypotenuse alone would read 28.
+        expect(
+          FinderPatternFinder.spansValidVersion(right, below, corner),
+          isTrue,
+        );
+        expect(
+          FinderPatternFinder.spansValidVersion(corner, below, right),
+          isTrue,
+        );
+      });
+    });
+
+    group('findMulti triplet enumeration', () {
+      test('finds a triplet whose legs differ by up to 20%', () {
+        // Legs of 60 and 70 px from the corner at (5, 5): the farther
+        // pattern sits inside the 1.2x window of the nearer one.
+        final matrix = BitMatrix(width: 120, height: 120);
+        drawFinderPattern(matrix, 0, 0, moduleSize: 2);
+        drawFinderPattern(matrix, 70, 0, moduleSize: 2);
+        drawFinderPattern(matrix, 0, 60, moduleSize: 2);
+
+        final infos = FinderPatternFinder(matrix).findMulti();
+
+        expect(infos, hasLength(1));
+        expect(infos.single.topLeft.x, closeTo(7, 1));
+      });
+
+      test('skips a triplet too small for version 1', () {
+        // A right isosceles triangle of legs 10 modules long: shaped like a
+        // code, but no QR symbol is that small.
+        final matrix = BitMatrix(width: 60, height: 60);
+        drawFinderPattern(matrix, 0, 0, moduleSize: 2);
+        drawFinderPattern(matrix, 20, 0, moduleSize: 2);
+        drawFinderPattern(matrix, 0, 20, moduleSize: 2);
+
+        final finder = FinderPatternFinder(matrix);
+
+        expect(finder.findMulti(), isEmpty);
+        expect(finder.possibleCenters, hasLength(3));
+      });
+    });
+
     group('hasConsistentCounts', () {
       FinderPattern at(int count) =>
           FinderPattern(x: 0, y: 0, estimatedModuleSize: 4, count: count);

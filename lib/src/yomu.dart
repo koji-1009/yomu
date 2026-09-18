@@ -43,12 +43,15 @@ class Yomu {
   /// - [alignmentAreaAllowance]: Allowance for alignment pattern search (default: 15)
   /// - [effort]: How much work to spend on images the fast path cannot
   ///   decode (default: [DecodeEffort.thorough])
+  /// - [readLightOnDark]: Whether to read QR codes printed with reflectance
+  ///   reversal (default: true)
   const Yomu({
     required this.enableQRCode,
     required this.barcodeScanner,
     this.binarizerThreshold = 0.875,
     this.alignmentAreaAllowance = 15,
     DecodeEffort? effort,
+    this.readLightOnDark = true,
     @Deprecated('Use effort: DecodeEffort.fast / .thorough instead')
     bool? tryHarder,
   }) : effort =
@@ -74,6 +77,17 @@ class Yomu {
   /// scans are unaffected by this. See [DecodeEffort] for the measured
   /// detection and latency of each level.
   final DecodeEffort effort;
+
+  /// Whether to also read QR codes printed with reflectance reversal: light
+  /// modules on a dark background (ISO/IEC 18004:2015, 6.2). This is a colour
+  /// inversion, not a mirror image.
+  ///
+  /// On by default, as the symbology intends symbols to be read either way.
+  /// The finder pattern scan then also checks light-on-dark candidates, which
+  /// images holding no code pay for: on a textured Full HD frame, about 1ms
+  /// at [DecodeEffort.fast] and [DecodeEffort.balanced]. Turn it off when
+  /// every code you read is dark on light.
+  final bool readLightOnDark;
 
   /// Whether any retry stage runs at all.
   @Deprecated('Use effort instead')
@@ -171,7 +185,7 @@ class Yomu {
         source,
         thresholdFactor: binarizerThreshold,
       ).getBlackMatrix();
-      inverted = matrix.inverted();
+      inverted = _lightOnDarkImage(matrix);
       finder = FinderPatternFinder(matrix, invertedImage: inverted);
 
       final fast = _decodeLocated(matrix, finder.find, retry);
@@ -193,13 +207,15 @@ class Yomu {
     if (enableQRCode) {
       // Reflectance reversal: light modules on a dark background, from the
       // finder patterns stage 1 already collected.
-      final reversed = _decodeLocated(
-        inverted!,
-        finder!.inverted!.selectBest,
-        retry,
-      );
-      if (reversed != null) {
-        return reversed;
+      if (finder!.inverted case final lightOnDark?) {
+        final reversed = _decodeLocated(
+          inverted!,
+          lightOnDark.selectBest,
+          retry,
+        );
+        if (reversed != null) {
+          return reversed;
+        }
       }
 
       // Stages 3-4: despeckle, tolerant finder.
@@ -247,7 +263,7 @@ class Yomu {
         LuminanceSource(width: width, height: height, luminances: pixels),
         thresholdFactor: binarizerThreshold,
       ).getBlackMatrix();
-      inverted = matrix.inverted();
+      inverted = _lightOnDarkImage(matrix);
       finder = FinderPatternFinder(matrix, invertedImage: inverted);
       try {
         return _decodeQRFromInfo(matrix, finder.find());
@@ -266,9 +282,9 @@ class Yomu {
 
     // Reflectance reversal: light modules on a dark background, from the
     // finder patterns the QR attempt's row scan already collected.
-    if (finder != null) {
+    if (finder?.inverted case final lightOnDark?) {
       try {
-        return _decodeQRFromInfo(inverted!, finder.inverted!.selectBest());
+        return _decodeQRFromInfo(inverted!, lightOnDark.selectBest());
       } on DetectionException {
         // Fall through
       }
@@ -494,7 +510,7 @@ class Yomu {
       source,
       thresholdFactor: binarizerThreshold,
     ).getBlackMatrix();
-    final inverted = matrix.inverted();
+    final inverted = _lightOnDarkImage(matrix);
     final finder = FinderPatternFinder(matrix, invertedImage: inverted);
 
     // Pass 1: fast multi scan (with the in-pass corner rescue). Its row
@@ -522,13 +538,15 @@ class Yomu {
     }
 
     // Reflectance reversal: light modules on a dark background.
-    final reversed = _decodeAllOnInfos(
-      inverted,
-      finder.inverted!.selectMultiple(),
-      retry,
-    );
-    if (reversed.results.isNotEmpty) {
-      return reversed.results;
+    if (finder.inverted case final lightOnDark?) {
+      final reversed = _decodeAllOnInfos(
+        inverted!,
+        lightOnDark.selectMultiple(),
+        retry,
+      );
+      if (reversed.results.isNotEmpty) {
+        return reversed.results;
+      }
     }
 
     // Pass 3: despeckle. Noise breaks every code on the sheet at once.
@@ -648,7 +666,7 @@ class Yomu {
     );
     final binarizer = Binarizer(source, thresholdFactor: binarizerThreshold);
     final blackMatrix = binarizer.getBlackMatrix();
-    final inverted = blackMatrix.inverted();
+    final inverted = _lightOnDarkImage(blackMatrix);
 
     // One row scan collects the finder patterns of both reflectances.
     final finder = FinderPatternFinder(blackMatrix, invertedImage: inverted);
@@ -657,7 +675,16 @@ class Yomu {
       return results;
     }
     // Reflectance reversal: light modules on a dark background.
-    return _decodeAllQRFromInfos(inverted, finder.inverted!.selectMultiple());
+    if (finder.inverted case final lightOnDark?) {
+      return _decodeAllQRFromInfos(inverted!, lightOnDark.selectMultiple());
+    }
+    return results;
+  }
+
+  /// The inverse of [matrix], in which light-on-dark codes read as normal
+  /// ones, or null when [readLightOnDark] is off.
+  BitMatrix? _lightOnDarkImage(BitMatrix matrix) {
+    return readLightOnDark ? matrix.inverted() : null;
   }
 
   /// Internal: Decodes every located finder triplet (fast-only path).

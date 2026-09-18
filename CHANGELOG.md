@@ -10,6 +10,7 @@
 ### Performance
 
 * **Finder pattern cross-check stops at the pattern's width**: the vertical check walked the center run of a 1:1:3:1:1 candidate to its end, however long. On a 1D barcode every bar is such a run, so each horizontal hit walked the full bar height before failing. A center run as long as the pattern is wide can never pass the checks that follow, so the walk now stops there; the candidates found are identical on every fixture. The finder pattern scan on barcode images: 0.086ms to 0.068ms; `Yomu.all` on barcode images: 0.40ms to 0.365ms.
+* **`decodeAll` picks finder triplets without trying every triple**: since #95 it enumerated every triple of finder candidates, which costs the cube of the candidate count - a textured frame yields hundreds (296 dark-on-light and 736 light-on-dark on a Full HD noise frame at full resolution; picking from the latter took 2.8s). Triplets are now enumerated from their right-angle corner, only out to the longest leg a version 40 symbol allows. `decodeAll` returns the same codes on every fixture, as is and colour-inverted, at every effort; on a textured Full HD frame holding no code it goes from 46ms to 31ms at `fast` and `balanced` and from 237ms to 101ms at `thorough`.
 
 ### Fixes
 

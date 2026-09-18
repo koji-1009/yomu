@@ -312,16 +312,35 @@ class Yomu {
       alignmentAreaAllowance: alignmentAreaAllowance,
       gridPointBudget:
           gridPointBudget ?? TryHarderDecoder.defaultGridPointBudget,
+      readLightOnDark: readLightOnDark,
     );
   }
 
-  /// Stage 1+2: locates finder patterns once, tries the fast decode, then
-  /// the dimension/corner retries. Returns null on failure.
+  /// Stage 1+2 for the retry stages that rebuild the image: locates finder
+  /// patterns once, tries the fast decode, then the dimension/corner
+  /// retries - on the dark-on-light candidates, then (with
+  /// [readLightOnDark]) on the light-on-dark ones the same scan collected.
+  /// Returns null on failure.
   DecoderResult? _decodeFastWithCornerRetry(
     BitMatrix matrix,
     TryHarderDecoder retry,
   ) {
-    return _decodeLocated(matrix, FinderPatternFinder(matrix).find, retry);
+    final inverted = _lightOnDarkImage(matrix);
+    final finder = FinderPatternFinder(matrix, invertedImage: inverted);
+    final result = _decodeLocated(matrix, finder.find, retry);
+    if (result != null) {
+      return result;
+    }
+    if (finder.inverted case final lightOnDark?) {
+      final FinderPatternInfo info;
+      try {
+        info = lightOnDark.selectBest();
+      } on YomuException {
+        return null;
+      }
+      return _decodeWithAllowances(inverted!, info);
+    }
+    return null;
   }
 
   /// Stage 1+2 on the finder patterns [locate] returns for [matrix]: the
@@ -480,9 +499,9 @@ class Yomu {
 
   /// Decodes all QR codes from a [YomuImage].
   ///
-  /// When the normal pass decodes nothing, the light-on-dark finder patterns
-  /// its row scan collected are tried, for codes printed with reflectance
-  /// reversal.
+  /// With [readLightOnDark], every pass also decodes the light-on-dark
+  /// finder triplets its row scan collected, so a sheet mixing dark-on-light
+  /// and light-on-dark codes returns both.
   ///
   /// Above [DecodeEffort.fast], codes that are detected but fail to decode
   /// get the corner-grid rescue, and when an entire pass finds nothing the
@@ -510,12 +529,14 @@ class Yomu {
       source,
       thresholdFactor: binarizerThreshold,
     ).getBlackMatrix();
-    final inverted = _lightOnDarkImage(matrix);
-    final finder = FinderPatternFinder(matrix, invertedImage: inverted);
 
-    // Pass 1: fast multi scan (with the in-pass corner rescue). Its row
-    // scan also collects light-on-dark finder patterns.
-    final fast = _decodeAllOnInfos(matrix, finder.findMulti(), retry);
+    // Pass 1: fast multi scan (with the in-pass corner rescue, for
+    // light-on-dark triplets too).
+    final fast = _decodeAllOnMatrix(
+      matrix,
+      retry,
+      lightOnDark: _LightOnDark.rescued,
+    );
     if (fast.decodedAll) {
       return fast.results;
     }
@@ -537,20 +558,12 @@ class Yomu {
       return fast.results;
     }
 
-    // Reflectance reversal: light modules on a dark background.
-    if (finder.inverted case final lightOnDark?) {
-      final reversed = _decodeAllOnInfos(
-        inverted!,
-        lightOnDark.selectMultiple(),
-        retry,
-      );
-      if (reversed.results.isNotEmpty) {
-        return reversed.results;
-      }
-    }
-
     // Pass 3: despeckle. Noise breaks every code on the sheet at once.
-    final despeckled = _decodeAllOnMatrix(matrix.majority3x3(), retry);
+    final despeckled = _decodeAllOnMatrix(
+      matrix.majority3x3(),
+      retry,
+      lightOnDark: _LightOnDark.decoded,
+    );
     if (despeckled.results.isNotEmpty) {
       return despeckled.results;
     }
@@ -598,26 +611,51 @@ class Yomu {
 
   /// Multi-code scan on a single matrix: every disjoint finder triplet
   /// gets the fast decode, then the corner-grid rescue if it was detected
-  /// but failed to decode.
-  _MultiScan _decodeAllOnMatrix(BitMatrix matrix, TryHarderDecoder retry) {
-    return _decodeAllOnInfos(
-      matrix,
-      FinderPatternFinder(matrix).findMulti(),
-      retry,
+  /// but failed to decode. With [readLightOnDark], [lightOnDark] says what
+  /// the light-on-dark triplets the same row scan collected get; their
+  /// results join the pass.
+  _MultiScan _decodeAllOnMatrix(
+    BitMatrix matrix,
+    TryHarderDecoder retry, {
+    _LightOnDark lightOnDark = _LightOnDark.skipped,
+  }) {
+    final inverted = lightOnDark == _LightOnDark.skipped
+        ? null
+        : _lightOnDarkImage(matrix);
+    final finder = FinderPatternFinder(matrix, invertedImage: inverted);
+    final scan = _decodeAllOnInfos(matrix, finder.findMulti(), retry);
+    final lightOnDarkFinder = finder.inverted;
+    if (lightOnDarkFinder == null) {
+      return scan;
+    }
+
+    final reversed = _decodeAllOnInfos(
+      inverted!,
+      lightOnDarkFinder.selectMultiple(),
+      lightOnDark == _LightOnDark.rescued ? retry : null,
+    );
+    // Only light-on-dark triplets that decode count as detected. The data
+    // region of an ordinary code yields light-on-dark triplets too; counting
+    // those would make every fully decoded sheet look partly undecoded and
+    // send it through the threshold sweep.
+    return _MultiScan(
+      results: [...scan.results, ...reversed.results],
+      detected: scan.detected + reversed.results.length,
     );
   }
 
-  /// [_decodeAllOnMatrix] on already located finder triplets.
+  /// [_decodeAllOnMatrix] on already located finder triplets. Without a
+  /// [retry] decoder, triplets get the fast decode only.
   _MultiScan _decodeAllOnInfos(
     BitMatrix matrix,
     List<FinderPatternInfo> infos,
-    TryHarderDecoder retry,
+    TryHarderDecoder? retry,
   ) {
     final results = <DecoderResult>[];
     for (final info in infos) {
       final result =
           _decodeWithAllowances(matrix, info) ??
-          retry.decodeWithFinderInfo(matrix, info);
+          retry?.decodeWithFinderInfo(matrix, info);
       if (result != null) {
         results.add(result);
       }
@@ -668,15 +706,14 @@ class Yomu {
     final blackMatrix = binarizer.getBlackMatrix();
     final inverted = _lightOnDarkImage(blackMatrix);
 
-    // One row scan collects the finder patterns of both reflectances.
+    // One row scan collects the finder patterns of both reflectances, and a
+    // sheet can hold codes of both.
     final finder = FinderPatternFinder(blackMatrix, invertedImage: inverted);
     final results = _decodeAllQRFromInfos(blackMatrix, finder.findMulti());
-    if (results.isNotEmpty) {
-      return results;
-    }
-    // Reflectance reversal: light modules on a dark background.
     if (finder.inverted case final lightOnDark?) {
-      return _decodeAllQRFromInfos(inverted!, lightOnDark.selectMultiple());
+      results.addAll(
+        _decodeAllQRFromInfos(inverted!, lightOnDark.selectMultiple()),
+      );
     }
     return results;
   }
@@ -738,6 +775,27 @@ class Yomu {
       throw ImageProcessingException('Failed to process image: $e');
     }
   }
+}
+
+/// What one [Yomu.decodeAll] pass does with light-on-dark finder triplets.
+///
+/// Only the first pass rescues them: the corner-grid rescue draws on the
+/// shared grid-search budget, which the retry passes would otherwise spend
+/// on the light-on-dark triplets every textured frame yields. The despeckle
+/// pass decodes them (noise leaves few candidates after the majority
+/// filter). The threshold sweep and the full-resolution pass skip them:
+/// picking disjoint triplets costs the cube of the candidate count, and a
+/// textured frame at full resolution holds hundreds of light-on-dark
+/// candidates (736 on a noise frame, ~2.4s to pick from).
+enum _LightOnDark {
+  /// Not collected.
+  skipped,
+
+  /// Fast decode only.
+  decoded,
+
+  /// Fast decode, then the corner-grid rescue.
+  rescued,
 }
 
 /// Outcome of one multi-code pass: what decoded, and how many codes the

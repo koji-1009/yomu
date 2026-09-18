@@ -78,16 +78,16 @@ The levels split where the cost actually jumps: between stages that **reuse** th
 
 | `effort`                | Retries                                                    | Detection¹     | Blank frame² | Textured frame² |
 | ----------------------- | ---------------------------------------------------------- | -------------- | ------------ | --------------- |
-| `DecodeEffort.fast`     | none                                                       | 167/201, 83.1% | 1.20ms       | 3.62ms          |
-| `DecodeEffort.balanced` | corner grid search, despeckle, tolerant finder             | 188/201, 93.5% | 1.43ms       | 16.52ms         |
-| `DecodeEffort.thorough` | + full-resolution retry, alternate binarization thresholds | 192/201, 95.5% | 8.24ms       | 65.43ms         |
+| `DecodeEffort.fast`     | none                                                       | 167/201, 83.1% | 1.20ms       | 3.58ms          |
+| `DecodeEffort.balanced` | corner grid search, despeckle, tolerant finder             | 188/201, 93.5% | 1.45ms       | 16.69ms         |
+| `DecodeEffort.thorough` | + full-resolution retry, alternate binarization thresholds | 192/201, 95.5% | 8.34ms       | 75.08ms         |
 
 ¹ Fixture corpus (`benchmark/tool_detection_rate.dart --matrix`). ² Full HD frame containing no code, all formats enabled, AOT (`benchmark/tool_bench_seq.dart --frames`); the textured frame is uniform random noise from a fixed seed. A textured frame costs more at every level because noise produces false finder patterns, so each stage has candidates to rule out rather than nothing to look at.
 
 Pick by use case:
 
 * **Single images** (photos, uploaded pictures): keep the default `thorough`. A slower failure is better than a missed code.
-* **Camera streams that can spend ~17ms on a bad frame**: `Yomu.responsive` (`balanced`). It recovers 21 of the 25 codes `thorough` adds over `fast`, for a quarter of the cost on a textured frame.
+* **Camera streams that can spend ~17ms on a bad frame**: `Yomu.responsive` (`balanced`). It recovers 21 of the 25 codes `thorough` adds over `fast`, for under a quarter of the cost on a textured frame.
 * **Real-time preview**: `Yomu.realtime` (`fast`). Frames without a code fail as fast as possible; a code missed on one frame is caught on a later one.
 
 The older `tryHarder: bool` parameter still works — `false` maps to `fast`, `true` to `thorough` — but it is deprecated in favour of `effort`.

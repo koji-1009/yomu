@@ -41,9 +41,8 @@ class TryHarderDecoder {
   /// Allowance for alignment pattern search (modules).
   final int alignmentAreaAllowance;
 
-  /// Whether the despeckle stage also reads light-on-dark codes. Their
-  /// finder patterns come from the same row scan, so this adds no scan -
-  /// which is also why the tolerant finder, a scan of its own, does not.
+  /// Whether every stage also reads light-on-dark codes, the way it reads
+  /// dark-on-light ones.
   final bool readLightOnDark;
 
   /// Default work budget for grid searches, in sampled grid points (dim^2
@@ -166,8 +165,13 @@ class TryHarderDecoder {
 
     // Stage: tolerant finder on the original matrix. Slanted patterns
     // (perspective) fail the strict vertical cross-check but their row
-    // hits still cluster.
-    return _decodeTolerant(matrix);
+    // hits still cluster. It clusters dark runs only, so light-on-dark
+    // codes need a scan of the inverse.
+    final tolerant = _decodeTolerant(matrix);
+    if (tolerant != null || !readLightOnDark) {
+      return tolerant;
+    }
+    return _decodeTolerant(matrix.inverted());
   }
 
   /// Strict find -> decode -> bottom-right grid retry on [matrix], then -
@@ -181,11 +185,7 @@ class TryHarderDecoder {
       return result;
     }
     if (finder.inverted case final lightOnDark?) {
-      return _decodeLocated(
-        inverted!,
-        lightOnDark.selectBest,
-        gridSearch: false,
-      );
+      return _decodeLocated(inverted!, lightOnDark.selectBest);
     }
     return null;
   }
@@ -194,9 +194,8 @@ class TryHarderDecoder {
   /// returns for [matrix].
   DecoderResult? _decodeLocated(
     BitMatrix matrix,
-    FinderPatternInfo Function() locate, {
-    bool gridSearch = true,
-  }) {
+    FinderPatternInfo Function() locate,
+  ) {
     final FinderPatternInfo info;
     try {
       info = locate();
@@ -213,7 +212,7 @@ class TryHarderDecoder {
     } catch (_) {
       // Fall through to the grid retry with the same finder info.
     }
-    return gridSearch ? decodeWithFinderInfo(matrix, info) : null;
+    return decodeWithFinderInfo(matrix, info);
   }
 
   /// Tolerant cluster-based finding plus decode attempts per triplet.

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Unreleased
+
+### Fixes
+
+* **`decode` no longer throws `ArgumentError` at `DecodeEffort.fast`** ([#94](https://github.com/koji-1009/yomu/issues/94)): finder patterns spaced for a symbol outside versions 1-40 reached the version lookup, which threw `ArgumentError` rather than a `YomuException`, and the barcode fallback was skipped. The detector now rejects such spacing with a `DetectionException`. A textured Full HD frame holding no code hit this too, and now reaches barcode scanning: it costs 2.5ms at `fast` instead of 2.4ms.
+
 ## 1.2.0
 
 ### Features

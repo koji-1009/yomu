@@ -266,24 +266,4 @@ class Detector {
     final dy = a.y - b.y;
     return sqrt(dx * dx + dy * dy);
   }
-
-  /// Detects multiple QR codes in the image.
-  ///
-  /// Returns a list of detector results, one for each detected QR code.
-  List<DetectorResult> detectMulti() {
-    final finder = FinderPatternFinder(image);
-    final infoList = finder.findMulti();
-
-    final results = <DetectorResult>[];
-    for (final info in infoList) {
-      try {
-        results.add(processFinderPatternInfo(info));
-      } catch (_) {
-        // Skip invalid patterns
-        continue;
-      }
-    }
-
-    return results;
-  }
 }

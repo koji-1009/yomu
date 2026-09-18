@@ -6,10 +6,26 @@ import '../../yomu_exception.dart';
 import 'finder_pattern.dart';
 
 class FinderPatternFinder {
-  FinderPatternFinder(this.image);
+  /// Creates a finder over [image].
+  ///
+  /// With [invertedImage] (the bitwise inverse of [image]) the same row scan
+  /// also collects the finder patterns of codes printed with reflectance
+  /// reversal - light modules on a dark background - into [inverted]. Both
+  /// read the same runs: a light-on-dark finder pattern is a 1:1:3:1:1
+  /// sequence that starts on a white run instead of a black one, so it costs
+  /// no second pass over the image.
+  FinderPatternFinder(this.image, {BitMatrix? invertedImage})
+    : inverted = invertedImage == null
+          ? null
+          : FinderPatternFinder(invertedImage);
 
   final BitMatrix image;
   final List<FinderPattern> _possibleCenters = [];
+
+  /// The finder for [image]'s inverse, holding the light-on-dark candidates
+  /// the last scan collected. Read them with [selectBest] or
+  /// [selectMultiple]; null unless an inverted image was given.
+  final FinderPatternFinder? inverted;
 
   /// Candidate centers accumulated during the last scan.
   /// Exposed for diagnostics and testing.
@@ -21,9 +37,6 @@ class FinderPatternFinder {
 
   FinderPatternInfo find() {
     final maxI = image.height;
-    final maxJ = image.width;
-    final bits = image.bits;
-    final rowStride = image.rowStride;
 
     // Skip rows for speed (iSkip=3 is a good balance)
     const iSkip = 3;
@@ -41,81 +54,110 @@ class FinderPatternFinder {
     );
 
     for (var rowIdx = 0; rowIdx < rowCount; rowIdx++) {
-      final i = rowBuffer[rowIdx];
-      // Reset state
-      stateCount.fillRange(0, 5, 0);
-      var currentState = 0;
-      final rowOffset = i * rowStride;
+      _scanRow(rowBuffer[rowIdx], stateCount);
+    }
 
-      var wordOffset = rowOffset;
-      // Process row in 32-bit words
-      // This reduces array access by 32x
-      for (var j = 0; j < maxJ; j += 32) {
-        final remaining = maxJ - j;
-        final currentWord = bits[wordOffset++];
+    return selectBest();
+  }
 
-        final limit = (remaining < 32) ? remaining : 32;
+  /// Picks the best three candidates the last scan collected, without
+  /// scanning. Throws [DetectionException] when there are fewer than three.
+  FinderPatternInfo selectBest() => _selectBestPatterns();
 
-        if (currentWord == 0 && (currentState & 1) == 1 && limit == 32) {
-          // Optimization: All white, currently counting white
-          stateCount[currentState] += 32;
-          continue;
-        }
+  /// Picks every valid triplet among the candidates the last scan
+  /// collected, without scanning.
+  List<FinderPatternInfo> selectMultiple() => _selectMultiplePatterns();
 
-        if (currentWord == 0xFFFFFFFF &&
-            (currentState & 1) == 0 &&
-            limit == 32) {
-          // Optimization: All black, currently counting black
-          stateCount[currentState] += 32;
-          continue;
-        }
+  /// Scans row [i] for 1:1:3:1:1 runs of both colours and hands every hit
+  /// to [_handlePossibleCenter]: black-first hits to this finder, white-first
+  /// ones to [inverted] (when set).
+  ///
+  /// [window] holds the last five completed runs, oldest first. A window
+  /// ending on a black run starts on one too (five runs alternate), so the
+  /// colour of the run that just ended says which finder the window is for.
+  /// After a confirmed hit, that finder's next window starts on the first
+  /// run of its colour past the pattern, so the pattern's own runs are not
+  /// read again.
+  void _scanRow(int i, Int32List window) {
+    final maxJ = image.width;
+    final bits = image.bits;
+    final invertedFinder = inverted;
+    var wordOffset = i * image.rowStride;
 
-        for (var b = 0; b < limit; b++) {
-          if ((currentWord & (1 << b)) != 0) {
-            // Black
-            if ((currentState & 1) == 1) {
-              currentState++;
-            }
-            stateCount[currentState]++;
-          } else {
-            // White
-            if ((currentState & 1) == 0) {
-              if (currentState == 4) {
-                // Found B W B W B sequence
-                if (foundPatternCross(stateCount)) {
-                  // The actual pixel coordinate is j + b
-                  final confirmed = _handlePossibleCenter(stateCount, i, j + b);
-                  if (!confirmed) {
-                    _shiftCounts2(stateCount);
-                    currentState = 3; // Continue detecting
-                    // No need to 'continue' here as we are in inner bit loop
-                  } else {
-                    currentState = 0;
-                    stateCount.fillRange(0, 5, 0);
-                  }
-                } else {
-                  _shiftCounts2(stateCount);
-                  currentState = 3;
-                }
-              } else {
-                currentState++;
-                stateCount[currentState]++;
-              }
-            } else {
-              stateCount[currentState]++;
-            }
-          }
-        }
+    window.fillRange(0, 5, 0);
+    // Colour of the current run (1 black, 0 white; -1 before the first
+    // pixel), its length, and how many runs have completed.
+    var color = -1;
+    var run = 0;
+    var completed = 0;
+    // Index of the first run each finder's next window may start on.
+    var blackFrom = 0;
+    var whiteFrom = 0;
+
+    for (var j = 0; j < maxJ; j += 32) {
+      final remaining = maxJ - j;
+      final word = bits[wordOffset++];
+      final limit = (remaining < 32) ? remaining : 32;
+
+      // Optimization: the whole word continues the current run.
+      if (limit == 32 &&
+          ((color == 0 && word == 0) || (color == 1 && word == 0xFFFFFFFF))) {
+        run += 32;
+        continue;
       }
 
-      // Check end of row
-      if (foundPatternCross(stateCount)) {
-        _handlePossibleCenter(stateCount, i, maxJ);
+      for (var b = 0; b < limit; b++) {
+        final bit = (word >> b) & 1;
+        if (bit == color) {
+          run++;
+          continue;
+        }
+        if (color >= 0) {
+          // The run of [color] ended at j + b.
+          window[0] = window[1];
+          window[1] = window[2];
+          window[2] = window[3];
+          window[3] = window[4];
+          window[4] = run;
+          completed++;
+          final start = completed - 5;
+          if (color == 1) {
+            if (start >= blackFrom &&
+                foundPatternCross(window) &&
+                _handlePossibleCenter(window, i, j + b)) {
+              blackFrom = start + 6;
+            }
+          } else if (invertedFinder != null &&
+              start >= whiteFrom &&
+              foundPatternCross(window) &&
+              invertedFinder._handlePossibleCenter(window, i, j + b)) {
+            whiteFrom = start + 6;
+          }
+        }
+        color = bit;
+        run = 1;
       }
     }
 
-    final patternInfo = _selectBestPatterns();
-    return patternInfo;
+    // The run touching the right edge ends there.
+    if (color < 0) {
+      return;
+    }
+    window[0] = window[1];
+    window[1] = window[2];
+    window[2] = window[3];
+    window[3] = window[4];
+    window[4] = run;
+    final start = completed + 1 - 5;
+    if (color == 1) {
+      if (start >= blackFrom && foundPatternCross(window)) {
+        _handlePossibleCenter(window, i, maxJ);
+      }
+    } else if (invertedFinder != null &&
+        start >= whiteFrom &&
+        foundPatternCross(window)) {
+      invertedFinder._handlePossibleCenter(window, i, maxJ);
+    }
   }
 
   /// Fills [buffer] with row indices from center outward for center-first scanning.
@@ -158,14 +200,6 @@ class FinderPatternFinder {
   /// module wider than 255 pixels - but it does let a run that is nothing
   /// like a finder pattern read as one.
   static Int32List _stateCounts() => Int32List(5);
-
-  void _shiftCounts2(List<int> stateCount) {
-    stateCount[0] = stateCount[2];
-    stateCount[1] = stateCount[3];
-    stateCount[2] = stateCount[4];
-    stateCount[3] = 1;
-    stateCount[4] = 0;
-  }
 
   /// Verifies that the pixel counts matches the 1:1:3:1:1 pattern.
   ///
@@ -435,83 +469,13 @@ class FinderPatternFinder {
   List<FinderPatternInfo> findMulti() {
     // Clear previous state
     _possibleCenters.clear();
+    inverted?._possibleCenters.clear();
 
     // First, detect all possible centers (same as find())
-    final maxJ = image.width;
-    final maxI = image.height;
-    final bits = image.bits;
-    final rowStride = image.rowStride;
-
     const iSkip = 3;
-
     final stateCount = _stateCounts();
-
-    for (var i = iSkip - 1; i < maxI; i += iSkip) {
-      stateCount.fillRange(0, 5, 0);
-      var currentState = 0;
-      final rowOffset = i * rowStride;
-      var wordOffset = rowOffset;
-
-      for (var j = 0; j < maxJ; j += 32) {
-        final remaining = maxJ - j;
-        final currentWord = bits[wordOffset++];
-        final limit = (remaining < 32) ? remaining : 32;
-
-        if (currentWord == 0 && (currentState & 1) == 1 && limit == 32) {
-          // Optimization: All white, currently counting white
-          stateCount[currentState] += 32;
-          continue;
-        }
-
-        if (currentWord == 0xFFFFFFFF &&
-            (currentState & 1) == 0 &&
-            limit == 32) {
-          // Optimization: All black, currently counting black
-          stateCount[currentState] += 32;
-          continue;
-        }
-
-        for (var b = 0; b < limit; b++) {
-          final isBlack = (currentWord & (1 << b)) != 0;
-          if (isBlack) {
-            // Black
-            if ((currentState & 1) == 1) {
-              currentState++;
-            }
-            stateCount[currentState]++;
-          } else {
-            // White
-            if ((currentState & 1) == 0) {
-              if (currentState == 4) {
-                // Found B W B W B sequence
-                if (foundPatternCross(stateCount)) {
-                  // The actual pixel coordinate is j + b
-                  final confirmed = _handlePossibleCenter(stateCount, i, j + b);
-                  if (!confirmed) {
-                    _shiftCounts2(stateCount);
-                    currentState = 3; // Continue detecting
-                  } else {
-                    currentState = 0;
-                    stateCount.fillRange(0, 5, 0);
-                  }
-                } else {
-                  _shiftCounts2(stateCount);
-                  currentState = 3;
-                }
-              } else {
-                currentState++;
-                stateCount[currentState]++;
-              }
-            } else {
-              stateCount[currentState]++;
-            }
-          }
-        }
-      }
-
-      if (foundPatternCross(stateCount)) {
-        _handlePossibleCenter(stateCount, i, maxJ);
-      }
+    for (var i = iSkip - 1; i < image.height; i += iSkip) {
+      _scanRow(i, stateCount);
     }
 
     // Now enumerate all valid triplets

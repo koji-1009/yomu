@@ -2,6 +2,7 @@ import 'package:test/test.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
 import 'package:yomu/src/qr/detector/finder_pattern.dart';
 import 'package:yomu/src/qr/detector/finder_pattern_finder.dart';
+import 'package:yomu/src/yomu_exception.dart';
 
 import '../finder_pattern_helper.dart';
 
@@ -345,6 +346,68 @@ void main() {
         isEmpty,
         reason: 'the 266 pixel gap is not one module wide',
       );
+    });
+
+    group('light-on-dark patterns', () {
+      // Three finder patterns of a 21-module code, the last one flush with
+      // the right edge so that rows end inside it.
+      BitMatrix darkOnLight() {
+        final matrix = BitMatrix(width: 42, height: 42);
+        drawFinderPattern(matrix, 0, 0, moduleSize: 2);
+        drawFinderPattern(matrix, 28, 0, moduleSize: 2);
+        drawFinderPattern(matrix, 0, 28, moduleSize: 2);
+        return matrix;
+      }
+
+      String centers(List<FinderPattern> patterns) =>
+          patterns.map((p) => '${p.x},${p.y},${p.count}').join(' ');
+
+      test('are collected by the same scan as the dark-on-light ones', () {
+        final normal = darkOnLight();
+        final reversed = normal.inverted();
+        final reference = FinderPatternFinder(normal);
+        final expected = reference.find();
+
+        // Scanning the reversed image, the dark-on-light finder patterns
+        // are the light-on-dark ones.
+        final finder = FinderPatternFinder(reversed, invertedImage: normal);
+        expect(finder.find, throwsA(isA<DetectionException>()));
+        final info = finder.inverted!.selectBest();
+
+        expect(
+          centers(finder.inverted!.possibleCenters),
+          centers(reference.possibleCenters),
+        );
+        expect(info.topLeft.x, expected.topLeft.x);
+        expect(info.topRight.x, expected.topRight.x);
+        expect(info.bottomLeft.y, expected.bottomLeft.y);
+      });
+
+      test('are collected by findMulti as well', () {
+        final normal = darkOnLight();
+        final finder = FinderPatternFinder(
+          normal.inverted(),
+          invertedImage: normal,
+        );
+
+        expect(finder.findMulti(), isEmpty);
+        expect(finder.inverted!.selectMultiple(), hasLength(1));
+      });
+
+      test('leave the dark-on-light results unchanged', () {
+        final normal = darkOnLight();
+        final alone = FinderPatternFinder(normal)..findMulti();
+        final both = FinderPatternFinder(
+          normal,
+          invertedImage: normal.inverted(),
+        )..findMulti();
+
+        expect(centers(both.possibleCenters), centers(alone.possibleCenters));
+      });
+
+      test('are not collected without an inverted image', () {
+        expect(FinderPatternFinder(darkOnLight()).inverted, isNull);
+      });
     });
 
     group('findMulti', () {

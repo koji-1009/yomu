@@ -40,7 +40,8 @@
 /// produces false finder patterns: each stage has candidates to rule out
 /// rather than nothing to look at.
 enum DecodeEffort {
-  /// One binarization, one detection attempt, no retries.
+  /// One binarization, one finder pattern scan (collecting dark-on-light and
+  /// light-on-dark patterns together), no retries.
   ///
   /// The right choice for per-frame camera scanning, where a code missed on
   /// one frame is caught on the next and a slow frame is worse than a missed

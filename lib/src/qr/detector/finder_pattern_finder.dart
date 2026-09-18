@@ -518,52 +518,68 @@ class FinderPatternFinder {
     return _selectMultiplePatterns();
   }
 
-  /// Enumerates all valid triangle triplets from possible centers.
+  /// Picks disjoint valid triplets from possible centers, one per QR code.
   ///
-  /// Filters out overlapping/duplicate QR codes based on distance.
+  /// Codes laid out in a grid also offer cross-code triplets: the matching
+  /// finder patterns of three neighbouring codes form a right isosceles
+  /// triangle just as a code's own three do. Such a triangle spans the gap
+  /// between codes, so it is larger than the triangles of the codes it
+  /// borrows from. Taking the smallest triangles first therefore claims each
+  /// code's own finder patterns before a cross-code triplet can.
+  ///
+  /// Size alone would let a false center win, though: a data region that
+  /// reads 1:1:3:1:1 forms a small triangle with two real finder patterns
+  /// of its code. Such a center is confirmed on far fewer rows than the
+  /// real ones (see [hasConsistentCounts]), so triplets with consistent
+  /// counts are taken before any without.
   List<FinderPatternInfo> _selectMultiplePatterns() {
     final count = _possibleCenters.length;
     if (count < 3) {
       return [];
     }
 
-    // Sort by count (most confirmed first)
-    _possibleCenters.sort((a, b) => b.count.compareTo(a.count));
+    // Every valid triplet: its three indices, whether its counts are
+    // consistent, and the triangle's perimeter.
+    final triplets = <(int, int, int, bool, double)>[];
+    for (var i = 0; i < count - 2; i++) {
+      final p1 = _possibleCenters[i];
+      for (var j = i + 1; j < count - 1; j++) {
+        final p2 = _possibleCenters[j];
+        for (var k = j + 1; k < count; k++) {
+          final p3 = _possibleCenters[k];
+          if (isValidTriplet(p1, p2, p3)) {
+            triplets.add((
+              i,
+              j,
+              k,
+              hasConsistentCounts(p1, p2, p3),
+              _dist(p1, p2) + _dist(p2, p3) + _dist(p1, p3),
+            ));
+          }
+        }
+      }
+    }
+    triplets.sort((a, b) {
+      if (a.$4 != b.$4) {
+        return a.$4 ? -1 : 1;
+      }
+      return a.$5.compareTo(b.$5);
+    });
 
     final results = <FinderPatternInfo>[];
     final used = Uint8List(count);
-
-    // Try all combinations of 3 patterns
-    for (var i = 0; i < count - 2; i++) {
-      if (used[i] != 0) continue;
-
-      for (var j = i + 1; j < count - 1; j++) {
-        if (used[j] != 0) continue;
-
-        for (var k = j + 1; k < count; k++) {
-          if (used[k] != 0) continue;
-
-          final p1 = _possibleCenters[i];
-          final p2 = _possibleCenters[j];
-          final p3 = _possibleCenters[k];
-
-          // Check if this triplet forms a valid QR code (same QR code patterns)
-          if (isValidTriplet(p1, p2, p3)) {
-            final info = orderPatterns(p1, p2, p3);
-            results.add(info);
-
-            // Mark these patterns as used
-            used[i] = 1;
-            used[j] = 1;
-            used[k] = 1;
-
-            // Break out of k loop to try next i,j combination
-            break;
-          }
-        }
-        // If we found a valid triplet starting with i,j, try next i
-        if (used[i] != 0) break;
-      }
+    for (final (i, j, k, _, _) in triplets) {
+      if (used[i] != 0 || used[j] != 0 || used[k] != 0) continue;
+      used[i] = 1;
+      used[j] = 1;
+      used[k] = 1;
+      results.add(
+        orderPatterns(
+          _possibleCenters[i],
+          _possibleCenters[j],
+          _possibleCenters[k],
+        ),
+      );
     }
 
     return results;
@@ -636,7 +652,23 @@ class FinderPatternFinder {
     return true;
   }
 
-  /// Orders three patterns into bottomLeft, topLeft, topRight.
+  /// Checks that no pattern of the triplet was confirmed on fewer than half
+  /// as many scan rows as another.
+  ///
+  /// A real finder pattern is confirmed on every scanned row that crosses
+  /// its center stone, so the three of one code, sharing a module size,
+  /// collect similar counts. A false center is confirmed only on the few
+  /// rows where the data around it happens to read 1:1:3:1:1.
+  static bool hasConsistentCounts(
+    FinderPattern p1,
+    FinderPattern p2,
+    FinderPattern p3,
+  ) {
+    final minCount = min(p1.count, min(p2.count, p3.count));
+    final maxCount = max(p1.count, max(p2.count, p3.count));
+    return 2 * minCount >= maxCount;
+  }
+
   /// Orders three patterns into bottomLeft, topLeft, topRight.
   static FinderPatternInfo orderPatterns(
     FinderPattern p1,

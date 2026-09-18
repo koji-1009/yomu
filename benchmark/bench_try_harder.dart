@@ -23,19 +23,10 @@ void main() {
 
   final fixtureCases = <(String, String)>[
     ('barcode (Yomu.all)', 'fixtures/barcode_images/ean13_product.png'),
-    (
-      'rescued: noise_0.10',
-      'fixtures/unsupported_images/damaged_noise_0.10.png',
-    ),
-    (
-      'rescued: persp_y_0.2',
-      'fixtures/unsupported_images/perspective_y_0.2.png',
-    ),
-    (
-      'rescued: persp_y_0.3',
-      'fixtures/unsupported_images/perspective_y_0.3.png',
-    ),
-    ('rescued: dirt_0.30', 'fixtures/unsupported_images/damaged_dirt_0.30.png'),
+    ('rescued: noise_0.10', 'fixtures/distorted_images/damaged_noise_0.10.png'),
+    ('rescued: persp_y_0.2', 'fixtures/distorted_images/perspective_y_0.2.png'),
+    ('rescued: persp_y_0.3', 'fixtures/distorted_images/perspective_y_0.3.png'),
+    ('rescued: dirt_0.30', 'fixtures/distorted_images/damaged_dirt_0.30.png'),
     (
       'rescued: fullhd_200px',
       'fixtures/performance_test_images/fullhd_white_center_200px.png',

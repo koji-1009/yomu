@@ -273,6 +273,19 @@ class Yomu {
         return _decodeQRFromInfo(matrix, finder.find());
       } on DetectionException {
         // Fall through to barcode scanning
+      } on DecodeException {
+        // A dark-on-light triplet was found but did not decode, and at fast
+        // that failure propagates. The light-on-dark candidates of the same
+        // scan get their attempt first, so a false dark-on-light triplet
+        // cannot hide a light-on-dark code.
+        if (finder.inverted case final lightOnDark?) {
+          try {
+            return _decodeQRFromInfo(inverted!, lightOnDark.selectBest());
+          } on YomuException {
+            // Report the dark-on-light failure.
+          }
+        }
+        rethrow;
       }
     }
 

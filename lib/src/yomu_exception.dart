@@ -62,11 +62,13 @@ class ArgumentException extends YomuException {
   const ArgumentException(super.message);
 }
 
-/// Thrown when image processing fails.
+/// Formerly thrown in place of any error other than a [YomuException] that
+/// image processing ran into.
 ///
-/// This happens when:
-/// - Image processing downsampling fails
-/// - Image format conversion fails
+/// Nothing throws it any more: an image whose bytes do not fit its size is
+/// reported as an [ArgumentException], and an exception thrown by a
+/// [YomuImage] implementation itself now reaches the caller unchanged.
+@Deprecated('No longer thrown; catch ArgumentException instead')
 class ImageProcessingException extends YomuException {
   /// Creates an image processing exception with the given message.
   const ImageProcessingException(super.message);

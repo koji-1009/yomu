@@ -1,3 +1,4 @@
+import '../yomu_exception.dart';
 import 'decoder/error_correction_level.dart';
 
 /// A single error correction block specification: [count] blocks each
@@ -36,9 +37,10 @@ class Version {
     return _ecBlocks[ecLevel];
   }
 
+  /// Throws [DecodeException] for a number outside versions 1-40.
   static Version getVersionForNumber(int versionNumber) {
     if (versionNumber < 1 || versionNumber > 40) {
-      throw ArgumentError.value(versionNumber, 'versionNumber');
+      throw DecodeException('No version $versionNumber');
     }
     return _versions[versionNumber - 1];
   }
@@ -101,13 +103,12 @@ class Version {
     return count;
   }
 
+  /// Throws [DecodeException] for a dimension no version has.
   static Version getProvisionalVersionForDimension(int dimension) {
-    if (dimension % 4 != 1) throw ArgumentError();
-    try {
-      return getVersionForNumber((dimension - 17) ~/ 4);
-    } catch (_) {
-      throw ArgumentError();
+    if (dimension % 4 != 1) {
+      throw DecodeException('No version is $dimension modules wide');
     }
+    return getVersionForNumber((dimension - 17) ~/ 4);
   }
 
   static const List<Version> _versions = [

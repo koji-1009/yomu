@@ -1,3 +1,4 @@
+import '../yomu_exception.dart';
 import 'bit_matrix.dart';
 import 'perspective_transform.dart';
 
@@ -27,7 +28,7 @@ class GridSampler {
     PerspectiveTransform transform,
   ) {
     if (dimensionX <= 0 || dimensionY <= 0) {
-      throw ArgumentError('Dimensions must be positive');
+      throw const ArgumentException('Dimensions must be positive');
     }
 
     final result = BitMatrix(width: dimensionX, height: dimensionY);

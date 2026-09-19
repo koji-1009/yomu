@@ -278,7 +278,7 @@ void main() {
           () => Yomu.qrOnly.decode(
             YomuImage.rgba(bytes: bytes, width: 200, height: 200),
           ),
-          throwsA(anything), // Should not crash, just throw exception
+          throwsA(isA<DetectionException>()),
         );
       });
     });

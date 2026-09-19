@@ -196,7 +196,7 @@ abstract class DecodedBitStreamParser {
     // We try UTF-8 first, then fallback to Latin-1.
     try {
       sb.write(utf8.decode(readBytes));
-    } catch (_) {
+    } on FormatException {
       // Fallback to latin1
       sb.write(latin1.decode(readBytes));
     }

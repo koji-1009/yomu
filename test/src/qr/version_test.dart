@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 import 'package:yomu/src/qr/decoder/error_correction_level.dart';
 import 'package:yomu/src/qr/version.dart';
+import 'package:yomu/src/yomu_exception.dart';
 
 void main() {
   group('Version', () {
@@ -12,9 +13,13 @@ void main() {
     });
 
     test('getVersionForNumber throws for invalid numbers', () {
-      expect(() => Version.getVersionForNumber(0), throwsArgumentError);
-      expect(() => Version.getVersionForNumber(41), throwsArgumentError);
-      expect(() => Version.getVersionForNumber(-1), throwsArgumentError);
+      for (final number in [0, 41, -1]) {
+        expect(
+          () => Version.getVersionForNumber(number),
+          throwsA(isA<DecodeException>()),
+          reason: '$number',
+        );
+      }
     });
 
     test('dimensionForVersion is correct', () {
@@ -33,12 +38,12 @@ void main() {
     test('getProvisionalVersionForDimension throws for invalid dimension', () {
       expect(
         () => Version.getProvisionalVersionForDimension(20),
-        throwsArgumentError,
+        throwsA(isA<DecodeException>()),
       );
       // Dimension 13 (13 % 4 == 1) but results in version -1
       expect(
         () => Version.getProvisionalVersionForDimension(13),
-        throwsArgumentError,
+        throwsA(isA<DecodeException>()),
       );
     });
 

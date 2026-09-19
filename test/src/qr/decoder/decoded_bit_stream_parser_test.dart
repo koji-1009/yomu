@@ -328,7 +328,7 @@ void main() {
           bytes: bytes,
           version: Version.getVersionForNumber(1),
         ),
-        throwsA(anything),
+        throwsA(isA<DecodeException>()),
       );
     });
 
@@ -344,7 +344,7 @@ void main() {
           bytes: bytes,
           version: Version.getVersionForNumber(1),
         ),
-        throwsException,
+        throwsA(isA<DecodeException>()),
       );
     });
 
@@ -364,7 +364,7 @@ void main() {
           bytes: bytes,
           version: Version.getVersionForNumber(1),
         ),
-        throwsException,
+        throwsA(isA<DecodeException>()),
       );
     });
 
@@ -470,7 +470,7 @@ void main() {
           bytes: bytes,
           version: Version.getVersionForNumber(1),
         ),
-        throwsException,
+        throwsA(isA<DecodeException>()),
       );
     });
 
@@ -590,7 +590,7 @@ void main() {
 
       expect(
         () => DecodedBitStreamParser.decode(bytes: bytes, version: version),
-        throwsA(anything),
+        throwsA(isA<DecodeException>()),
       );
     });
   });

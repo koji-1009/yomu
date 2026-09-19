@@ -87,17 +87,6 @@ class QRCodeDecoder {
   /// Returns a [DecoderResult] containing the decoded text and raw bytes.
   /// Throws [DecodeException] if the QR code cannot be decoded.
   DecoderResult decode(BitMatrix bits) {
-    try {
-      return _decodeBody(bits);
-    } catch (e) {
-      if (e is YomuException) {
-        rethrow;
-      }
-      throw DecodeException('Decoding failed: $e');
-    }
-  }
-
-  DecoderResult _decodeBody(BitMatrix bits) {
     final parser = BitMatrixParser(bits);
 
     // Read Format Information
@@ -200,11 +189,7 @@ class QRCodeDecoder {
         codewordBuffer.setRange(0, dataLen, blocksData[j]);
         codewordBuffer.setRange(dataLen, totalLen, blocksEc[j]);
 
-        try {
-          _rsDecoder.decode(received: codewordBuffer, twoS: ecLen);
-        } catch (e) {
-          throw DecodeException('RS error: $e');
-        }
+        _rsDecoder.decode(received: codewordBuffer, twoS: ecLen);
 
         // Copy back corrected data
         for (var i = 0; i < dataLen; i++) {
@@ -280,8 +265,15 @@ class BitMatrixParser {
   ///
   /// For versions 1-6, the version is determined from the dimension.
   /// For versions 7+, the version is encoded in two 18-bit regions.
+  ///
+  /// Throws [DecodeException] when the matrix is not 17 + 4v modules wide
+  /// for a version v: the function patterns and the codeword placement of
+  /// no version fit it. Version information that decodes to a version of
+  /// another size is ignored, for the same reason.
   Version readVersion() {
-    if (dimension < 17) throw const DecodeException('Too small');
+    if (dimension < 21 || (dimension - 17) % 4 != 0) {
+      throw DecodeException('No version is $dimension modules wide');
+    }
 
     final provisional = (dimension - 17) ~/ 4;
     if (provisional <= 6) {
@@ -308,13 +300,13 @@ class BitMatrixParser {
 
     // Decode version from the bits
     final decodedVersion = Version.decodeVersionInformation(versionBits1);
-    if (decodedVersion != null) {
-      return decodedVersion;
+    if (decodedVersion?.versionNumber == provisional) {
+      return decodedVersion!;
     }
 
     final decodedVersion2 = Version.decodeVersionInformation(versionBits2);
-    if (decodedVersion2 != null) {
-      return decodedVersion2;
+    if (decodedVersion2?.versionNumber == provisional) {
+      return decodedVersion2!;
     }
 
     // Fallback to provisional if decoding fails

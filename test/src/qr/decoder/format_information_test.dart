@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 import 'package:yomu/src/qr/decoder/error_correction_level.dart';
 import 'package:yomu/src/qr/decoder/format_information.dart';
+import 'package:yomu/src/yomu_exception.dart';
 
 /// The 15-bit codeword of each format information value.
 const _codewords = [
@@ -181,8 +182,13 @@ void main() {
     });
 
     test('forBits throws for invalid bits', () {
-      expect(() => ErrorCorrectionLevel.forBits(-1), throwsArgumentError);
-      expect(() => ErrorCorrectionLevel.forBits(4), throwsArgumentError);
+      for (final bits in [-1, 4]) {
+        expect(
+          () => ErrorCorrectionLevel.forBits(bits),
+          throwsA(isA<DecodeException>()),
+          reason: '$bits',
+        );
+      }
     });
 
     test('values contains all levels', () {

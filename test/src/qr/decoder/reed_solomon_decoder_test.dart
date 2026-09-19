@@ -106,7 +106,7 @@ void main() {
 
       expect(
         () => decoder.decode(received: corrupted, twoS: 2),
-        throwsException,
+        throwsA(isA<ReedSolomonException>()),
       );
     });
   });

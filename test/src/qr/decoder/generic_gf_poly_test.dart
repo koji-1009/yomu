@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:yomu/src/qr/decoder/generic_gf.dart';
 import 'package:yomu/src/qr/decoder/generic_gf_poly.dart';
+import 'package:yomu/src/yomu_exception.dart';
 
 void main() {
   group('GenericGFPoly', () {
@@ -84,7 +85,7 @@ void main() {
       final poly1 = GenericGFPoly(field, Uint8List.fromList([1, 2, 3]));
       final zero = field.zero;
 
-      expect(() => poly1.divide(zero), throwsA(isA<ArgumentError>()));
+      expect(() => poly1.divide(zero), throwsA(isA<ReedSolomonException>()));
     });
 
     test('multiplyByMonomial with negative degree throws', () {
@@ -93,7 +94,7 @@ void main() {
 
       expect(
         () => poly.multiplyByMonomial(-1, 3),
-        throwsA(isA<ArgumentError>()),
+        throwsA(isA<ReedSolomonException>()),
       );
     });
 

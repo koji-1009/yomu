@@ -59,6 +59,41 @@ void main() {
       expect(version.versionNumber, 7);
     });
 
+    test('readVersion throws for a size no version has', () {
+      // Every symbol is 17 + 4v modules wide.
+      for (final dimension in [18, 20, 22, 23, 24, 46]) {
+        expect(
+          () => BitMatrixParser(BitMatrix(width: dimension)).readVersion(),
+          throwsA(isA<DecodeException>()),
+          reason: '$dimension',
+        );
+      }
+    });
+
+    test('readVersion ignores version information for another size', () {
+      // Both version blocks of a 45-module (version 7) grid read as
+      // version 8, which is 49 modules wide.
+      const version8 = 0x085BC;
+      final matrix = BitMatrix(width: 45);
+      var bit = 17;
+      for (var y = 5; y >= 0; y--) {
+        for (var x = 45 - 9; x >= 45 - 11; x--) {
+          if ((version8 >> bit) & 1 == 1) matrix.set(x, y);
+          bit--;
+        }
+      }
+      bit = 17;
+      for (var x = 5; x >= 0; x--) {
+        for (var y = 45 - 9; y >= 45 - 11; y--) {
+          if ((version8 >> bit) & 1 == 1) matrix.set(x, y);
+          bit--;
+        }
+      }
+      expect(Version.decodeVersionInformation(version8)!.versionNumber, 8);
+
+      expect(BitMatrixParser(matrix).readVersion().versionNumber, 7);
+    });
+
     test('readCodewords extracts bytes', () {
       // Minimal test, all zeros
       final matrix = BitMatrix(width: 21);
@@ -150,6 +185,35 @@ void main() {
     // We need to test the "catch (e)" path that wraps non-Yomu exceptions.
     // How to trigger a non-Yomu exception inside decode?
     // Maybe mock RS decoder to throw StateError?
+
+    test('decode throws a DecodeException for a size no version has', () {
+      // 18 modules: past the 17 readVersion checks for, short of version 1.
+      expect(
+        () => const QRCodeDecoder().decode(BitMatrix(width: 18)),
+        throwsA(
+          isA<DecodeException>().having(
+            (e) => e.message,
+            'message',
+            isNot(startsWith('Decoding failed')),
+          ),
+        ),
+      );
+    });
+
+    test('decode lets a Reed-Solomon failure through as it is', () {
+      final bits = Detector(_loadBitMatrix('version_1.png')).detect().bits;
+      // Flip the data region: far more errors than version 1 corrects.
+      for (var y = 9; y < bits.height; y++) {
+        for (var x = 9; x < bits.width; x++) {
+          bits.flip(x, y);
+        }
+      }
+
+      expect(
+        () => const QRCodeDecoder().decode(bits),
+        throwsA(isA<ReedSolomonException>()),
+      );
+    });
 
     test('decode rejects a grid whose data is not a bit stream', () {
       // Sampled by the bottom-right grid search from a mirror image of

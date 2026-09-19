@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../../yomu_exception.dart';
 import 'generic_gf.dart';
 
 /// Represents a polynomial whose coefficients are elements of a GF(256).
@@ -134,6 +135,9 @@ class GenericGFPoly {
   }
 
   GenericGFPoly multiplyByMonomial(int degree, int coefficient) {
+    if (degree < 0) {
+      throw ReedSolomonException('Negative monomial degree: $degree');
+    }
     if (coefficient == 0) return field.zero;
 
     final size = coefficients.length;
@@ -147,7 +151,7 @@ class GenericGFPoly {
   /// Divides this polynomial by [other], returning `(quotient, remainder)`.
   (GenericGFPoly, GenericGFPoly) divide(GenericGFPoly other) {
     if (other.isZero) {
-      throw ArgumentError('Divide by 0');
+      throw const ReedSolomonException('Divide by 0');
     }
     var quotient = field.zero;
     var remainder = this;

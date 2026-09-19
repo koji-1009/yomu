@@ -173,19 +173,37 @@ void main() {
   });
 
   group('Error Handling', () {
-    test('wraps unexpected exceptions in ImageProcessingException', () {
-      final brokenImage = BrokenYomuImage();
+    test('rejects an implementation whose bytes do not fit its size', () {
+      // Implementing YomuImage skips the checks of its constructor.
+      final image = _UncheckedYomuImage();
+      expect(() => Yomu.all.decode(image), throwsA(isA<ArgumentException>()));
       expect(
-        () => Yomu.all.decode(brokenImage),
-        throwsA(isA<ImageProcessingException>()),
+        () => Yomu.all.decodeAll(image),
+        throwsA(isA<ArgumentException>()),
+      );
+    });
+
+    test('keeps ImageProcessingException a YomuException', () {
+      // Deprecated and no longer thrown, but still caught by callers.
+      // ignore: deprecated_member_use_from_same_package
+      const exception = ImageProcessingException('message');
+      expect(exception, isA<YomuException>());
+      expect(exception.message, 'message');
+    });
+
+    test('lets an exception from the image itself through', () {
+      // The library does not convert what the caller's own code throws.
+      expect(
+        () => Yomu.all.decode(_ThrowingYomuImage()),
+        throwsA(isA<_ImageFailure>()),
       );
     });
   });
 }
 
-class BrokenYomuImage implements YomuImage {
+class _UncheckedYomuImage implements YomuImage {
   @override
-  Uint8List get bytes => Uint8List(0); // Dummy
+  Uint8List get bytes => Uint8List(0);
 
   @override
   int get width => 100;
@@ -197,6 +215,12 @@ class BrokenYomuImage implements YomuImage {
   int get rowStride => 100;
 
   @override
-  YomuImageFormat get format =>
-      throw Exception('Unexpected error accessing format');
+  YomuImageFormat get format => YomuImageFormat.grayscale;
+}
+
+class _ImageFailure implements Exception {}
+
+class _ThrowingYomuImage extends _UncheckedYomuImage {
+  @override
+  YomuImageFormat get format => throw _ImageFailure();
 }

@@ -13,7 +13,7 @@ Yomu is a **zero-dependency** pure Dart implementation of a QR code and barcode 
 
 * **📦 Zero Dependencies**: No external package dependencies. Keep your app's dependency graph clean.
 * **🎯 Pure Dart**: No C++/Native code. Works instantly on Web (Wasm/JS), Desktop, and Mobile without build issues.
-* **🚀 High Performance**: Full HD in ~2.4ms, 4K in ~4.0ms on M4 MacBook Air (AOT). Fast enough for real-time scanning.
+* **🚀 High Performance**: Full HD in ~1.2ms, 4K in ~2.2ms on M4 MacBook Air (AOT). Fast enough for real-time scanning.
 * **🛡️ Robust & Tested**: Comprehensive test coverage. Tested against hundreds of distorted, noisy, and unevenly lit images.
 
 ## 🚀 Quick Start
@@ -92,7 +92,7 @@ Pick by use case:
 * **Camera streams that can spend ~41ms on a bad frame** (~15ms with `readLightOnDark: false`): `Yomu.responsive` (`balanced`). It recovers 21 of the 25 codes `thorough` adds over `fast`, for a third of the cost on a textured frame.
 * **Real-time preview**: `Yomu.realtime` (`fast`). Frames without a code fail as fast as possible; a code missed on one frame is caught on a later one.
 
-The older `tryHarder: bool` parameter still works — `false` maps to `fast`, `true` to `thorough` — but it is deprecated in favour of `effort`.
+The older `tryHarder: bool` parameter still works — `false` maps to `fast`, `true` to `thorough` — but it is deprecated in favor of `effort`.
 
 ### `YomuImage` Class
 

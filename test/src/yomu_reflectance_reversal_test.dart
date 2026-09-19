@@ -133,6 +133,22 @@ void main() {
         readLightOnDark: readLightOnDark,
       );
 
+      test('fast reads a light-on-dark code past a false dark-on-light '
+          'triplet', () {
+        // The dark-on-light scan of this image finds a triplet that does not
+        // decode: with light-on-dark reading off, fast ends in its
+        // DecodeException.
+        final (image, text) = invertedFixture(
+          'fixtures/qr_complex_images/version_10.png',
+        );
+
+        expect(
+          () => yomuAt(DecodeEffort.fast, readLightOnDark: false).decode(image),
+          throwsA(isA<DecodeException>()),
+        );
+        expect(yomuAt(DecodeEffort.fast).decode(image).text, text);
+      });
+
       test('despeckle reads a noisy light-on-dark code', () {
         // Salt & pepper noise: only the despeckle stage recovers it.
         final (image, text) = invertedFixture(

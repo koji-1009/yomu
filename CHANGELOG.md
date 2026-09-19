@@ -23,6 +23,7 @@
   * Dropping the catch-alls brought out reads past the sampled grid that they had hidden: a grid not 17 + 4v modules wide, or one whose version information decoded to a version of another size, was read with that other version's layout. `readVersion` now rejects the first and ignores such version information in the second.
   * A class implementing `YomuImage` skips its constructor's checks; bytes that do not fit its size are now an `ArgumentException` before decoding starts, and an exception its own getters throw reaches the caller unchanged instead of as an `ImageProcessingException`. `ImageProcessingException` is no longer thrown and is deprecated.
   * `BarcodeException` extends `YomuException`.
+* **Exceptions name themselves in minified and obfuscated builds**: `YomuException.toString` named the class by its `runtimeType`, which dart2js `-O2` and `--obfuscate` builds rename - a `DecodeException` printed as `minified:I: ...` on the web and `Mi: ...` in an obfuscated app. Every exception in the library now spells out its name.
 * **1D barcodes decode in rows that start dark**: the run lengths of a scan row started with the colour of its first pixel, but every decoder reads even-indexed runs as white. A dark border or a dark object at the left edge of the frame flipped every run, and no symbology could decode that row: with a 10px dark band added to the left of each barcode fixture (quiet zone intact), 0 of 19 decoded. A row that starts dark now begins with an empty white run, and all 19 decode.
 
 ## 1.2.0

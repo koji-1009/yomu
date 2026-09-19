@@ -33,4 +33,7 @@ class BarcodeResult {
 /// Exception thrown when 1D barcode decoding fails.
 class BarcodeException extends YomuException {
   const BarcodeException(super.message);
+
+  @override
+  String toString() => 'BarcodeException: $message';
 }

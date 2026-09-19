@@ -85,7 +85,7 @@ class Yomu {
   final DecodeEffort effort;
 
   /// Whether to also read QR codes printed with reflectance reversal: light
-  /// modules on a dark background (ISO/IEC 18004:2015, 6.2). This is a colour
+  /// modules on a dark background (ISO/IEC 18004:2015, 6.2). This is a color
   /// inversion, not a mirror image.
   ///
   /// On by default, as the symbology intends symbols to be read either way.

@@ -68,15 +68,15 @@ class FinderPatternFinder {
   /// collected, without scanning.
   List<FinderPatternInfo> selectMultiple() => _selectMultiplePatterns();
 
-  /// Scans row [i] for 1:1:3:1:1 runs of both colours and hands every hit
+  /// Scans row [i] for 1:1:3:1:1 runs of both colors and hands every hit
   /// to [_handlePossibleCenter]: black-first hits to this finder, white-first
   /// ones to [inverted] (when set).
   ///
   /// [window] holds the last five completed runs, oldest first. A window
   /// ending on a black run starts on one too (five runs alternate), so the
-  /// colour of the run that just ended says which finder the window is for.
+  /// color of the run that just ended says which finder the window is for.
   /// After a confirmed hit, that finder's next window starts on the first
-  /// run of its colour past the pattern, so the pattern's own runs are not
+  /// run of its color past the pattern, so the pattern's own runs are not
   /// read again.
   void _scanRow(int i, Int32List window) {
     final maxJ = image.width;
@@ -85,7 +85,7 @@ class FinderPatternFinder {
     var wordOffset = i * image.rowStride;
 
     window.fillRange(0, 5, 0);
-    // Colour of the current run (1 black, 0 white; -1 before the first
+    // Color of the current run (1 black, 0 white; -1 before the first
     // pixel), its length, and how many runs have completed.
     var color = -1;
     var run = 0;
@@ -495,7 +495,7 @@ class FinderPatternFinder {
   /// Picks disjoint valid triplets from possible centers, one per QR code.
   ///
   /// Codes laid out in a grid also offer cross-code triplets: the matching
-  /// finder patterns of three neighbouring codes form a right isosceles
+  /// finder patterns of three neighboring codes form a right isosceles
   /// triangle just as a code's own three do. Such a triangle spans the gap
   /// between codes, so it is larger than the triangles of the codes it
   /// borrows from. Taking the smallest triangles first therefore claims each

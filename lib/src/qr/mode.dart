@@ -1,3 +1,4 @@
+import '../yomu_exception.dart';
 import 'version.dart';
 
 /// Represents the encoding mode used in a QR code segment.
@@ -68,6 +69,10 @@ class Mode {
   /// Human-readable name of the mode.
   final String name;
 
+  /// Returns the mode whose indicator is [bits].
+  ///
+  /// Throws [DecodeException] when no mode has that indicator: the bits
+  /// then did not come from a symbol's bit stream.
   static Mode forBits(int bits) => switch (bits) {
     0x00 => terminator,
     0x01 => numeric,
@@ -79,7 +84,7 @@ class Mode {
     0x08 => kanji,
     0x09 => fnc1SecondPosition,
     0x0D => hanzi,
-    _ => throw ArgumentError('Invalid mode bits: $bits'),
+    _ => throw DecodeException('Invalid mode indicator: $bits'),
   };
 
   /// Returns the number of bits used for character count in this mode for [version].

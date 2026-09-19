@@ -150,6 +150,48 @@ void main() {
     // We need to test the "catch (e)" path that wraps non-Yomu exceptions.
     // How to trigger a non-Yomu exception inside decode?
     // Maybe mock RS decoder to throw StateError?
+
+    test('decode rejects a grid whose data is not a bit stream', () {
+      // Sampled by the bottom-right grid search from a mirror image of
+      // fixtures/qr_images/multi_qr_3_vertical.png: its format information
+      // reads as L with mask 0 and its codewords pass Reed-Solomon, but the
+      // data opens with the mode indicator 1110, which no mode has. This
+      // used to decode to an empty text.
+      const rows = [
+        '########.#.....###...',
+        '......##.#..##.....#.',
+        '..###.##..###.#.###..',
+        '..###.##.####.#.###..',
+        '..###.##...#..#.####.',
+        '......##..##..#....#.',
+        '#######..#.#..###....',
+        '.........#..#.#..#.#.',
+        '###.#####.##.##.###..',
+        '....##.......######..',
+        '###.###..####.#...#..',
+        '..#.#....#....#.##.#.',
+        '##.##.#...####..##...',
+        '.........#.#####.##..',
+        '#######.########..##.',
+        '#.....#.#.##..#..#...',
+        '..###.#...##..#..#.#.',
+        '..###.#.##....####...',
+        '..###.#.###.#.......#',
+        '......#..#.......####',
+        '#####........#######.',
+      ];
+      final bits = BitMatrix(width: 21);
+      for (var y = 0; y < rows.length; y++) {
+        for (var x = 0; x < rows[y].length; x++) {
+          if (rows[y][x] == '#') bits.set(x, y);
+        }
+      }
+
+      expect(
+        () => const QRCodeDecoder().decode(bits),
+        throwsA(isA<DecodeException>()),
+      );
+    });
   });
 }
 

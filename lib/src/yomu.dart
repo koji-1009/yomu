@@ -161,7 +161,7 @@ class Yomu {
   /// a detected-but-undecodable QR code falls through to barcode scanning
   /// instead of propagating a [DecodeException].
   DecoderResult decode(YomuImage image) {
-    final (pixels, processWidth, processHeight) = _processImage(image);
+    final (pixels, processWidth, processHeight) = ImageProcessor.process(image);
 
     if (effort == DecodeEffort.fast) {
       return _decodeFastOnly(pixels, processWidth, processHeight);
@@ -393,7 +393,7 @@ class Yomu {
       try {
         final detector = Detector(matrix, alignmentAreaAllowance: 5);
         return _decoder.decode(detector.processFinderPatternInfo(info).bits);
-      } catch (_) {
+      } on YomuException {
         // Fall through to the expanded allowance.
       }
     }
@@ -404,7 +404,7 @@ class Yomu {
         alignmentAreaAllowance: alignmentAreaAllowance,
       );
       return _decoder.decode(detector.processFinderPatternInfo(info).bits);
-    } catch (_) {
+    } on YomuException {
       if (rethrowFinal) {
         rethrow;
       }
@@ -475,28 +475,15 @@ class Yomu {
     YomuImage image,
     TryHarderDecoder retry,
   ) {
-    final matrix = _fullResolutionMatrix(image);
-    if (matrix == null) {
-      return null;
-    }
-    return _decodeFastWithCornerRetry(matrix, retry);
+    return _decodeFastWithCornerRetry(_fullResolutionMatrix(image), retry);
   }
 
-  /// Converts and binarizes [image] at full resolution. Returns null when
-  /// the conversion fails.
-  BitMatrix? _fullResolutionMatrix(YomuImage image) {
-    final Uint8List pixels;
-    final int width;
-    final int height;
-    try {
-      (pixels, width, height) = ImageProcessor.process(
-        image,
-        allowDownsample: false,
-      );
-    } catch (_) {
-      return null;
-    }
-
+  /// Converts and binarizes [image] at full resolution.
+  BitMatrix _fullResolutionMatrix(YomuImage image) {
+    final (pixels, width, height) = ImageProcessor.process(
+      image,
+      allowDownsample: false,
+    );
     final source = LuminanceSource(
       width: width,
       height: height,
@@ -524,7 +511,7 @@ class Yomu {
       return const [];
     }
 
-    final (pixels, processWidth, processHeight) = _processImage(image);
+    final (pixels, processWidth, processHeight) = ImageProcessor.process(image);
 
     if (effort == DecodeEffort.fast) {
       return _decodeAllQRFromPixels(pixels, processWidth, processHeight);
@@ -574,12 +561,12 @@ class Yomu {
     if (_rebuildsImage &&
         (processWidth < image.width || processHeight < image.height) &&
         retry.hasBudget) {
-      final fullMatrix = _fullResolutionMatrix(image);
-      if (fullMatrix != null) {
-        final fullResults = _decodeAllOnMatrix(fullMatrix, retry);
-        if (fullResults.results.isNotEmpty) {
-          return fullResults.results;
-        }
+      final fullResults = _decodeAllOnMatrix(
+        _fullResolutionMatrix(image),
+        retry,
+      );
+      if (fullResults.results.isNotEmpty) {
+        return fullResults.results;
       }
     }
 
@@ -754,21 +741,11 @@ class Yomu {
         results.add(
           _decoder.decode(detector.processFinderPatternInfo(info).bits),
         );
-      } catch (_) {
+      } on YomuException {
         continue;
       }
     }
     return results;
-  }
-
-  /// Internal: Wraps image processing to catch errors.
-  (Uint8List, int, int) _processImage(YomuImage image) {
-    try {
-      return ImageProcessor.process(image);
-    } catch (e) {
-      if (e is YomuException) rethrow;
-      throw ImageProcessingException('Failed to process image: $e');
-    }
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../image_data.dart';
+import '../yomu_exception.dart';
 import 'image_conversion.dart';
 
 /// Utilities for processing and preparing images for decoding.
@@ -16,10 +17,13 @@ class ImageProcessor {
   /// below the detectable module size when downsampled).
   ///
   /// Returns a record containing the pixel data, width, and height.
+  /// Throws [ArgumentException] when [image]'s bytes do not match its
+  /// dimensions (see [checkImageLayout]).
   static (Uint8List, int, int) process(
     YomuImage image, {
     bool allowDownsample = true,
   }) {
+    checkImageLayout(image);
     if (image.format == YomuImageFormat.grayscale) {
       return _processLuminance(
         image.bytes,

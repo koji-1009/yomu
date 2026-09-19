@@ -96,22 +96,7 @@ class YomuImage {
   }) : rowStride =
            rowStride ??
            (width * (format == YomuImageFormat.grayscale ? 1 : 4)) {
-    if (width <= 0 || height <= 0) {
-      throw const ArgumentException('Width and height must be positive.');
-    }
-    final bytesPerPixel = format == YomuImageFormat.grayscale ? 1 : 4;
-    if (this.rowStride < width * bytesPerPixel) {
-      throw ArgumentException(
-        'rowStride (${this.rowStride}) must be >= width * bytesPerPixel '
-        '(${width * bytesPerPixel}).',
-      );
-    }
-    if (bytes.length < this.rowStride * height) {
-      throw ArgumentException(
-        'bytes.length (${bytes.length}) is too small for the given dimensions '
-        'and stride. Expected at least ${this.rowStride * height}.',
-      );
-    }
+    checkImageLayout(this);
   }
 
   /// Raw pixel data.
@@ -132,4 +117,32 @@ class YomuImage {
 
   /// The pixel format of the data.
   final YomuImageFormat format;
+}
+
+/// Throws [ArgumentException] unless [image]'s bytes hold [YomuImage.height]
+/// rows of [YomuImage.rowStride] bytes, each wide enough for
+/// [YomuImage.width] pixels.
+///
+/// The [YomuImage] constructor runs this; decoding runs it again, as a class
+/// implementing [YomuImage] does not go through that constructor.
+void checkImageLayout(YomuImage image) {
+  final width = image.width;
+  final height = image.height;
+  final rowStride = image.rowStride;
+  if (width <= 0 || height <= 0) {
+    throw const ArgumentException('Width and height must be positive.');
+  }
+  final bytesPerPixel = image.format == YomuImageFormat.grayscale ? 1 : 4;
+  if (rowStride < width * bytesPerPixel) {
+    throw ArgumentException(
+      'rowStride ($rowStride) must be >= width * bytesPerPixel '
+      '(${width * bytesPerPixel}).',
+    );
+  }
+  if (image.bytes.length < rowStride * height) {
+    throw ArgumentException(
+      'bytes.length (${image.bytes.length}) is too small for the given '
+      'dimensions and stride. Expected at least ${rowStride * height}.',
+    );
+  }
 }

@@ -1,3 +1,5 @@
+import '../../yomu_exception.dart';
+
 /// QR Code Error Correction Levels.
 ///
 /// The bits encoding in QR format information is:
@@ -12,11 +14,13 @@ enum ErrorCorrectionLevel {
   H;
 
   /// Decodes the error correction level from the 2-bit format info field.
+  ///
+  /// Throws [DecodeException] for bits outside that field.
   static ErrorCorrectionLevel forBits(int bits) => switch (bits) {
     0 => M,
     1 => L,
     2 => H,
     3 => Q,
-    _ => throw ArgumentError('Invalid EC bits: $bits'),
+    _ => throw DecodeException('Invalid error correction level bits: $bits'),
   };
 }

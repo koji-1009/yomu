@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
 import 'package:yomu/src/common/grid_sampler.dart';
 import 'package:yomu/src/common/perspective_transform.dart';
+import 'package:yomu/src/yomu_exception.dart';
 
 /// Samples exactly like [GridSampler.sampleGrid], but by staging a row of
 /// points through [PerspectiveTransform.transformPoints].
@@ -67,15 +68,15 @@ void main() {
 
         expect(
           () => sampler.sampleGrid(image, 0, 5, transform),
-          throwsArgumentError,
+          throwsA(isA<ArgumentException>()),
         );
         expect(
           () => sampler.sampleGrid(image, 5, 0, transform),
-          throwsArgumentError,
+          throwsA(isA<ArgumentException>()),
         );
         expect(
           () => sampler.sampleGrid(image, -1, 5, transform),
-          throwsArgumentError,
+          throwsA(isA<ArgumentException>()),
         );
       });
 

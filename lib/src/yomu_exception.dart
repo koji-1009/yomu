@@ -21,6 +21,9 @@ abstract class YomuException implements Exception {
   /// Human-readable description of the error.
   final String message;
 
+  /// Names the class by its `runtimeType`, which minified (dart2js) and
+  /// obfuscated builds rename. Each exception in this library overrides it
+  /// with its name spelled out.
   @override
   String toString() => '$runtimeType: $message';
 }
@@ -34,6 +37,9 @@ abstract class YomuException implements Exception {
 class DetectionException extends YomuException {
   /// Creates a detection exception with the given message.
   const DetectionException(super.message);
+
+  @override
+  String toString() => 'DetectionException: $message';
 }
 
 /// Thrown when decoding the detected code fails.
@@ -46,6 +52,9 @@ class DetectionException extends YomuException {
 class DecodeException extends YomuException {
   /// Creates a decode exception with the given message.
   const DecodeException(super.message);
+
+  @override
+  String toString() => 'DecodeException: $message';
 }
 
 /// Thrown when Reed-Solomon error correction fails.
@@ -54,20 +63,31 @@ class DecodeException extends YomuException {
 class ReedSolomonException extends DecodeException {
   /// Creates a Reed-Solomon exception with the given message.
   const ReedSolomonException(super.message);
+
+  @override
+  String toString() => 'ReedSolomonException: $message';
 }
 
 /// Thrown when an invalid argument is provided to a Yomu method.
 class ArgumentException extends YomuException {
   /// Creates an argument exception with the given message.
   const ArgumentException(super.message);
+
+  @override
+  String toString() => 'ArgumentException: $message';
 }
 
-/// Thrown when image processing fails.
+/// Formerly thrown in place of any error other than a [YomuException] that
+/// image processing ran into.
 ///
-/// This happens when:
-/// - Image processing downsampling fails
-/// - Image format conversion fails
+/// Nothing throws it any more: an image whose bytes do not fit its size is
+/// reported as an [ArgumentException], and an exception thrown by a
+/// [YomuImage] implementation itself now reaches the caller unchanged.
+@Deprecated('No longer thrown; catch ArgumentException instead')
 class ImageProcessingException extends YomuException {
   /// Creates an image processing exception with the given message.
   const ImageProcessingException(super.message);
+
+  @override
+  String toString() => 'ImageProcessingException: $message';
 }

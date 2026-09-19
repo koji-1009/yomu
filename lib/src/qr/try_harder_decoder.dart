@@ -3,6 +3,7 @@ import 'dart:math';
 import '../common/bit_matrix.dart';
 import '../common/grid_sampler.dart';
 import '../common/perspective_transform.dart';
+import '../yomu_exception.dart';
 import 'decoder/decoded_bit_stream_parser.dart';
 import 'decoder/qrcode_decoder.dart';
 import 'detector/detector.dart';
@@ -199,7 +200,7 @@ class TryHarderDecoder {
     final FinderPatternInfo info;
     try {
       info = locate();
-    } catch (_) {
+    } on YomuException {
       return null;
     }
 
@@ -209,7 +210,7 @@ class TryHarderDecoder {
     );
     try {
       return _decoder.decode(detector.processFinderPatternInfo(info).bits);
-    } catch (_) {
+    } on YomuException {
       // Fall through to the grid retry with the same finder info.
     }
     return decodeWithFinderInfo(matrix, info);
@@ -232,7 +233,7 @@ class TryHarderDecoder {
     for (final info in triplets) {
       try {
         return _decoder.decode(detector.processFinderPatternInfo(info).bits);
-      } catch (_) {
+      } on YomuException {
         continue;
       }
     }
@@ -324,7 +325,7 @@ class TryHarderDecoder {
         );
         final bits = _sampler.sampleGrid(matrix, dim, dim, transform);
         return _decoder.decode(bits);
-      } catch (_) {
+      } on YomuException {
         continue;
       }
     }

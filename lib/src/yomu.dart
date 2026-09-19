@@ -33,6 +33,12 @@ import 'yomu_exception.dart';
 /// final result = Yomu.all.decode(image);
 /// print(result.text);
 /// ```
+///
+/// QR codes printed as a mirror image (ISO/IEC 18004:2015, 6.2) decode like
+/// normal ones, at every [DecodeEffort]. Unlike [readLightOnDark], this has
+/// no switch: a sampled grid is read again transposed only when it failed
+/// and its format information reads better that way. Frames holding no code
+/// cost the same as without it; hard or undecodable images about 1% more.
 class Yomu {
   /// Creates a new [Yomu] decoder instance.
   ///

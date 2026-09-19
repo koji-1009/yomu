@@ -44,6 +44,26 @@ class FormatInformation {
     );
   }
 
+  /// The number of bits the two readings together differ from the value
+  /// they both correct to, or null when either is beyond correction or they
+  /// correct to different values.
+  ///
+  /// Stricter than [decodeFormatInformation], which takes the closer of the
+  /// two readings and also accepts them with the format mask undone: about
+  /// half of all 15-bit words lie within the three bits a single reading may
+  /// correct, so that alone says little about whether a grid holds a symbol.
+  static int? agreeingCopiesDistance(
+    int maskedFormatInfo1,
+    int maskedFormatInfo2,
+  ) {
+    final (value1, difference1) = _nearestCodeword(maskedFormatInfo1);
+    final (value2, difference2) = _nearestCodeword(maskedFormatInfo2);
+    if (difference1 > 3 || difference2 > 3 || value1 != value2) {
+      return null;
+    }
+    return difference1 + difference2;
+  }
+
   static FormatInformation? _doDecodeFormatInformation(
     int maskedFormatInfo1,
     int maskedFormatInfo2,

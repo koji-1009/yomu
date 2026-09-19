@@ -156,6 +156,68 @@ void main() {
       );
     });
 
+    group('agreeingCopiesDistance', () {
+      test('counts the bits both copies differ from their value', () {
+        expect(FormatInformation.agreeingCopiesDistance(0x5125, 0x5125), 0);
+        // Three bits off M-1, and one bit off M-1.
+        expect(
+          FormatInformation.agreeingCopiesDistance(
+            0x5125 ^ 0x0007,
+            0x5125 ^ 0x0100,
+          ),
+          4,
+        );
+      });
+
+      test('is null for copies that correct to different values', () {
+        expect(
+          FormatInformation.agreeingCopiesDistance(0x5412, 0x5125),
+          isNull,
+        );
+      });
+
+      test('is null when either copy is beyond correction', () {
+        // Four bits off M-0.
+        const far = 0x5412 ^ 0x000F;
+        expect(FormatInformation.agreeingCopiesDistance(far, 0x5412), isNull);
+        expect(FormatInformation.agreeingCopiesDistance(0x5412, far), isNull);
+      });
+
+      test('does not read unmasked format information', () {
+        // decodeFormatInformation accepts these as M-0 with the mask XOR
+        // undone; this takes only the codewords as encoded.
+        expect(FormatInformation.decodeFormatInformation(0, 0), isNotNull);
+        expect(FormatInformation.agreeingCopiesDistance(0, 0), isNull);
+      });
+
+      test('matches a nearest-codeword search for every reading', () {
+        for (var reading = 0; reading <= 0x7FFF; reading++) {
+          var nearest = 32;
+          for (final codeword in _codewords) {
+            final difference = _popCount(reading ^ codeword);
+            if (difference < nearest) nearest = difference;
+          }
+
+          expect(
+            FormatInformation.agreeingCopiesDistance(reading, reading),
+            nearest <= 3 ? 2 * nearest : isNull,
+            reason: 'reading 0x${reading.toRadixString(16)}',
+          );
+        }
+      });
+
+      test('counts bits beyond the 15 a reading has', () {
+        expect(
+          FormatInformation.agreeingCopiesDistance(0x5412 | 0x8000, 0x5412),
+          1,
+        );
+        expect(
+          FormatInformation.agreeingCopiesDistance(0x5412 | 0x78000, 0x5412),
+          isNull,
+        );
+      });
+    });
+
     test('errorCorrectionLevel returns correct levels', () {
       // Test each EC level
       for (final level in ErrorCorrectionLevel.values) {

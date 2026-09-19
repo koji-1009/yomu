@@ -65,6 +65,8 @@ The main entry point class.
 
 QR codes printed light on dark (reflectance reversal, ISO/IEC 18004:2015 6.2) are read by default. Every retry stage then reads them the way it reads dark-on-light codes, which roughly doubles what a frame holding no code costs above `fast`. Pass `readLightOnDark: false` when every code you read is dark on light: on a textured Full HD frame holding no code, `fast` goes from 3.6ms to 2.7ms, `balanced` from 41ms to 15ms and `thorough` from 130ms to 63ms.
 
+QR codes printed as a mirror image (ISO/IEC 18004:2015 6.2) are read too, at every `effort`, dark on light or light on dark. A grid that fails to decode is read again transposed only when its format information reads better that way. There is no option: frames holding no code cost the same as without it, and hard or undecodable images about 1% more.
+
 | Method        | Description                                     |
 | ------------- | ----------------------------------------------- |
 | `decode()`    | Decode the first QR code or barcode in an image |

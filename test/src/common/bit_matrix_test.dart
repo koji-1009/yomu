@@ -110,5 +110,40 @@ void main() {
       expect(inverted.rowStride, 3);
       expect(inverted.bits, [0xFFFFFFFF, 0xFF, 0, 0xFFFFFFFF, 0xFF, 0]);
     });
+
+    test('transposed swaps rows and columns', () {
+      // 40 x 3: the source rows span two words, the result's rows one.
+      final matrix = BitMatrix(width: 40, height: 3);
+      matrix.set(0, 0);
+      matrix.set(39, 1);
+      matrix.set(33, 2);
+      matrix.set(5, 2);
+
+      final transposed = matrix.transposed();
+
+      expect(transposed.width, 3);
+      expect(transposed.height, 40);
+      for (var y = 0; y < 3; y++) {
+        for (var x = 0; x < 40; x++) {
+          expect(transposed.get(y, x), matrix.get(x, y), reason: '($x, $y)');
+        }
+      }
+      // The source is left untouched.
+      expect(matrix.get(0, 0), isTrue);
+      expect(matrix.get(33, 2), isTrue);
+    });
+
+    test('transposed twice gives back the original', () {
+      final matrix = BitMatrix(width: 45);
+      for (var i = 0; i < 45 * 45; i += 7) {
+        matrix.set(i % 45, i ~/ 45);
+      }
+
+      final roundTrip = matrix.transposed().transposed();
+
+      expect(roundTrip.width, 45);
+      expect(roundTrip.height, 45);
+      expect(roundTrip.bits, matrix.bits);
+    });
   });
 }

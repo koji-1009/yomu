@@ -125,6 +125,21 @@ class BitMatrix {
     );
   }
 
+  /// Returns a new [height] x [width] matrix with rows and columns swapped:
+  /// the bit at (x, y) moves to (y, x).
+  ///
+  /// Reading a QR code printed as a mirror image is reading this matrix of
+  /// its sampled grid instead.
+  BitMatrix transposed() {
+    final result = BitMatrix(width: height, height: width);
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        if (get(x, y)) result.set(y, x);
+      }
+    }
+    return result;
+  }
+
   /// Returns a new matrix where each bit is the 3x3 majority of its
   /// neighborhood (out-of-bounds cells count as white).
   ///

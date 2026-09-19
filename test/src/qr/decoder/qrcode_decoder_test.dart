@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
@@ -7,6 +8,7 @@ import 'package:yomu/src/common/binarizer/binarizer.dart';
 import 'package:yomu/src/common/binarizer/luminance_source.dart';
 import 'package:yomu/src/common/bit_matrix.dart';
 import 'package:yomu/src/common/image_conversion.dart';
+import 'package:yomu/src/qr/decoder/format_information.dart';
 import 'package:yomu/src/qr/decoder/qrcode_decoder.dart';
 import 'package:yomu/src/qr/detector/detector.dart';
 import 'package:yomu/src/qr/version.dart';
@@ -255,6 +257,123 @@ void main() {
         () => const QRCodeDecoder().decode(bits),
         throwsA(isA<DecodeException>()),
       );
+    });
+  });
+
+  group('Mirror imaging', () {
+    // ISO/IEC 18004:2015, 6.2: mirror imaging interchanges the row and
+    // column positions of the modules, so a mirror-image symbol samples as
+    // the transpose of its normal grid.
+    BitMatrix sampled(String filename) =>
+        Detector(_loadBitMatrix(filename)).detect().bits;
+
+    const fixtures = ['version_1.png', 'version_5.png', 'version_10.png'];
+
+    test('readFormatWords reads what readFormatInformation reads', () {
+      final random = Random(18004);
+      for (var i = 0; i < 500; i++) {
+        final dim = 21 + 4 * random.nextInt(40);
+        final bits = BitMatrix(width: dim);
+        for (var y = 0; y < dim; y++) {
+          for (var x = 0; x < dim; x++) {
+            if (random.nextBool()) bits.set(x, y);
+          }
+        }
+        final parser = BitMatrixParser(bits);
+        final (word1, word2) = parser.readFormatWords();
+        final expected = parser.readFormatInformation();
+        final actual = FormatInformation.decodeFormatInformation(word1, word2);
+
+        expect(actual?.errorCorrectionLevel, expected?.errorCorrectionLevel);
+        expect(actual?.dataMask, expected?.dataMask);
+        // And the transposed reading is the normal reading of the
+        // transpose.
+        expect(
+          parser.readFormatWords(transposed: true),
+          BitMatrixParser(bits.transposed()).readFormatWords(),
+        );
+      }
+    });
+
+    test('readsAsMirrorImage holds for a transposed grid', () {
+      for (final filename in fixtures) {
+        expect(
+          BitMatrixParser(sampled(filename).transposed()).readsAsMirrorImage(),
+          isTrue,
+          reason: filename,
+        );
+      }
+    });
+
+    test('readsAsMirrorImage does not hold for a normal grid', () {
+      // Read backwards, most format information codewords still lie within
+      // three bits of another one, so a normal grid would pass a check of
+      // the mirrored reading alone.
+      for (final filename in fixtures) {
+        expect(
+          BitMatrixParser(sampled(filename)).readsAsMirrorImage(),
+          isFalse,
+          reason: filename,
+        );
+      }
+    });
+
+    test('readsAsMirrorImage needs both mirrored copies to read', () {
+      final bits = sampled('version_1.png');
+      // Four errors in the second copy, beyond what it may correct.
+      final dim = bits.height;
+      for (var i = 1; i <= 4; i++) {
+        bits.flip(8, dim - i);
+      }
+
+      // The normal reading still takes the intact first copy...
+      expect(BitMatrixParser(bits).readFormatInformation(), isNotNull);
+      // ...but the mirrored one does not settle for one.
+      expect(BitMatrixParser(bits.transposed()).readsAsMirrorImage(), isFalse);
+    });
+
+    test('readsAsMirrorImage does not hold for a blank grid', () {
+      // The lenient reading accepts this one (see above).
+      expect(
+        BitMatrixParser(BitMatrix(width: 21)).readsAsMirrorImage(),
+        isFalse,
+      );
+    });
+
+    for (final (filename, text) in [
+      ('version_1.png', 'Hi'),
+      ('version_5.png', null),
+      ('version_10.png', null),
+    ]) {
+      test('decode reads a mirror-image $filename', () {
+        const decoder = QRCodeDecoder();
+        final bits = sampled(filename);
+        final expected = text ?? decoder.decode(bits).text;
+        final transposed = bits.transposed();
+        final before = Uint32List.fromList(transposed.bits);
+
+        expect(decoder.decode(transposed).text, expected);
+        // Like the normal reading, the mirror reading leaves its input as
+        // it found it.
+        expect(transposed.bits, before);
+      });
+    }
+
+    test('decode throws when the mirror reading fails too', () {
+      const decoder = QRCodeDecoder();
+      final transposed = sampled('version_5.png').transposed();
+      // Clear the data region: the mirrored format information still reads,
+      // so the mirror reading runs, and fails.
+      for (var y = 9; y < transposed.height - 9; y++) {
+        for (var x = 9; x < transposed.width - 9; x++) {
+          if (transposed.get(x, y)) transposed.flip(x, y);
+        }
+      }
+      expect(BitMatrixParser(transposed).readsAsMirrorImage(), isTrue);
+      final before = Uint32List.fromList(transposed.bits);
+
+      expect(() => decoder.decode(transposed), throwsA(isA<DecodeException>()));
+      expect(transposed.bits, before);
     });
   });
 }

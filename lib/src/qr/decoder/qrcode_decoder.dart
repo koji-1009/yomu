@@ -86,7 +86,34 @@ class QRCodeDecoder {
   ///
   /// Returns a [DecoderResult] containing the decoded text and raw bytes.
   /// Throws [DecodeException] if the QR code cannot be decoded.
+  ///
+  /// Reads [bits] as a mirror image too (ISO/IEC 18004:2015, 6.2): the
+  /// sampled grid of a mirror-image symbol is the transpose of its normal
+  /// one.
   DecoderResult decode(BitMatrix bits) {
+    try {
+      return _decodeOriented(bits);
+    } on YomuException {
+      // The reference decode algorithm turns to a mirror image when the
+      // format information does not read, and reads it with the row and
+      // column coordinates transposed (ISO/IEC 18004:2015, clause 12, step
+      // k). Read normally, a mirror image's format information still
+      // corrects to some value more often than not, so the test here is
+      // which reading of it holds fewer errors rather than whether the
+      // normal one fails. Grids that hold no symbol, and normal symbols
+      // that fail for other reasons, then rarely pay for a second attempt.
+      if (!BitMatrixParser(bits).readsAsMirrorImage()) rethrow;
+      try {
+        return _decodeOriented(bits.transposed());
+      } on YomuException {
+        // Report the failure of the normal reading.
+      }
+      rethrow;
+    }
+  }
+
+  /// Decodes [bits] in the orientation it is given.
+  DecoderResult _decodeOriented(BitMatrix bits) {
     final parser = BitMatrixParser(bits);
 
     // Read Format Information
@@ -260,6 +287,74 @@ class BitMatrixParser {
 
     return FormatInformation.decodeFormatInformation(formatInfo1, formatInfo2);
   }
+
+  /// Whether the format information reads better from the mirror image of
+  /// this grid - the grid with its rows and columns interchanged - than
+  /// from the grid itself.
+  ///
+  /// The mirrored copies must both correct to the same value (see
+  /// [FormatInformation.agreeingCopiesDistance]), and with fewer bits in
+  /// error than the normal copies if those agree too. Read backwards - as
+  /// the mirror reading reads a normal symbol - most format information
+  /// codewords still lie within three bits of another one, so the mirrored
+  /// reading alone would take most normal symbols for mirror images too.
+  bool readsAsMirrorImage() {
+    final (mirrored1, mirrored2) = readFormatWords(transposed: true);
+    final mirrored = FormatInformation.agreeingCopiesDistance(
+      mirrored1,
+      mirrored2,
+    );
+    if (mirrored == null) return false;
+    final (normal1, normal2) = readFormatWords();
+    final normal = FormatInformation.agreeingCopiesDistance(normal1, normal2);
+    return normal == null || mirrored < normal;
+  }
+
+  /// The two 15-bit format information readings, from the transpose of the
+  /// grid when [transposed] is set.
+  ///
+  /// Reads the modules [readFormatInformation] reads, in the same order.
+  /// It is kept apart from that one, which the retry ladder calls for every
+  /// candidate it samples: choosing the orientation per module there more
+  /// than doubled its cost.
+  (int, int) readFormatWords({bool transposed = false}) {
+    int copyBit(int x, int y, int word) =>
+        transposed ? _copyBit(y, x, word) : _copyBit(x, y, word);
+
+    var formatInfo1 = 0;
+    for (final (x, y) in _formatCopy1) {
+      formatInfo1 = copyBit(x, y, formatInfo1);
+    }
+
+    var formatInfo2 = 0;
+    for (final (x, y) in _formatCopy2) {
+      // Negative coordinates count back from the far edge.
+      formatInfo2 = copyBit(
+        x < 0 ? dimension + x : x,
+        y < 0 ? dimension + y : y,
+        formatInfo2,
+      );
+    }
+
+    return (formatInfo1, formatInfo2);
+  }
+
+  /// Module positions of the first format information copy, most
+  /// significant bit first: along row 8 beside the top-left finder, then up
+  /// column 8, skipping the timing pattern at 6.
+  static const _formatCopy1 = [
+    (0, 8), (1, 8), (2, 8), (3, 8), (4, 8), (5, 8), (7, 8), (8, 8), //
+    (8, 7), (8, 5), (8, 4), (8, 3), (8, 2), (8, 1), (8, 0),
+  ];
+
+  /// Module positions of the second copy, most significant bit first, with
+  /// negative coordinates counted from the far edge (-1 is the last
+  /// module): up column 8 beside the bottom-left finder, then along row 8
+  /// beside the top-right one.
+  static const _formatCopy2 = [
+    (8, -1), (8, -2), (8, -3), (8, -4), (8, -5), (8, -6), (8, -7), //
+    (-8, 8), (-7, 8), (-6, 8), (-5, 8), (-4, 8), (-3, 8), (-2, 8), (-1, 8),
+  ];
 
   /// Reads the QR code version from the matrix.
   ///

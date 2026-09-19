@@ -258,6 +258,57 @@ void main() {
       expect(result.text, '');
     });
 
+    group('rejects a mode indicator the symbology does not define', () {
+      // ISO/IEC 18004:2015, Table 2 defines 0000 (the terminator) and 0001,
+      // 0010, 0011, 0100, 0101, 0111, 1000, 1001; yomu also knows 1101 as
+      // Hanzi. Anything else means the data did not come from a symbol, and
+      // taking it for the terminator turned such data into an empty result.
+      for (final indicator in [0x6, 0xA, 0xB, 0xC, 0xE, 0xF]) {
+        final name = indicator.toRadixString(2).padLeft(4, '0');
+
+        test('$name at the start', () {
+          final bits = _BitWriter()..write(indicator, 4);
+          expect(
+            () => DecodedBitStreamParser.decode(
+              bytes: bits.toBytes(),
+              version: Version.getVersionForNumber(1),
+            ),
+            throwsA(isA<DecodeException>()),
+          );
+        });
+
+        test('$name after a segment', () {
+          final bits = _BitWriter()
+            ..write(0x4, 4) // byte mode
+            ..write(1, 8) // one character
+            ..write(0x41, 8) // 'A'
+            ..write(indicator, 4);
+          expect(
+            () => DecodedBitStreamParser.decode(
+              bytes: bits.toBytes(),
+              version: Version.getVersionForNumber(1),
+            ),
+            throwsA(isA<DecodeException>()),
+          );
+        });
+      }
+    });
+
+    test('ends without a terminator when the data fills the symbol', () {
+      // ISO/IEC 18004:2015, 7.4.9: the terminator is omitted when the data
+      // bit stream completely fills the symbol. Numeric "012" takes exactly
+      // the 24 bits of three codewords.
+      final full = _BitWriter()
+        ..write(0x1, 4) // numeric mode
+        ..write(3, 10) // three digits
+        ..write(12, 10); // "012"
+      final result = DecodedBitStreamParser.decode(
+        bytes: full.toBytes(),
+        version: Version.getVersionForNumber(1),
+      );
+      expect(result.text, '012');
+    });
+
     test('byteSegments contains raw bytes from byte mode', () {
       // "AB" in byte mode
       final bytes = Uint8List.fromList([0x40, 0x24, 0x14, 0x20]);

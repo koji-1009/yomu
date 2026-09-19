@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 import 'package:yomu/src/qr/mode.dart';
 import 'package:yomu/src/qr/version.dart';
+import 'package:yomu/src/yomu_exception.dart';
 
 void main() {
   group('Mode', () {
@@ -19,9 +20,15 @@ void main() {
       });
 
       test('throws for invalid bits', () {
-        expect(() => Mode.forBits(0x06), throwsArgumentError);
-        expect(() => Mode.forBits(0x0A), throwsArgumentError);
-        expect(() => Mode.forBits(0xFF), throwsArgumentError);
+        // The bits come from decoded data, so an indicator no mode has is a
+        // failure to decode, not a programming error.
+        for (final bits in [0x06, 0x0A, 0x0B, 0x0C, 0x0E, 0x0F, 0xFF]) {
+          expect(
+            () => Mode.forBits(bits),
+            throwsA(isA<DecodeException>()),
+            reason: '$bits',
+          );
+        }
       });
     });
 

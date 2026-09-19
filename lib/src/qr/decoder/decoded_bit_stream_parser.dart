@@ -70,14 +70,14 @@ abstract class DecodedBitStreamParser {
     Mode mode;
     do {
       if (source.available() < 4) {
+        // The terminator is left out when the data fills the symbol
+        // (ISO/IEC 18004:2015, 7.4.9).
         mode = Mode.terminator;
       } else {
-        try {
-          final modeBits = source.readBits(4);
-          mode = Mode.forBits(modeBits);
-        } catch (_) {
-          mode = Mode.terminator; // End of stream or invalid
-        }
+        // Throws when no mode has the indicator: the data is then not a bit
+        // stream a symbol carries, and reading it as the end of the data
+        // would turn it into an empty result.
+        mode = Mode.forBits(source.readBits(4));
       }
 
       if (mode != Mode.terminator) {
